@@ -1,5 +1,7 @@
 *.log
 /.env
+/.env.backup
+/.env.production
 /.env.docker
 /vendor/
 /node_modules/
@@ -7,3 +9,9 @@
 /docker/mongo/data/
 /docker/mongo/config/
 /docker/redis/data/
+/public/build/
+/public/hot
+/public/storage
+/storage/*.key
+/auth.json
+.DS_Store

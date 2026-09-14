@@ -2,7 +2,7 @@
 
 COMPOSE := docker compose --env-file .env.docker --file compose.yaml
 
-.PHONY: help up down stop restart build ps logs php-shell node-shell redis-cli redis-clear
+.PHONY: help up down stop restart build dev frontend-build ps logs php-shell node-shell redis-cli redis-clear
 
 help:
 	@printf '%s\n' \
@@ -11,6 +11,8 @@ help:
 		'make stop         Detener todos los servicios conservando los contenedores.' \
 		'make restart      Reiniciar los servicios.' \
 		'make build        Construir la imagen de PHP; aplicar luego con make up.' \
+		'make dev          Iniciar Vite en el puerto acordado; detener con Ctrl+C.' \
+		'make frontend-build Compilar los archivos del frontend en public/build.' \
 		'make ps           Ver el estado de los servicios.' \
 		'make logs         Seguir los logs de los servicios (Ctrl+C para salir).' \
 		'make php-shell    Abrir una consola en el contenedor de PHP.' \
@@ -32,6 +34,12 @@ restart:
 
 build:
 	$(COMPOSE) build php
+
+dev:
+	$(COMPOSE) exec node npm run dev
+
+frontend-build:
+	$(COMPOSE) exec -T node npm run build
 
 ps:
 	$(COMPOSE) ps
