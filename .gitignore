@@ -1,0 +1,9 @@
+*.log
+/.env
+/.env.docker
+/vendor/
+/node_modules/
+/docker/mysql/data/
+/docker/mongo/data/
+/docker/mongo/config/
+/docker/redis/data/

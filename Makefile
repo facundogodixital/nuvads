@@ -1,0 +1,52 @@
+.DEFAULT_GOAL := help
+
+COMPOSE := docker compose --env-file .env.docker --file compose.yaml
+
+.PHONY: help up down stop restart build ps logs php-shell node-shell redis-cli redis-clear
+
+help:
+	@printf '%s\n' \
+		'make up           Levantar todos los servicios y esperar a que estén listos.' \
+		'make down         Bajar y eliminar los contenedores y la red; conservar los datos.' \
+		'make stop         Detener todos los servicios conservando los contenedores.' \
+		'make restart      Reiniciar los servicios.' \
+		'make build        Construir la imagen de PHP; aplicar luego con make up.' \
+		'make ps           Ver el estado de los servicios.' \
+		'make logs         Seguir los logs de los servicios (Ctrl+C para salir).' \
+		'make php-shell    Abrir una consola en el contenedor de PHP.' \
+		'make node-shell   Abrir una consola en el contenedor de Node.' \
+		'make redis-cli    Abrir la consola de Redis.' \
+		'make redis-clear  Borrar todas las claves de todas las bases del Redis de Nuvede.'
+
+up:
+	$(COMPOSE) up -d --wait
+
+down:
+	$(COMPOSE) down --timeout 60
+
+stop:
+	$(COMPOSE) stop --timeout 60
+
+restart:
+	$(COMPOSE) restart --timeout 60
+
+build:
+	$(COMPOSE) build php
+
+ps:
+	$(COMPOSE) ps
+
+logs:
+	$(COMPOSE) logs --follow --tail=100
+
+php-shell:
+	$(COMPOSE) exec php sh
+
+node-shell:
+	$(COMPOSE) exec node sh
+
+redis-cli:
+	$(COMPOSE) exec redis redis-cli
+
+redis-clear:
+	$(COMPOSE) exec -T redis redis-cli -e FLUSHALL SYNC
