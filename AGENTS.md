@@ -141,6 +141,8 @@ class LeadService
 
 Tipar siempre que se pueda: parámetros y retorno de los métodos, atributos de clase, y todo lo demás que el lenguaje permita tipar.
 
+Excepción: las propiedades que Eloquent declara sin tipo en el Model padre (`$fillable`, `$hidden`, etc.) van sin tipo — PHP no permite tipar en el hijo lo que el padre declara sin tipo — y sin anotación `@var`.
+
 ### Indentación
 
 PHP con 4 espacios. JavaScript y archivos .vue con 2 espacios.

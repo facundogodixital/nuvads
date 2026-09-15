@@ -2,29 +2,33 @@
 
 namespace App\Exceptions;
 
-use Illuminate\Auth\AuthenticationException;
-use Illuminate\Foundation\Exceptions\Handler as LaravelHandler;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Validation\ValidationException;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
+use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
+use Psr\Log\LoggerInterface;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Foundation\Exceptions\Handler as LaravelHandler;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+
 
 class Handler extends LaravelHandler
 {
+
     // Filtros propios de Sentry. Todavía no hay exclusiones de negocio.
     protected array $sentryDontReport = [];
 
     protected array $sentryDontReportCodes = [];
+
 
     public function register(): void
     {
         $this->reportable([$this, 'reportToSentry']);
         $this->renderable([$this, 'renderJson']);
     }
+
 
     protected function reportToSentry(Throwable $exception): void
     {
@@ -47,6 +51,7 @@ class Handler extends LaravelHandler
         }
     }
 
+
     protected function shouldReportToSentry(Throwable $exception): bool
     {
         foreach ($this->sentryDontReport as $exceptionClass) {
@@ -61,6 +66,7 @@ class Handler extends LaravelHandler
 
         return true;
     }
+
 
     protected function renderJson(Throwable $exception, Request $request): ?JsonResponse
     {
@@ -128,6 +134,7 @@ class Handler extends LaravelHandler
         return new JsonResponse($data, $status, $headers);
     }
 
+
     protected function httpErrorData(int $status): array
     {
         // Estos mensajes son públicos; no se expone el mensaje interno de la excepción.
@@ -148,4 +155,5 @@ class Handler extends LaravelHandler
 
         return ['code' => $code, 'message' => $message];
     }
+
 }

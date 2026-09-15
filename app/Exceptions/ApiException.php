@@ -5,8 +5,10 @@ namespace App\Exceptions;
 use Exception;
 use Throwable;
 
+
 class ApiException extends Exception
 {
+
     public function __construct(
         public readonly int $httpStatus,
         public readonly string $errorCode,
@@ -15,4 +17,5 @@ class ApiException extends Exception
     ) {
         parent::__construct($message, 0, $previous);
     }
+
 }

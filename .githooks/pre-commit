@@ -1,0 +1,88 @@
+#!/bin/bash
+set -euo pipefail
+
+COMPOSE="docker compose --env-file .env.docker --file compose.yaml"
+
+# Archivos staged (A=agregado, C=copiado, M=modificado, R=renombrado).
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMR || true)
+STAGED_FILES=$(echo "$STAGED_ALL" | grep -E '\.php$' || true)
+STAGED_JS=$(echo "$STAGED_ALL" | grep -E '^resources/js/.*\.(js|vue)$' || true)
+
+# Si le pasan una lista manual al hook, se usa esa.
+if [ "$#" -eq 1 ]; then
+  STAGED_FILES="$1"
+  STAGED_JS=""
+fi
+
+if [ -z "$STAGED_FILES" ] && [ -z "$STAGED_JS" ]; then
+  exit 0
+fi
+
+echo "============================="
+echo "PHP Lint (php -l)..."
+echo "============================="
+for FILE in $STAGED_FILES; do
+  if [ -f "$FILE" ]; then
+    $COMPOSE exec -T php php -d display_errors=0 -l "$FILE"
+  fi
+done
+
+echo
+echo "============================="
+echo "Atributos #[...] fuera de tests..."
+echo "============================="
+NO_TESTS=$(echo "$STAGED_FILES" | grep -v '^tests/' || true)
+if [ -n "$NO_TESTS" ]; then
+  HITS=$(grep -nE '^[[:space:]]*#\[' $NO_TESTS /dev/null || true)
+  if [ -n "$HITS" ]; then
+    echo "Atributos PHP prohibidos fuera de tests (AGENTS.md, sección 4):"
+    echo "$HITS"
+    exit 1
+  fi
+fi
+echo "OK"
+
+echo
+echo "============================="
+echo "Pint (formato)..."
+echo "============================="
+if [ -n "$STAGED_FILES" ]; then
+  $COMPOSE exec -T php ./vendor/bin/pint --test $STAGED_FILES || {
+    echo
+    echo "Pint encontró problemas de formato. Corregilos con: make lint-fix"
+    exit 1
+  }
+else
+  echo "Sin archivos PHP, nada que validar."
+fi
+
+echo
+echo "============================="
+echo "phpcs (espaciado y tipado)..."
+echo "============================="
+APP_FILES=$(echo "$STAGED_FILES" | grep '^app/' || true)
+if [ -n "$APP_FILES" ]; then
+  $COMPOSE exec -T php ./vendor/bin/phpcs $APP_FILES || {
+    echo
+    echo "phpcs encontró incumplimientos. El detalle está arriba."
+    exit 1
+  }
+else
+  echo "Sin archivos en app/, nada que validar."
+fi
+
+echo
+echo "============================="
+echo "ESLint (frontend)..."
+echo "============================="
+if [ -n "$STAGED_JS" ]; then
+  $COMPOSE exec -T node npx eslint $STAGED_JS || {
+    echo
+    echo "ESLint encontró problemas. Corregilos con: make lint-fix"
+    exit 1
+  }
+else
+  echo "Sin archivos de frontend, nada que validar."
+fi
+
+exit 0

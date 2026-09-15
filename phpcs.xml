@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<ruleset name="NuvedeProject">
+    <description>Validaciones de espaciado y tipado de Nuvede. El formato general lo corrige Pint.</description>
+
+    <arg name="extensions" value="php"/>
+    <arg name="report-width" value="120"/>
+    <arg value="sp"/>
+
+    <file>app</file>
+
+    <config name="installed_paths" value="vendor/slevomat/coding-standard,phpcs"/>
+
+    <!-- Espaciado de clases (AGENTS.md, sección 3) -->
+    <rule ref="Nuvede"/>
+
+    <!-- Tipado siempre que se pueda (AGENTS.md, sección 3) -->
+    <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHint">
+        <exclude name="SlevomatCodingStandard.TypeHints.ParameterTypeHint.MissingTraversableTypeHintSpecification"/>
+    </rule>
+    <rule ref="SlevomatCodingStandard.TypeHints.ReturnTypeHint">
+        <exclude name="SlevomatCodingStandard.TypeHints.ReturnTypeHint.MissingTraversableTypeHintSpecification"/>
+    </rule>
+    <!-- Los modelos heredan de Eloquent atributos sin tipo ($fillable, $hidden, etc.)
+         y PHP no permite tipar en el hijo lo que el padre declara sin tipo.
+         En los modelos las propiedades no exigen tipo ni anotación. -->
+    <rule ref="SlevomatCodingStandard.TypeHints.PropertyTypeHint">
+        <exclude name="SlevomatCodingStandard.TypeHints.PropertyTypeHint.MissingTraversableTypeHintSpecification"/>
+        <exclude-pattern>app/Models/*</exclude-pattern>
+    </rule>
+</ruleset>
