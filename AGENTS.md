@@ -1,4 +1,4 @@
-# Acuerdos de trabajo de Nuvede
+# Acuerdos de trabajo de Nuvads
 
 ## 1. Ante cualquier duda, preguntar al usuario
 
@@ -149,7 +149,7 @@ PHP con 4 espacios. JavaScript y archivos .vue con 2 espacios.
 
 ## 4. Forma clásica de Laravel, sin atributos PHP
 
-No usar atributos PHP con sintaxis `#[...]` en el código Laravel de Nuvede. Usar las formas clásicas equivalentes mediante propiedades, métodos y configuración explícita, según corresponda: las propiedades `$fillable` y `$hidden` en modelos, los métodos `scopeNombre` para scopes, las propiedades `$tries` y `$timeout` para configurar jobs, etc.
+No usar atributos PHP con sintaxis `#[...]` en el código Laravel de Nuvads. Usar las formas clásicas equivalentes mediante propiedades, métodos y configuración explícita, según corresponda: las propiedades `$fillable` y `$hidden` en modelos, los métodos `scopeNombre` para scopes, las propiedades `$tries` y `$timeout` para configurar jobs, etc.
 
 Excepción: los tests. PHPUnit 12 solo admite `#[Test]`, `#[DataProvider]` y similares como atributos, por lo que en tests se usan.
 
@@ -189,8 +189,8 @@ El detalle completo está en el skill `capas-backend`. Este mapa aplica siempre:
 
 ## 7. Revisión al cerrar tareas
 
-Al terminar una tarea de programación, antes de darla por cerrada, se revisan los cambios contra estos acuerdos. El procedimiento del revisor vive en `.claude/agents/revisor-nuvede.md` y es la única fuente.
+Al terminar una tarea de programación, antes de darla por cerrada, se revisan los cambios contra estos acuerdos. El procedimiento del revisor vive en `.claude/agents/revisor-nuvads.md` y es la única fuente.
 
-- Claude Code usa su subagente `revisor-nuvede`.
-- Codex usa el skill `revisar-nuvede` (exclusivo de Codex; Claude no lo usa).
+- Claude Code usa su subagente `revisor-nuvads`.
+- Codex usa el skill `revisar-nuvads` (exclusivo de Codex; Claude no lo usa).
 - Quien invoca al revisor le pasa el alcance (cambios pendientes, rango de commits o archivos) y las excepciones que el usuario aprobó durante la tarea.

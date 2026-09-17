@@ -47,7 +47,7 @@ echo "============================="
 echo "Pint (formato)..."
 echo "============================="
 if [ -n "$STAGED_FILES" ]; then
-  $COMPOSE exec -T php ./vendor/bin/pint --test $STAGED_FILES || {
+  $COMPOSE exec -T php ./vendor/bin/pint --test -v $STAGED_FILES || {
     echo
     echo "Pint encontró problemas de formato. Corregilos con: make lint-fix"
     exit 1

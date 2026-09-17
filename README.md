@@ -1,4 +1,4 @@
-# Nuvede
+# Nuvads
 
 Laravel 13 con Vue 3 en JavaScript, dentro del mismo proyecto. Vite 8 compila
 el frontend mediante los plugins oficiales de Laravel y Vue.
@@ -38,9 +38,9 @@ por lo que no hace falta duplicar las contraseñas de `.env.docker` en `.env`.
 La caché y las sesiones utilizan archivos dentro de `storage/`, según
 `CACHE_STORE=file` y `SESSION_DRIVER=file` en `.env.example`.
 
-La base y el usuario de aplicación se llaman `nuvede` tanto en MySQL como en
+La base y el usuario de aplicación se llaman `nuvads` tanto en MySQL como en
 MongoDB. En MongoDB, el usuario de aplicación se autentica contra la base
-`nuvede`; `nuvede_admin` es el administrador, que se autentica contra `admin`.
+`nuvads`; `nuvads_admin` es el administrador, que se autentica contra `admin`.
 Redis utiliza la contraseña `REDIS_PASSWORD`.
 
 Los usuarios y contraseñas de MySQL y MongoDB se inicializan cuando sus
@@ -50,7 +50,7 @@ los usuarios de una base ya inicializada.
 ## Comandos
 
 Ejecutarlos desde la raíz del proyecto. El Makefile utiliza `compose.yaml` y
-`.env.docker` de Nuvede.
+`.env.docker` de Nuvads.
 
 ```bash
 make              # Mostrar la ayuda; también disponible con make help.
@@ -66,7 +66,7 @@ make logs         # Seguir los logs; salir con Ctrl+C.
 make php-shell    # Abrir una consola en PHP, con PHP y Composer disponibles.
 make node-shell   # Abrir una consola en Node, con Node y npm disponibles.
 make redis-cli    # Abrir la consola de Redis.
-make redis-clear  # Borrar todas las claves de todas las bases del Redis de Nuvede.
+make redis-clear  # Borrar todas las claves de todas las bases del Redis de Nuvads.
 ```
 
 `make redis-clear` ejecuta `FLUSHALL SYNC` y usa la autenticación ya configurada
@@ -114,7 +114,7 @@ montajes de directorios (`bind mounts`):
 Estas carpetas están excluidas de Git y del contexto de construcción de Docker.
 Los datos sobreviven a la recreación de los contenedores y a `docker compose down`.
 No se utilizan volúmenes con nombre para las bases. La red del proyecto es
-`nuvede_default`.
+`nuvads_default`.
 
 Los archivos conservan los propietarios que necesita cada base. En esta
 computadora, las carpetas tienen permisos ACL para que el usuario local pueda

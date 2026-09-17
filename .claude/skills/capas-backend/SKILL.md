@@ -1,9 +1,9 @@
 ---
 name: capas-backend
-description: "Convenciones de Nuvede para las capas del backend: services, repositories y helpers — responsabilidades, acceso entre capas, inyección con resolve(), duración scoped y nombres de métodos. Cargar siempre antes de crear o modificar un service, repository o helper, o al decidir en qué capa va una lógica."
+description: "Convenciones de Nuvads para las capas del backend: services, repositories y helpers — responsabilidades, acceso entre capas, inyección con resolve(), duración scoped y nombres de métodos. Cargar siempre antes de crear o modificar un service, repository o helper, o al decidir en qué capa va una lógica."
 ---
 
-# Capas del backend de Nuvede
+# Capas del backend de Nuvads
 
 Estas convenciones aplican junto con las reglas generales de AGENTS.md (legibilidad, espaciado, nomenclatura).
 

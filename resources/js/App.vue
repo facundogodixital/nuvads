@@ -1,6 +1,6 @@
 <template>
   <main>
-    <h1>Nuvede</h1>
+    <h1>Nuvads</h1>
     <p>Laravel y Vue están funcionando.</p>
   </main>
 </template>

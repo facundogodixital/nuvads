@@ -18,7 +18,7 @@ help:
 		'make php-shell    Abrir una consola en el contenedor de PHP.' \
 		'make node-shell   Abrir una consola en el contenedor de Node.' \
 		'make redis-cli    Abrir la consola de Redis.' \
-		'make redis-clear  Borrar todas las claves de todas las bases del Redis de Nuvede.' \
+		'make redis-clear  Borrar todas las claves de todas las bases del Redis de Nuvads.' \
 		'make lint         Validar todo el código (PHP y frontend), sin modificarlo.' \
 		'make lint-php     Validar solo el código PHP con Pint y phpcs.' \
 		'make lint-front   Validar solo el frontend con ESLint.' \
@@ -67,7 +67,7 @@ redis-clear:
 lint: lint-php lint-front
 
 lint-php:
-	$(COMPOSE) exec -T php ./vendor/bin/pint --test
+	$(COMPOSE) exec -T php ./vendor/bin/pint --test -v
 	$(COMPOSE) exec -T php ./vendor/bin/phpcs
 
 lint-front:

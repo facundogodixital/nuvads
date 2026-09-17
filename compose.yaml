@@ -1,4 +1,4 @@
-name: nuvede
+name: nuvads
 
 services:
   nginx:

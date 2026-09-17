@@ -1,9 +1,9 @@
 ---
 name: frontend-vue
-description: "Convenciones de Nuvede para el frontend: manejo de modales con stores de Pinia, estructura de los componentes Vue (Composition API, script setup) y llamadas a la API mediante APICall y los services JS. Cargar siempre antes de crear o modificar componentes .vue, stores de Pinia o services del frontend."
+description: "Convenciones de Nuvads para el frontend: manejo de modales con stores de Pinia, estructura de los componentes Vue (Composition API, script setup) y llamadas a la API mediante APICall y los services JS. Cargar siempre antes de crear o modificar componentes .vue, stores de Pinia o services del frontend."
 ---
 
-# Frontend Vue de Nuvede
+# Frontend Vue de Nuvads
 
 Estas convenciones aplican junto con las reglas generales de AGENTS.md (legibilidad, idioma, indentación de 2 espacios en JS y .vue).
 

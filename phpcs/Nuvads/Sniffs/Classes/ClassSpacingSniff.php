@@ -1,6 +1,6 @@
 <?php
 
-namespace Nuvede\Sniffs\Classes;
+namespace Nuvads\Sniffs\Classes;
 
 use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Util\Tokens;

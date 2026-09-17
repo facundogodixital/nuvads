@@ -1,9 +1,9 @@
 ---
 name: api-backend
-description: "Convenciones de Nuvede para la API backend: estructura de las respuestas JSON, flujo de validación en los requests, controllers de API y gestión central de errores. Cargar siempre antes de crear o modificar endpoints, requests, controllers, resources, excepciones o el handler de errores."
+description: "Convenciones de Nuvads para la API backend: estructura de las respuestas JSON, flujo de validación en los requests, controllers de API y gestión central de errores. Cargar siempre antes de crear o modificar endpoints, requests, controllers, resources, excepciones o el handler de errores."
 ---
 
-# API backend de Nuvede
+# API backend de Nuvads
 
 Estas convenciones aplican junto con las reglas generales de AGENTS.md (legibilidad, espaciado, nomenclatura, capas).
 
@@ -81,11 +81,11 @@ Ejemplo de error inesperado en desarrollo — HTTP 500:
     "message": "Ocurrió un error inesperado.",
     "debug": {
         "exception": "TypeError",
-        "file": "/var/www/html/nuvede/app/Services/OrderService.php",
+        "file": "/var/www/html/nuvads/app/Services/OrderService.php",
         "line": 42,
         "trace": [
             {
-                "file": "/var/www/html/nuvede/app/Http/Controllers/OrderController.php",
+                "file": "/var/www/html/nuvads/app/Http/Controllers/OrderController.php",
                 "line": 18,
                 "function": "cancel",
                 "class": "App\\Services\\OrderService",

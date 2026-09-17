@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "nuvede/nuvede",
+    "name": "nuvads/nuvads",
     "type": "project",
-    "description": "Aplicación de Nuvede.",
+    "description": "Aplicación de Nuvads.",
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.17"
