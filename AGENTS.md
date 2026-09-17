@@ -194,3 +194,17 @@ Al terminar una tarea de programación, antes de darla por cerrada, se revisan l
 - Claude Code usa su subagente `revisor-nuvads`.
 - Codex usa el skill `revisar-nuvads` (exclusivo de Codex; Claude no lo usa).
 - Quien invoca al revisor le pasa el alcance (cambios pendientes, rango de commits o archivos) y las excepciones que el usuario aprobó durante la tarea.
+
+## 8. Mensajes de commit
+
+- Escribir siempre en inglés.
+- Preferir el formato `[Main topic] Description`: un concepto principal breve entre corchetes, seguido de una descripción clara del cambio.
+- Empezar la descripción con un verbo en imperativo: `Add`, `Configure`, `Fix`, `Update`, `Remove`.
+- Describir el cambio concreto, sin frases genéricas como `Update code`.
+- No agregar punto final.
+
+Ejemplo:
+
+```text
+[Local HTTPS] Configure trusted SSL certificate and local domain app.nuvads.test
+```

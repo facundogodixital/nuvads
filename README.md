@@ -13,7 +13,7 @@ Los puertos publicados escuchan únicamente en `127.0.0.1`.
 
 | Servicio | Versión | Desde la computadora | Desde los contenedores |
 | --- | --- | --- | --- |
-| Nginx | 1.30 | http://localhost:8080 | nginx:80 |
+| Nginx | 1.30 | https://app.nuvads.test:8443 | nginx:443 |
 | PHP-FPM | 8.4 | No publicado | php:9000 |
 | Node | 24 LTS | 127.0.0.1:5280, con `make dev` | node:5280 |
 | MySQL | 8.4 | 127.0.0.1:3310 | mysql:3306 |
@@ -47,6 +47,46 @@ Los usuarios y contraseñas de MySQL y MongoDB se inicializan cuando sus
 carpetas de datos están vacías. Cambiar `.env.docker` no cambia automáticamente
 los usuarios de una base ya inicializada.
 
+## HTTPS local
+
+La URL local es `https://app.nuvads.test:8443`. El puerto publicado se define con
+`HTTPS_PORT=8443` en `.env.docker`; dentro del contenedor Nginx escucha en 443.
+Clienty no necesita cambios ni tiene que estar encendido.
+
+En Ubuntu, preparar el certificado con [mkcert](https://github.com/FiloSottile/mkcert):
+
+```bash
+sudo apt-get install -y mkcert libnss3-tools
+mkcert -install
+mkdir -p docker/nginx/certs
+mkcert -cert-file docker/nginx/certs/app.nuvads.test.pem -key-file docker/nginx/certs/app.nuvads.test-key.pem app.nuvads.test
+```
+
+Agregar una única entrada en `/etc/hosts`:
+
+```text
+127.0.0.1 app.nuvads.test
+```
+
+Los certificados quedan fuera de Git y del contexto de construcción de Docker.
+Nginx monta `docker/nginx/certs/` en `/etc/nginx/certs/` en modo de solo lectura;
+Vite usa el mismo certificado desde el proyecto. La autoridad local de mkcert
+permanece en la computadora y no se copia al contenedor. Puede ser necesario
+reiniciar el navegador para que reconozca la confianza instalada.
+
+Después ejecutar `make up` y reiniciar `make dev` si estaba activo.
+El HTTP existente sigue disponible en el puerto `WEB_PORT=8080`.
+
+Para usar HTTPS sin puerto en la URL, primero liberar el puerto 443 de la
+computadora. Cambiar `HTTPS_PORT=443` en `.env.docker` y
+`APP_URL=https://app.nuvads.test` en `.env`; ejecutar `make up`,
+`docker compose --env-file .env.docker --file compose.yaml exec -T php php artisan config:clear`
+y reiniciar `make dev`. Para volver a 8443, restaurar ambos valores y repetir
+estos pasos. Solo se publica el puerto HTTPS elegido.
+
+Los dominios futuros son `app.nuvads.ai` para la aplicación y `nuvads.ai` para
+la web principal; esta configuración y estos certificados son exclusivamente locales.
+
 ## Comandos
 
 Ejecutarlos desde la raíz del proyecto. El Makefile utiliza `compose.yaml` y
@@ -73,8 +113,8 @@ make redis-clear  # Borrar todas las claves de todas las bases del Redis de Nuva
 en el contenedor. El borrado incluye cualquier dato guardado en ese Redis.
 
 Para desarrollar, ejecutar `make up` y luego `make dev`. La aplicación se abre
-en http://localhost:8080; Vite sirve los recursos y la recarga de cambios por el
-puerto 5280, tomado de `.env.docker`. `make dev` permanece en primer plano.
+en https://app.nuvads.test:8443; Vite sirve los recursos y la recarga de cambios
+por HTTPS en app.nuvads.test:5280, con el puerto tomado de `.env.docker`. `make dev` permanece en primer plano.
 
 Con Vite detenido mediante Ctrl+C, Laravel utiliza la última compilación de
 `make frontend-build`. El archivo temporal `public/hot` indica cuándo usar Vite.
@@ -82,7 +122,7 @@ El observador de Vite excluye `docker/`, `storage/` y `vendor/`.
 
 ## Instalación desde una copia del repositorio
 
-Primero preparar `.env.docker` como se indica arriba. Después:
+Primero preparar `.env.docker`, el certificado y `/etc/hosts` como se indica arriba. Después:
 
 ```bash
 cp .env.example .env

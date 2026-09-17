@@ -9,6 +9,7 @@
 /docker/mongo/data/
 /docker/mongo/config/
 /docker/redis/data/
+/docker/nginx/certs/
 /public/build/
 /public/hot
 /public/storage

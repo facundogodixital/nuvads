@@ -12,3 +12,4 @@ docker/mysql/data
 docker/mongo/data
 docker/mongo/config
 docker/redis/data
+docker/nginx/certs
