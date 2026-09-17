@@ -2,7 +2,7 @@
 
 COMPOSE := docker compose --env-file .env.docker --file compose.yaml
 
-.PHONY: help up down stop restart build dev frontend-build ps logs php-shell node-shell redis-cli redis-clear lint lint-php lint-front lint-fix setup-hooks
+.PHONY: help up down stop restart build dev frontend-build ps logs web tinker php-shell node-shell redis-cli redis-clear lint lint-php lint-front lint-fix setup-hooks
 
 help:
 	@printf '%s\n' \
@@ -15,6 +15,8 @@ help:
 		'make frontend-build Compilar los archivos del frontend en public/build.' \
 		'make ps           Ver el estado de los servicios.' \
 		'make logs         Seguir los logs de los servicios (Ctrl+C para salir).' \
+		'make web          Abrir una consola PHP para ejecutar php artisan.' \
+		'make tinker       Abrir Laravel Tinker en el contenedor de PHP.' \
 		'make php-shell    Abrir una consola en el contenedor de PHP.' \
 		'make node-shell   Abrir una consola en el contenedor de Node.' \
 		'make redis-cli    Abrir la consola de Redis.' \
@@ -51,6 +53,11 @@ ps:
 
 logs:
 	$(COMPOSE) logs --follow --tail=100
+
+web: php-shell
+
+tinker:
+	$(COMPOSE) exec -e XDG_CONFIG_HOME=/tmp php php artisan tinker
 
 php-shell:
 	$(COMPOSE) exec php sh

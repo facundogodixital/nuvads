@@ -164,7 +164,7 @@ class Product extends Model
 }
 ```
 
-## 5. Nomenclatura de modelos, servicios, repositorios y tablas
+## 5. Convenciones de modelos y tablas, y nomenclatura de servicios y repositorios
 
 - Modelos en singular y UpperCamelCase: `Product`, `OrderItem`.
 - Servicios y repositorios asociados a un modelo: nombre del modelo en singular con el sufijo `Service` o `Repository`: `ProductService`, `ProductRepository`.
@@ -172,6 +172,34 @@ class Product extends Model
 - Tablas pivot y claves foráneas también con la convención por defecto de Laravel: `product_tag`, `product_id`.
 
 Motivo: se descartó UpperCamelCase en tablas por los problemas de mayúsculas en MySQL y la configuración extra que exige.
+
+### Timestamps y soft deletes obligatorios
+
+- Siempre que se cree un modelo o una tabla, debe usar timestamps y soft deletes. Esta regla incluye todas las tablas, también las pivot.
+- Los modelos deben incorporar el trait `Illuminate\Database\Eloquent\SoftDeletes` y mantener habilitados los timestamps de Eloquent.
+- Toda migración que cree una tabla debe incluir:
+
+```php
+$table->timestamps();
+$table->softDeletes();
+```
+
+- Cualquier excepción queda a criterio del usuario y requiere su decisión explícita. El agente no debe aplicar excepciones por iniciativa propia.
+
+### Orden y configuración explícita de los modelos
+
+El modelo debe permitir ver sus campos y tipos sin consultar la migración. Mantener este orden:
+
+1. Traits, incluido `SoftDeletes`.
+2. Configuración del modelo: declarar siempre `public $timestamps = true;`, aunque sea el valor por defecto de Eloquent.
+3. `$fillable` y, cuando corresponda, `$hidden`.
+4. `protected function casts(): array` como primer método.
+5. Relaciones y luego otros métodos, cuando hagan falta.
+
+- `casts()` debe incluir todos los campos de la tabla, también `id`, claves foráneas, `created_at`, `updated_at`, `deleted_at` y `remember_token` cuando exista. Declarar los tipos correspondientes: `integer`, `string`, `boolean`, `datetime`, etc. Conservar `hashed` para las contraseñas.
+- Definir los casts en el método `casts()`, no en el constructor. Si un cast necesita un valor de `config()`, obtenerlo dentro de ese método.
+- Mantener `$fillable` y `$hidden` con sus responsabilidades separadas: asignación masiva y ocultamiento al serializar. No reemplazar `$fillable` por `$guarded` como parte de este orden.
+- No declarar `$table`: se mantiene la inferencia de nombres de Laravel. Declarar `$connection` solo si el modelo necesita una conexión específica.
 
 ## 6. Capas: mapa de acceso (resumen)
 
