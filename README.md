@@ -177,6 +177,23 @@ conserva las migraciones base de Laravel; todavía no se ejecutaron ni se cargar
 datos de ejemplo. MongoDB permanece disponible en Docker; su integración con
 Laravel queda pendiente de decidir.
 
+## Tests del backend
+
+```bash
+make test-setup # Una vez por entorno: crea .env.testing, la base y su usuario.
+make test      # Ejecutar toda la suite.
+make test-unit
+make test-feature
+make test ARGS='--filter=UserIsolationTest'
+make test ARGS='tests/Feature/Auth'
+make test ARGS='--group=smoke'
+make test ARGS='--order-by=random'
+make lint-php
+```
+
+Configuración, convenciones y ciclo de la base de datos:
+[skill testing-backend](.claude/skills/testing-backend/SKILL.md).
+
 ## Datos locales
 
 Las bases guardan sus archivos directamente en carpetas del proyecto mediante

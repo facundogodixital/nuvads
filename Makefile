@@ -3,6 +3,7 @@
 COMPOSE := docker compose --env-file .env.docker --file compose.yaml
 
 .PHONY: help up down stop restart build dev frontend-build ps logs web tinker php-shell node-shell redis-cli redis-clear lint lint-php lint-front lint-fix setup-hooks
+.PHONY: test-setup test test-unit test-feature
 
 help:
 	@printf '%s\n' \
@@ -25,7 +26,11 @@ help:
 		'make lint-php     Validar solo el código PHP con Pint y phpcs.' \
 		'make lint-front   Validar solo el frontend con ESLint.' \
 		'make lint-fix     Corregir el formato PHP con Pint y validar el resto con phpcs.' \
-		'make setup-hooks  Activar los git hooks versionados del repo (.githooks).'
+		'make setup-hooks  Activar los git hooks versionados del repo (.githooks).' \
+		'make test-setup   Crear .env.testing y preparar la base y el usuario exclusivos de tests.' \
+		'make test         Ejecutar todos los tests del backend; acepta ARGS de PHPUnit.' \
+		'make test-unit    Ejecutar los tests unitarios.' \
+		'make test-feature Ejecutar los tests que necesitan Laravel.'
 
 up:
 	$(COMPOSE) up -d --wait
@@ -87,3 +92,19 @@ lint-fix:
 
 setup-hooks:
 	git config core.hooksPath .githooks
+
+test-setup: SHELL := /bin/bash
+test-setup: .SHELLFLAGS := -eu -o pipefail -c
+test-setup:
+	@$(COMPOSE) exec -T php php tests/setup.php | \
+		$(COMPOSE) exec -T mysql sh -c 'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysql --user=root'
+	@echo 'Entorno de tests preparado.'
+
+test:
+	$(COMPOSE) exec -T php ./vendor/bin/phpunit $(ARGS)
+
+test-unit:
+	$(COMPOSE) exec -T php ./vendor/bin/phpunit --testsuite=Unit $(ARGS)
+
+test-feature:
+	$(COMPOSE) exec -T php ./vendor/bin/phpunit --testsuite=Feature $(ARGS)

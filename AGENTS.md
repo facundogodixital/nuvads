@@ -19,6 +19,7 @@ Las convenciones con plantillas y ejemplos viven en `.claude/skills/` (también 
 - `.claude/skills/api-backend/SKILL.md`: respuestas JSON, validación de requests, controllers de API y gestión central de errores.
 - `.claude/skills/capas-backend/SKILL.md`: services, repositories y helpers (responsabilidades, acceso entre capas, nombres de métodos).
 - `.claude/skills/frontend-vue/SKILL.md`: modales con Pinia, estructura de componentes Vue y llamadas a la API desde el frontend.
+- `.claude/skills/testing-backend/SKILL.md`: tests del backend, factories, dobles, aislamiento y comandos de ejecución.
 
 ## 3. Legibilidad y carga cognitiva
 

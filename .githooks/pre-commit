@@ -60,15 +60,15 @@ echo
 echo "============================="
 echo "phpcs (espaciado y tipado)..."
 echo "============================="
-APP_FILES=$(echo "$STAGED_FILES" | grep '^app/' || true)
-if [ -n "$APP_FILES" ]; then
-  $COMPOSE exec -T php ./vendor/bin/phpcs $APP_FILES || {
+CHECKED_PHP_FILES=$(echo "$STAGED_FILES" | grep -E '^(app/|tests/|database/factories/)' || true)
+if [ -n "$CHECKED_PHP_FILES" ]; then
+  $COMPOSE exec -T php ./vendor/bin/phpcs $CHECKED_PHP_FILES || {
     echo
     echo "phpcs encontró incumplimientos. El detalle está arriba."
     exit 1
   }
 else
-  echo "Sin archivos en app/, nada que validar."
+  echo "Sin archivos en app/, tests/ o database/factories/, nada que validar."
 fi
 
 echo

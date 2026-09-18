@@ -1,5 +1,11 @@
 {
     "preset": "laravel",
+    "exclude": [
+        "docker/mysql/data",
+        "docker/mongo/data",
+        "docker/mongo/config",
+        "docker/redis/data"
+    ],
     "rules": {
         "single_quote": true,
         "unary_operator_spaces": true,

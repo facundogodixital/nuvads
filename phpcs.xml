@@ -7,6 +7,8 @@
     <arg value="sp"/>
 
     <file>app</file>
+    <file>tests</file>
+    <file>database/factories</file>
 
     <config name="installed_paths" value="vendor/slevomat/coding-standard,phpcs"/>
 

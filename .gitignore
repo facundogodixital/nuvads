@@ -3,6 +3,8 @@
 /.env.backup
 /.env.production
 /.env.docker
+/.env.testing
+/.phpunit.cache/
 /vendor/
 /node_modules/
 /docker/mysql/data/

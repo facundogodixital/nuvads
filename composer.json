@@ -16,6 +16,11 @@
             "Database\\Seeders\\": "database/seeders/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
     "scripts": {
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
@@ -39,7 +44,10 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require-dev": {
+        "fakerphp/faker": "^1.24",
         "laravel/pint": "^1.32",
+        "mockery/mockery": "^1.6",
+        "phpunit/phpunit": "^12.5",
         "slevomat/coding-standard": "^8.31",
         "squizlabs/php_codesniffer": "^4.0"
     }
