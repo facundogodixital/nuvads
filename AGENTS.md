@@ -147,6 +147,12 @@ Excepción: las propiedades que Eloquent declara sin tipo en el Model padre (`$f
 
 PHP con 4 espacios. JavaScript y archivos .vue con 2 espacios.
 
+### Longitud de líneas PHP
+
+- Las líneas PHP no deben superar los 120 caracteres, incluida la indentación.
+- Dividir las expresiones, llamadas o declaraciones largas en varias líneas, manteniendo la legibilidad.
+- PHPCS valida este límite mediante `Generic.Files.LineLength`, con límite absoluto de 120 caracteres.
+
 ## 4. Forma clásica de Laravel, sin atributos PHP
 
 No usar atributos PHP con sintaxis `#[...]` en el código Laravel de Nuvads. Usar las formas clásicas equivalentes mediante propiedades, métodos y configuración explícita, según corresponda: las propiedades `$fillable` y `$hidden` en modelos, los métodos `scopeNombre` para scopes, las propiedades `$tries` y `$timeout` para configurar jobs, etc.
@@ -212,6 +218,7 @@ El detalle completo está en el skill `capas-backend`. Este mapa aplica siempre:
 - Un service accede a otro dominio a través del service de ese dominio, no de su repository: `LeadService -> TagService -> TagRepository`.
 - Services y helpers se obtienen con `resolve()` dentro del método que los usa, cerca de su uso. La única inyección por constructor es la del repository propio en su service. No se inyectan services como parámetros de los métodos de los controllers.
 - Services, repositories y helpers se registran como scoped por defecto. Usar singleton u otra duración requiere una decisión explícita.
+- El parámetro y la propiedad de cada repository inyectado llevan el nombre específico de la clase en lowerCamelCase: `UserRepository $userRepository`, `ClientRepository $clientRepository`, `AdministratorRepository $administratorRepository`. No usar el nombre genérico `$repository`.
 - Verbos de métodos en controllers, services y repositories: `create`, `update`, `delete`, `find`, `list` (más `findOneBy...`, `findBy...`, `countBy...`, `get...` en services y repositories).
 - Las excepciones a esta estructura requieren una decisión explícita del usuario.
 
@@ -227,12 +234,12 @@ Al terminar una tarea de programación, antes de darla por cerrada, se revisan l
 
 - Escribir siempre en inglés.
 - Preferir el formato `[Main topic] Description`: un concepto principal breve entre corchetes, seguido de una descripción clara del cambio.
-- Empezar la descripción con un verbo en imperativo: `Add`, `Configure`, `Fix`, `Update`, `Remove`.
-- Describir el cambio concreto, sin frases genéricas como `Update code`.
+- Describir lo realizado con verbos en pasado: `Added`, `Configured`, `Fixed`, `Updated`, `Removed`. Aplicar el mismo criterio al cuerpo del mensaje.
+- El título debe permitir entender a simple vista qué se hizo: nombrar los componentes, comportamientos o configuraciones concretos. Evitar frases genéricas como `Updated code`.
 - No agregar punto final.
 
 Ejemplo:
 
 ```text
-[Local HTTPS] Configure trusted SSL certificate and local domain app.nuvads.test
+[Local HTTPS] Configured trusted SSL certificate and local domain app.nuvads.ai
 ```

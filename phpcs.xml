@@ -13,6 +13,14 @@
     <!-- Espaciado de clases (AGENTS.md, sección 3) -->
     <rule ref="Nuvads"/>
 
+    <!-- Longitud máxima de líneas PHP (AGENTS.md, sección 3) -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="120"/>
+        </properties>
+    </rule>
+
     <!-- Tipado siempre que se pueda (AGENTS.md, sección 3) -->
     <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHint">
         <exclude name="SlevomatCodingStandard.TypeHints.ParameterTypeHint.MissingTraversableTypeHintSpecification"/>

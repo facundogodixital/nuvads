@@ -29,11 +29,11 @@ export default defineConfig(({ command }) => ({
     port: Number(process.env.PORT),
     strictPort: true,
     https: command === 'serve' ? {
-      key: readFileSync(new URL('./docker/nginx/certs/app.nuvads.test-key.pem', import.meta.url)),
-      cert: readFileSync(new URL('./docker/nginx/certs/app.nuvads.test.pem', import.meta.url)),
+      key: readFileSync(new URL('./docker/nginx/certs/app.nuvads.ai-key.pem', import.meta.url)),
+      cert: readFileSync(new URL('./docker/nginx/certs/app.nuvads.ai.pem', import.meta.url)),
     } : undefined,
     hmr: {
-      host: 'app.nuvads.test',
+      host: 'app.nuvads.ai',
     },
     watch: {
       // Evitar vigilar datos de las bases, archivos generados y dependencias PHP.
