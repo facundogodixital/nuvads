@@ -37,4 +37,11 @@ class ClientRepository
         return Client::query()->orderBy('id')->get();
     }
 
+
+    public function findOneByLoginIdentifier(string $loginIdentifier): ?Client
+    {
+        // El índice único también reserva los identificadores de registros dados de baja.
+        return Client::withTrashed()->where('login_identifier', $loginIdentifier)->first();
+    }
+
 }

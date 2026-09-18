@@ -56,4 +56,14 @@ class User extends Authenticatable
         return $this->belongsTo(Client::class);
     }
 
+
+    public function isAccountAccessEnabled(): bool
+    {
+        $client = $this->client;
+        $userIsEnabled = $this->is_enabled && !$this->trashed();
+        $clientIsEnabled = $client !== null && $client->is_enabled && !$client->trashed();
+
+        return $userIsEnabled && $clientIsEnabled;
+    }
+
 }

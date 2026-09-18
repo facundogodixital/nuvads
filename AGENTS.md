@@ -29,6 +29,7 @@ Principio: el código tiene que poder leerlo una persona y entenderlo mientras l
 - Se prefiere un bloque un poco más largo y legible antes que cinco métodos de dos líneas que obligan a ir y venir para entender una pieza.
 - Bajo acoplamiento, siempre que no agregue carga cognitiva.
 - Cohesión: un método hace lo que dice su nombre. Un `getInfo()` que además hace tres cosas adentro no es aceptable.
+- Separar con líneas en blanco las etapas lógicas de un método; mantener juntas las instrucciones que forman una misma operación.
 
 ### Condicionales
 
@@ -46,6 +47,8 @@ if ($isBadMsg || $isError500) { ... }
 
 Las constantes no están prohibidas, pero se evalúa si hacen falta y cuánta carga cognitiva agregan.
 
+Escribir las negaciones sin espacio entre el operador y la expresión: `!$variable`.
+
 ### Idioma
 
 El código siempre en inglés: variables, métodos, clases, archivos. Los comentarios en castellano.
@@ -53,6 +56,8 @@ El código siempre en inglés: variables, métodos, clases, archivos. Los coment
 ### Nombres
 
 Variables y métodos todo lo descriptivos que se pueda.
+
+Los nombres deben anticipar qué hace o devuelve el método. Para consultas booleanas usar `is...`, `has...` o `can...`, según su significado.
 
 ```php
 $isValid = $lead->message === 'ok';            // NO
@@ -214,12 +219,12 @@ El detalle completo está en el skill `capas-backend`. Este mapa aplica siempre:
 - Service: punto de entrada a las operaciones y los datos de un dominio; aplica las reglas de negocio.
 - Repository: consultas y persistencia de un dominio en la base de datos del sistema.
 - Helper: tareas técnicas auxiliares o comunicación con un sistema externo.
-- Controllers, jobs, comandos y demás consumidores acceden a los datos solo mediante services. No usan repositories ni modelos directamente para consultar o persistir.
+- Controllers, jobs, comandos y demás consumidores realizan consultas independientes y persistencia mediante services. Pueden leer atributos, relaciones y condiciones de modelos ya obtenidos, según el skill `capas-backend`.
 - Un service accede a otro dominio a través del service de ese dominio, no de su repository: `LeadService -> TagService -> TagRepository`.
 - Services y helpers se obtienen con `resolve()` dentro del método que los usa, cerca de su uso. La única inyección por constructor es la del repository propio en su service. No se inyectan services como parámetros de los métodos de los controllers.
 - Services, repositories y helpers se registran como scoped por defecto. Usar singleton u otra duración requiere una decisión explícita.
 - El parámetro y la propiedad de cada repository inyectado llevan el nombre específico de la clase en lowerCamelCase: `UserRepository $userRepository`, `ClientRepository $clientRepository`, `AdministratorRepository $administratorRepository`. No usar el nombre genérico `$repository`.
-- Verbos de métodos en controllers, services y repositories: `create`, `update`, `delete`, `find`, `list` (más `findOneBy...`, `findBy...`, `countBy...`, `get...` en services y repositories).
+- Para las operaciones correspondientes, mantener `create`, `update`, `delete`, `find`, `list` (más `findOneBy...`, `findBy...`, `countBy...`, `get...` en services y repositories). Estos verbos no limitan los nombres de otras operaciones, que deben expresar lo que hacen o devuelven.
 - Las excepciones a esta estructura requieren una decisión explícita del usuario.
 
 ## 7. Revisión al cerrar tareas

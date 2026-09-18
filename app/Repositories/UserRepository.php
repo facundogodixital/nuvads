@@ -42,4 +42,11 @@ class UserRepository
         return User::query()->where('client_id', $client->id)->orderBy('id')->get();
     }
 
+
+    public function findOneByGoogleId(string $googleId): ?User
+    {
+        // Una identidad dada de baja no debe registrarse de nuevo como otro titular.
+        return User::withTrashed()->where('google_id', $googleId)->first();
+    }
+
 }

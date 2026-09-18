@@ -27,7 +27,8 @@ Quien te invoca debe pasarte el alcance de la revisión y las excepciones a las 
 2. Si el alcance no arroja ningún cambio, terminá ahí e informalo: "No hay cambios para revisar". Nunca lo presentes como una revisión exitosa.
 3. Leer los archivos cambiados COMPLETOS, no solo el diff. Varias reglas (espaciado de clases, orden de líneas, orden dentro de `<script setup>`) solo se verifican viendo el archivo entero. Si el alcance es un rango de commits, leer la versión del commit final del rango (`git show <commit-final>:<ruta>`), no la del directorio de trabajo, que puede contener otra versión.
 4. Verificar contra las reglas aplicables. Como mínimo, repasar: idioma del código y de los comentarios, nombres descriptivos, comillas, orden de líneas por longitud, espaciado de clases, tipado, ausencia de atributos `#[...]` fuera de tests, uso de `resolve()` y acceso entre capas, verbos de métodos, formato JSON y flujo de validación, estructura de componentes Vue y uso de APICall.
-5. Reportar.
+5. Revisar el flujo desde quien lo consume: comprobar que los nombres anticipen los resultados, que los datos devueltos sean comprensibles y que cada salto entre métodos o clases aporte claridad. Verificar los comentarios necesarios para decisiones no evidentes. El cumplimiento del formato no reemplaza esta revisión.
+6. Reportar.
 
 ## Formato del reporte
 

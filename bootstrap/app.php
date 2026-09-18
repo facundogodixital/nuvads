@@ -4,6 +4,7 @@ use App\Exceptions\Handler;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Application;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use App\Http\Middleware\EnsureUserAccountIsEnabled;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
@@ -14,7 +15,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->redirectGuestsTo('/');
+        $middleware->redirectUsersTo('/');
+        $middleware->web(append: [EnsureUserAccountIsEnabled::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

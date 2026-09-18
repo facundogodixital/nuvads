@@ -43,4 +43,10 @@ class UserService
         return $this->userRepository->list($client);
     }
 
+
+    public function findOneByGoogleId(string $googleId): ?User
+    {
+        return $this->userRepository->findOneByGoogleId($googleId);
+    }
+
 }

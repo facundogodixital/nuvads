@@ -88,6 +88,36 @@ El dominio `app.nuvads.ai` se resuelve a esta computadora mediante `/etc/hosts`.
 Esta configuración y estos certificados son exclusivamente locales y no cambian
 el DNS público. El dominio previsto para la web principal es `nuvads.ai`.
 
+## Acceso del titular con Google
+
+Configurar un cliente OAuth de tipo aplicación web en Google Console y registrar
+exactamente este URI de redirección para el entorno local:
+
+```text
+https://app.nuvads.ai:8443/auth/google/callback
+```
+
+Completar las credenciales en `.env`:
+
+```dotenv
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
+```
+
+Si la configuración estaba cacheada, ejecutar `php artisan config:clear` dentro
+de `make web`. Abrir la aplicación y elegir «Continuar con Google».
+
+El primer acceso crea el cliente y su usuario titular en una transacción. El
+identificador combina el usuario del email y la primera parte del dominio con
+guiones: `pepito.perez@lala.co.uk` se convierte en `pepito-perez-lala`. Si está
+ocupado se agrega `-2`, `-3`, etc. El identificador no cambia en accesos posteriores.
+
+Las rutas OAuth están en `/auth/google/redirect` y `/auth/google/callback`, con
+sesión y validación de `state`. El cierre de sesión es `POST /auth/logout`, con
+protección CSRF. Una cuenta o usuario deshabilitado no puede iniciar ni mantener
+el acceso. Esta etapa implementa únicamente el acceso del titular con Google.
+
 ## Comandos
 
 Ejecutarlos desde la raíz del proyecto. El Makefile utiliza `compose.yaml` y

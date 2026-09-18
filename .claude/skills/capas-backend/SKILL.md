@@ -15,7 +15,8 @@ Capas:
 - Helper: tareas técnicas auxiliares o comunicación con un sistema externo.
 
 Acceso entre capas:
-- Controllers, jobs, comandos y demás consumidores acceden a las operaciones de negocio y a los datos mediante services. No usan repositories ni modelos directamente para consultar o persistir.
+- Controllers, jobs, comandos y demás consumidores realizan consultas independientes y persistencia mediante services. Pueden leer atributos, relaciones y condiciones de modelos ya obtenidos.
+- Las condiciones sobre los atributos y relaciones de un modelo pueden vivir en el propio modelo. No introducir llamadas entre services únicamente para acceder a una relación existente. Las consultas independientes y la persistencia mantienen el circuito de services y repositories.
 - El acceso a integraciones externas también pasa por un service, que usa el helper correspondiente.
 - Un service accede a otro dominio a través del service de ese dominio, no de su repository.
 - Las excepciones a esta estructura requieren una decisión explícita del usuario.
@@ -26,6 +27,7 @@ Común a las tres capas:
 - Ninguna obtiene datos desde `request()`.
 - Ninguna construye respuestas HTTP de la API. Eso corresponde al controller y al handler de errores.
 - Services y helpers se obtienen con `resolve()` dentro del método que los necesita, cerca de su uso. La única inyección por constructor es la del repository propio en su service.
+- Usar el tipo de retorno más simple que represente claramente el resultado: un escalar, un modelo, una colección o un array sencillo. No crear DTOs por defecto ni por el solo hecho de devolver varios campos. Considerarlos cuando se devuelve una estructura propia cuya forma necesita quedar explícita y se utiliza en varios puntos, o cuando un array obliga a recorrer otros métodos para entender su contenido. Si un comentario breve en el punto de uso resuelve esa duda, no hace falta un DTO.
 
 Duración de las instancias:
 - Services, repositories y helpers se registran como scoped por defecto.
@@ -41,20 +43,20 @@ Responsabilidades:
 - Recibe su repository por inyección en el constructor, cuando ese repository exista. Es la única inyección por constructor que se usa. Todo lo demás (otros services, helpers) se obtiene con `resolve()` dentro del método.
 - Recibe explícitamente los datos necesarios para trabajar, incluido el cliente o usuario cuando corresponda.
 - Decide cuándo usar una integración externa y qué hacer con su resultado. La comunicación con el proveedor la hace un helper.
-- Delimita la transacción de la operación cuando corresponde. Los repositories ejecutan sus consultas y escrituras dentro de ella.
+- Delimita la transacción de la operación cuando corresponde. Los repositories ejecutan sus consultas y escrituras dentro de ella. Preferir transacciones explícitas con `DB::beginTransaction()`, `DB::commit()` y `DB::rollBack()`. Usar closures cuando una necesidad particular lo justifique.
 
 No debe:
-- Construir consultas (`Model::where()`, `DB::table()`, etc.) ni persistir (`save()`, `update()`, `create()`). Eso corresponde al repository. Sí está permitido leer atributos y relaciones de modelos ya obtenidos (`$order->status`, `$order->items`), aunque una relación no cargada dispare una consulta. `DB::transaction()` también está permitido.
+- Construir consultas (`Model::where()`, `DB::table()`, etc.) ni persistir (`save()`, `update()`, `create()`). Eso corresponde al repository. Sí está permitido leer atributos y relaciones de modelos ya obtenidos (`$order->status`, `$order->items`), aunque una relación no cargada dispare una consulta.
 - Usar repositories de otros dominios.
 
-Nombres de los métodos: los mismos verbos que los controllers: `create`, `update`, `delete`, `find`, `list`.
+Para las operaciones correspondientes, usar `create`, `update`, `delete`, `find`, `list`. Las demás operaciones se nombran según lo que hacen o devuelven, siguiendo AGENTS.md.
 
 Para los métodos de búsqueda, el nombre dice qué devuelven. Si no dice nada, devuelve el modelo del propio service:
 - `find(id)`: un modelo por id.
 - `findOneBy...`: un solo modelo según el criterio. Por ejemplo, `TagService::findOneByEmail` devuelve un tag.
 - `findBy...`: una collection de modelos según el criterio. Por ejemplo, `TagService::findByEmail` devuelve todos los tags con ese email.
 - `countBy...`: un entero resultado de una cuenta. Por ejemplo, `countByStatus`.
-- `get...`: algo que no es el modelo del service. El nombre dice qué devuelve. Por ejemplo, `TagService::getAppliedDateByName` devuelve una fecha, y `TagService::getTagCategoriesByTagAndEmail` devuelve categorías. `getByEmail` a secas no existe.
+- `get...`: obtiene un dato que no es el modelo del service; las consultas booleanas siguen la convención `is...`, `has...` o `can...`. El nombre dice qué devuelve. Por ejemplo, `TagService::getAppliedDateByName` devuelve una fecha, y `TagService::getTagCategoriesByTagAndEmail` devuelve categorías. `getByEmail` a secas no existe.
 
 Ejemplo de integración externa — DocumentService:
 1. Comprueba si corresponde importar el documento.
@@ -75,7 +77,7 @@ No debe:
 - Coordinar operaciones de negocio ni llamar a services.
 - Enviar notificaciones ni hacer integraciones HTTP.
 
-Nombres de los métodos: los mismos que los services: `create`, `update`, `delete`, `find`, `list`, `findOneBy...`, `findBy...`, `countBy...`, `get...`
+Nombres de los métodos: seguir los mismos criterios que los services.
 
 ## 4. Helpers
 

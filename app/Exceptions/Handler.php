@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Http\Request;
 use Psr\Log\LoggerInterface;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -26,7 +27,30 @@ class Handler extends LaravelHandler
     public function register(): void
     {
         $this->reportable([$this, 'reportToSentry']);
+        $this->renderable([$this, 'renderAuthenticationError']);
         $this->renderable([$this, 'renderJson']);
+    }
+
+
+    protected function renderAuthenticationError(Throwable $exception, Request $request): ?RedirectResponse
+    {
+        $isGoogleFlow = $request->is('auth/google/*');
+        $isDisabledAccount = $exception instanceof ApiException && $exception->errorCode === 'account_disabled';
+        $isAuthenticationError = $isGoogleFlow || $isDisabledAccount;
+        $shouldReturnJson = $this->shouldReturnJson($request, $exception);
+
+        if (!$isAuthenticationError || $shouldReturnJson) {
+            return null;
+        }
+
+        $message = 'No pudimos completar el acceso. Vuelve a intentarlo.';
+        if ($exception instanceof ApiException) {
+            $message = $exception->getMessage();
+        } elseif ($exception instanceof ValidationException) {
+            $message = 'La respuesta de acceso no es válida. Vuelve a intentarlo.';
+        }
+
+        return redirect()->route('home')->with('auth_error', $message);
     }
 
 
@@ -36,7 +60,7 @@ class Handler extends LaravelHandler
         $shouldReport = $this->shouldReportToSentry($exception);
         $sentryIsAvailable = $this->container->bound('sentry');
 
-        if (! $shouldReport || ! $sentryIsAvailable) {
+        if (!$shouldReport || !$sentryIsAvailable) {
             return;
         }
 
@@ -61,7 +85,7 @@ class Handler extends LaravelHandler
         }
 
         if ($exception instanceof ApiException) {
-            return ! in_array($exception->errorCode, $this->sentryDontReportCodes, true);
+            return !in_array($exception->errorCode, $this->sentryDontReportCodes, true);
         }
 
         return true;
@@ -73,7 +97,7 @@ class Handler extends LaravelHandler
         $shouldReturnJson = $this->shouldReturnJson($request, $exception);
         $hasExplicitResponse = $exception instanceof HttpResponseException;
 
-        if (! $shouldReturnJson || $hasExplicitResponse) {
+        if (!$shouldReturnJson || $hasExplicitResponse) {
             return null;
         }
 
