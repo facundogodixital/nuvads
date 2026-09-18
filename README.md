@@ -13,7 +13,7 @@ Los puertos publicados escuchan únicamente en `127.0.0.1`.
 
 | Servicio | Versión | Desde la computadora | Desde los contenedores |
 | --- | --- | --- | --- |
-| Nginx | 1.30 | https://app.nuvads.ai:8443 | nginx:443 |
+| Nginx | 1.30 | https://app.nuvads.test:8443 | nginx:443 |
 | PHP-FPM | 8.4 | No publicado | php:9000 |
 | Node | 24 LTS | 127.0.0.1:5280, con `make dev` | node:5280 |
 | MySQL | 8.4 | 127.0.0.1:3310 | mysql:3306 |
@@ -49,7 +49,7 @@ los usuarios de una base ya inicializada.
 
 ## HTTPS local
 
-La URL local es `https://app.nuvads.ai:8443`. El puerto publicado se define con
+La URL local es `https://app.nuvads.test:8443`. El puerto publicado se define con
 `HTTPS_PORT=8443` en `.env.docker`; dentro del contenedor Nginx escucha en 443.
 Clienty no necesita cambios ni tiene que estar encendido.
 
@@ -59,13 +59,13 @@ En Ubuntu, preparar el certificado con [mkcert](https://github.com/FiloSottile/m
 sudo apt-get install -y mkcert libnss3-tools
 mkcert -install
 mkdir -p docker/nginx/certs
-mkcert -cert-file docker/nginx/certs/app.nuvads.ai.pem -key-file docker/nginx/certs/app.nuvads.ai-key.pem app.nuvads.ai
+mkcert -cert-file docker/nginx/certs/nuvads-local.pem -key-file docker/nginx/certs/nuvads-local-key.pem '*.nuvads.test' '*.nuvads.ai'
 ```
 
 Agregar una única entrada en `/etc/hosts`:
 
 ```text
-127.0.0.1 app.nuvads.ai
+127.0.0.1 app.nuvads.test
 ```
 
 Los certificados quedan fuera de Git y del contexto de construcción de Docker.
@@ -79,12 +79,19 @@ El HTTP existente sigue disponible en el puerto `WEB_PORT=8080`.
 
 Para usar HTTPS sin puerto en la URL, primero liberar el puerto 443 de la
 computadora. Cambiar `HTTPS_PORT=443` en `.env.docker` y
-`APP_URL=https://app.nuvads.ai` en `.env`; ejecutar `make up`,
+`APP_URL=https://app.nuvads.test` en `.env`; ejecutar `make up`,
 `docker compose --env-file .env.docker --file compose.yaml exec -T php php artisan config:clear`
 y reiniciar `make dev`. Para volver a 8443, restaurar ambos valores y repetir
 estos pasos. Solo se publica el puerto HTTPS elegido.
 
-El dominio `app.nuvads.ai` se resuelve a esta computadora mediante `/etc/hosts`.
+El dominio local habitual es `app.nuvads.test`. El certificado compartido cubre
+`*.nuvads.test` y `*.nuvads.ai` simultáneamente (un nivel de subdominio; no los
+dominios raíz). Para probar otro subdominio, apuntarlo a `127.0.0.1` en
+`/etc/hosts`, actualizar `APP_URL`, limpiar la caché de configuración de Laravel
+y reiniciar `make dev`. Vite toma el dominio de `APP_URL`, sin editar su código.
+No hace falta regenerar el certificado ni cambiar Nginx. CORS conserva la
+configuración del plugin de Laravel; el certificado no agrega orígenes CORS.
+Retirar la entrada `.ai` de `/etc/hosts` cuando se quiera acceder a producción.
 Esta configuración y estos certificados son exclusivamente locales y no cambian
 el DNS público. El dominio previsto para la web principal es `nuvads.ai`.
 
@@ -94,7 +101,7 @@ Configurar un cliente OAuth de tipo aplicación web en Google Console y registra
 exactamente este URI de redirección para el entorno local:
 
 ```text
-https://app.nuvads.ai:8443/auth/google/callback
+https://app.nuvads.test:8443/auth/google/callback
 ```
 
 Completar las credenciales en `.env`:
@@ -144,8 +151,8 @@ make redis-clear  # Borrar todas las claves de todas las bases del Redis de Nuva
 en el contenedor. El borrado incluye cualquier dato guardado en ese Redis.
 
 Para desarrollar, ejecutar `make up` y luego `make dev`. La aplicación se abre
-en https://app.nuvads.ai:8443; Vite sirve los recursos y la recarga de cambios
-por HTTPS en app.nuvads.ai:5280, con el puerto tomado de `.env.docker`. `make dev` permanece en primer plano.
+en https://app.nuvads.test:8443; Vite sirve los recursos y la recarga de cambios
+por HTTPS en app.nuvads.test:5280, con el puerto tomado de `.env.docker`. `make dev` permanece en primer plano.
 
 Con Vite detenido mediante Ctrl+C, Laravel utiliza la última compilación de
 `make frontend-build`. El archivo temporal `public/hot` indica cuándo usar Vite.
