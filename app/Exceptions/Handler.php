@@ -26,7 +26,8 @@ class Handler extends LaravelHandler
 
     public function register(): void
     {
-        $this->reportable([$this, 'reportToSentry']);
+        // Descomentar cuando esté creada y configurada la cuenta de Sentry.
+        // $this->reportable([$this, 'reportToSentry']);
         $this->renderable([$this, 'renderAuthenticationError']);
         $this->renderable([$this, 'renderJson']);
     }

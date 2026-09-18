@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Client;
 use Illuminate\Support\Str;
+use App\Helpers\IpGeolocationHelper;
 use App\Repositories\ClientRepository;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -47,6 +48,30 @@ class ClientService
     public function findOneByLoginIdentifier(string $loginIdentifier): ?Client
     {
         return $this->clientRepository->findOneByLoginIdentifier($loginIdentifier);
+    }
+
+
+    /**
+     * Devuelve el nombre, país y zona horaria para crear el cliente, con los valores predeterminados aplicados.
+     *
+     * @return array{name: string, country_code: string, timezone: string}
+     */
+    public function getSignupClientAttributes(string $email, ?string $ipAddress): array
+    {
+        $locationInfo = resolve(IpGeolocationHelper::class)->getLocationInfo($ipAddress);
+        $detectedTimezone = $locationInfo['timezone'];
+        $countryCode = $locationInfo['country_code'] ?? 'AR';
+        $defaultTimezone = config("country_timezones.{$countryCode}");
+
+        // Argentina conserva la zona acordada, aunque el proveedor devuelva otra del país.
+        $isArgentina = $countryCode === 'AR';
+        $timezone = $isArgentina ? $defaultTimezone : ($detectedTimezone ?? $defaultTimezone);
+
+        return [
+            'timezone' => $timezone,
+            'country_code' => $countryCode,
+            'name' => Str::before($email, '@'),
+        ];
     }
 
 

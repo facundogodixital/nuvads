@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use App\Exceptions\ApiException;
 use App\Helpers\GoogleOAuthHelper;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\UniqueConstraintViolationException;
 
 
 class GoogleAuthService
@@ -24,46 +23,40 @@ class GoogleAuthService
     public function findOrCreateUser(Request $request): User
     {
         $userService = resolve(UserService::class);
-        $clientService = resolve(ClientService::class);
         $googleUser = resolve(GoogleOAuthHelper::class)->getAuthenticatedUser($request);
 
-        while (true) {
-            $user = $userService->findOneByGoogleId($googleUser->googleId);
-            if ($user !== null) {
-                if (!$user->is_owner || !$user->isAccountAccessEnabled()) {
-                    throw new ApiException(403, 'account_disabled', 'El acceso a esta cuenta está deshabilitado.');
-                }
-                return $user;
+        $user = $userService->findOneByGoogleId($googleUser->googleId);
+        if ($user !== null) {
+            $isOwner = $user->is_owner;
+            $hasAccountAccess = $user->isAccountAccessEnabled();
+            if (!$isOwner || !$hasAccountAccess) {
+                throw new ApiException(403, 'account_disabled', 'El acceso a esta cuenta está deshabilitado.');
             }
+            return $user;
+        }
 
-            $loginIdentifier = $clientService->getAvailableLoginIdentifier($googleUser->email);
+        $clientService = resolve(ClientService::class);
 
-            // Cliente y titular se confirman juntos; un fallo no debe dejar una cuenta incompleta.
-            DB::beginTransaction();
-            try {
-                $client = $clientService->create(['login_identifier' => $loginIdentifier]);
-                $user = $userService->create($client, [
-                    'is_owner' => true,
-                    'name' => $googleUser->name,
-                    'email' => $googleUser->email,
-                    'google_id' => $googleUser->googleId,
-                ]);
-                DB::commit();
+        // Nombre, país y zona horaria iniciales del cliente.
+        $signupAttributes = $clientService->getSignupClientAttributes($googleUser->email, $request->ip());
+        $signupAttributes['login_identifier'] = $clientService->getAvailableLoginIdentifier($googleUser->email);
 
-                return $user;
-            } catch (UniqueConstraintViolationException $exception) {
-                DB::rollBack();
+        // Cliente y titular se confirman juntos; un fallo no debe dejar una cuenta incompleta.
+        DB::beginTransaction();
+        try {
+            $client = $clientService->create($signupAttributes);
+            $user = $userService->create($client, [
+                'is_owner' => true,
+                'name' => $googleUser->name,
+                'email' => $googleUser->email,
+                'google_id' => $googleUser->googleId,
+            ]);
+            DB::commit();
 
-                // Otro registro puede haber reservado el identificador o creado al titular en paralelo.
-                $googleUserExists = $userService->findOneByGoogleId($googleUser->googleId) !== null;
-                $identifierIsTaken = $clientService->findOneByLoginIdentifier($loginIdentifier) !== null;
-                if (!$googleUserExists && !$identifierIsTaken) {
-                    throw $exception;
-                }
-            } catch (Throwable $exception) {
-                DB::rollBack();
-                throw $exception;
-            }
+            return $user;
+        } catch (Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
         }
     }
 
