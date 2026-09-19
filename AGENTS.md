@@ -249,3 +249,8 @@ Ejemplo:
 ```text
 [Local HTTPS] Configured trusted SSL certificate and local domain app.nuvads.ai
 ```
+
+## 9. Producto
+
+- El contexto de producto vive en `PRODUCT.md`. Leerlo antes de trabajar en funcionalidades del producto.
+- Los textos de la aplicación, en principio, en español neutro, para poder atacar todo LATAM al mismo tiempo.

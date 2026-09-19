@@ -17,4 +17,6 @@
 /public/storage
 /storage/*.key
 /auth.json
+/.codex/
+/.impeccable/
 .DS_Store
