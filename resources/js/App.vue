@@ -1,5 +1,5 @@
 <template>
-  <main>
+  <main v-if="user">
     <h1>Nuvads</h1>
     <p
       v-if="error"
@@ -8,7 +8,7 @@
       {{ error }}
     </p>
 
-    <section v-if="user">
+    <section>
       <h2>Hola, {{ user.name }}</h2>
       <p>{{ user.email }}</p>
       <p>Identificador de tu cuenta: <strong>{{ user.login_identifier }}</strong></p>
@@ -27,16 +27,18 @@
         </button>
       </form>
     </section>
-
-    <section v-else>
-      <p>Ingresá o creá tu cuenta con Google.</p>
-      <a href="/auth/google/redirect">Continuar con Google</a>
-    </section>
   </main>
+
+  <LoginPage
+    v-else
+    :error="error"
+  />
 </template>
 
 
 <script setup>
+import LoginPage from '@/pages/LoginPage.vue';
+
 defineProps({
   user: { type: Object, default: null },
   error: { type: String, default: '' },

@@ -1,27 +1,59 @@
-/* Valores neutros provisorios; light funciona también sin atributo de tema. */
+/* Paleta del sistema: mundo "manual de marca", derivada del degradé del logo. */
 :root {
   color-scheme: light;
-  --text: #171717;
-  --border: #d4d4d4;
-  --accent: #404040;
-  --surface: #fafafa;
-  --surface-selected: #e5e5e5;
+
+  /* Constantes de marca: los stops del degradé del logo, iguales en ambos temas. */
+  --brand-mid: #2abeff;
+  --brand-cyan: #25dcea;
+  --brand-blue: #2576ff;
+
+  /* Tinta y papel del manual. */
+  --text: #10151d;
+  --border: #d7dde6;
+  --danger: #c73a2e;
+  --surface: #f7f8fa;
+  --text-muted: #5b6472;
+  --surface-raised: #ffffff;
+  --surface-selected: #e8edf4;
+
+  /* Azul de acción con contraste AA para texto blanco encima. */
+  --accent: #1e5fe0;
+  --accent-soft: #e9effc;
+  --accent-hover: #1a4fc0;
+  --text-on-accent: #ffffff;
 }
 
+/* El manual en negativo: misma semántica, tinta clara sobre papel oscuro. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --text: #f5f5f5;
-  --border: #404040;
-  --accent: #d4d4d4;
-  --surface: #171717;
-  --surface-selected: #262626;
+  --text: #f0f3f8;
+  --border: #2a3340;
+  --danger: #ff7a6e;
+  --surface: #0f141b;
+  --text-muted: #97a1b0;
+  --surface-raised: #151b24;
+  --surface-selected: #1f2836;
+
+  --accent: #2b62e4;
+  --accent-soft: #16203a;
+  --accent-hover: #2452c4;
+  --text-on-accent: #ffffff;
 }
 
 /* Las utilidades y el CSS local consumen las mismas variables de tema. */
 @theme inline {
   --color-text: var(--text);
   --color-border: var(--border);
+  --color-danger: var(--danger);
   --color-accent: var(--accent);
   --color-surface: var(--surface);
+  --color-brand-mid: var(--brand-mid);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-blue: var(--brand-blue);
+  --color-text-muted: var(--text-muted);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-hover: var(--accent-hover);
+  --color-text-on-accent: var(--text-on-accent);
+  --color-surface-raised: var(--surface-raised);
   --color-surface-selected: var(--surface-selected);
 }

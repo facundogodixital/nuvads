@@ -1,6 +1,15 @@
 @import 'tailwindcss';
 @import './variables.css';
 
+/* Archivo auto-hospedada: el manual se ve igual en todos los sistemas operativos. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/archivo-latin.woff2') format('woff2');
+}
+
 /* La base permite que las utilidades de cada pantalla tengan prioridad. */
 @layer base {
   body {
@@ -8,10 +17,26 @@
     color: var(--text);
     line-height: 1.5;
     background-color: var(--surface);
-    font-family: system-ui, sans-serif;
+    font-family: 'Archivo', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
   }
 
   main {
     padding: 2rem;
+  }
+
+  /* Las superficies del navegador también llevan la paleta del manual. */
+  ::selection {
+    color: var(--text-on-accent);
+    background-color: var(--accent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--accent);
   }
 }
