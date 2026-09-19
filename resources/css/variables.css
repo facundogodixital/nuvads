@@ -1,0 +1,27 @@
+/* Valores neutros provisorios; light funciona también sin atributo de tema. */
+:root {
+  color-scheme: light;
+  --text: #171717;
+  --border: #d4d4d4;
+  --accent: #404040;
+  --surface: #fafafa;
+  --surface-selected: #e5e5e5;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --text: #f5f5f5;
+  --border: #404040;
+  --accent: #d4d4d4;
+  --surface: #171717;
+  --surface-selected: #262626;
+}
+
+/* Las utilidades y el CSS local consumen las mismas variables de tema. */
+@theme inline {
+  --color-text: var(--text);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-surface-selected: var(--surface-selected);
+}

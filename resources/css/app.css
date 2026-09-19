@@ -1,9 +1,17 @@
-body {
-    margin: 0;
-    font-family: system-ui, sans-serif;
-    line-height: 1.5;
-}
+@import 'tailwindcss';
+@import './variables.css';
 
-main {
+/* La base permite que las utilidades de cada pantalla tengan prioridad. */
+@layer base {
+  body {
+    margin: 0;
+    color: var(--text);
+    line-height: 1.5;
+    background-color: var(--surface);
+    font-family: system-ui, sans-serif;
+  }
+
+  main {
     padding: 2rem;
+  }
 }

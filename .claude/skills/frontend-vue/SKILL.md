@@ -1,6 +1,6 @@
 ---
 name: frontend-vue
-description: "Convenciones de Nuvads para el frontend: manejo de modales con stores de Pinia, estructura de los componentes Vue (Composition API, script setup) y llamadas a la API mediante APICall y los services JS. Cargar siempre antes de crear o modificar componentes .vue, stores de Pinia o services del frontend."
+description: "Convenciones de Nuvads para el frontend: componentes Vue, layouts, estilos y temas con Tailwind CSS 4, modales con Pinia y llamadas a la API. Cargar antes de crear o modificar componentes .vue, hojas de estilo, configuración de Tailwind, stores de Pinia o services del frontend."
 ---
 
 # Frontend Vue de Nuvads
@@ -104,7 +104,7 @@ function select() {
 
 <style scoped>
 .is-selected {
-  background: #eef;
+  background: var(--surface-selected);
 }
 </style>
 ```
@@ -168,3 +168,71 @@ export default {
 
 };
 ```
+
+## 4. Organización de layouts, páginas y componentes
+
+- `resources/js/layouts/`: estructuras compartidas que reciben el contenido de las páginas.
+- `resources/js/pages/`: composición de cada pantalla a partir del layout y los componentes que necesita.
+- `resources/js/components/`: piezas reutilizables. Agruparlas en subcarpetas cuando exista una necesidad concreta.
+
+El layout organiza las áreas compartidas de la pantalla; cada componente organiza su interior. Las páginas se integran en el área de contenido del layout, sin repetir su estructura ni compensarla con márgenes propios.
+
+Crear componentes cuando representen una pieza con sentido o eviten una repetición real. Mantener una organización sencilla, sin subdivisiones anticipadas.
+
+## 5. Organización de estilos y temas
+
+Decisión: usar Tailwind CSS 4 con la integración de Vite `@tailwindcss/vite`. La configuración del proyecto vive en CSS mediante `@theme`, sin `tailwind.config.js`.
+
+### Hojas de estilo
+
+- `resources/css/app.css`: entrada de estilos, importaciones y reglas globales del documento.
+- `resources/css/variables.css`: valores compartidos, configuración de Tailwind y definiciones de light/dark.
+- `<style scoped>` de cada componente: CSS particular de esa pieza.
+
+En `app.css`, importar Tailwind y luego las variables compartidas, antes de las reglas globales:
+
+```css
+@import 'tailwindcss';
+@import './variables.css';
+```
+
+Centralizar los valores recurrentes de espaciado, tamaños y puntos de corte. Usar las escalas compartidas de Tailwind y definir sus ajustes en `variables.css`, evitando valores arbitrarios repetidos por las pantallas.
+
+### Dark y light mode
+
+Ambos temas usan las mismas variables semánticas, con nombres que expresan su función: `--surface`, `--text`, `--border`, `--accent`, etc. Para un estado particular, usar una variable con significado, como `--surface-selected` en el ejemplo de componente.
+
+En `variables.css`:
+
+- `:root` define los valores de light y garantiza que existan incluso sin atributo de tema.
+- `:root[data-theme='dark']` sobrescribe esos mismos valores para dark.
+- `data-theme='light'` en `<html>` utiliza los valores de `:root`.
+- `@theme inline` conecta las variables semánticas con las utilidades de Tailwind.
+
+Ejemplo de conexión, una vez definida `--surface` en ambos temas:
+
+```css
+/* La utilidad consume la misma variable de tema que el CSS de los componentes. */
+@theme inline {
+  --color-surface: var(--surface);
+}
+```
+
+El template usa `bg-surface` y el CSS local usa `var(--surface)`: ambos acompañan el cambio de tema. Aplicar el mismo patrón a las demás variables semánticas.
+
+Los valores concretos de los colores se definen en `variables.css`. Los componentes consumen variables semánticas, sin colores literales ni utilidades de paleta fija como `bg-white` o `text-gray-900`. El cambio de tema se resuelve en las variables compartidas.
+
+Referencia del mecanismo: [colores que referencian otras variables en Tailwind](https://tailwindcss.com/docs/colors#referencing-other-variables).
+
+### Estilos locales y comentarios
+
+- Las utilidades de Tailwind van en el template.
+- En `<style scoped>`, usar CSS plano y las variables compartidas. No usar `@apply`.
+- Agregar comentarios breves y orientativos en castellano cuando una decisión o un comportamiento no resulte evidente. Explicar el motivo, sin repetir lo que ya expresa el código.
+
+## 6. Adaptación a tamaños de pantalla
+
+- Mobile-first: los estilos base corresponden a pantallas pequeñas; los breakpoints agregan cambios hacia tamaños mayores.
+- Usar puntos de corte compartidos. Los ajustes a los breakpoints de Tailwind se definen en `variables.css` mediante `@theme`.
+- Resolver los cambios simples de distribución con los breakpoints (utilidades responsive o media queries), sin separar componentes.
+- Cuando el diseño requiera estructuras sustancialmente distintas y se evalúe que conviene separar componentes por tamaño de pantalla, consultarlo con el usuario antes de hacerlo. Los componentes separados comparten su lógica y estado. Evitar árboles llenos de bloques alternativos ocultos y la duplicación de pantallas completas.

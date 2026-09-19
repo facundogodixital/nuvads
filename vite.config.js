@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig(({ command, mode }) => {
@@ -21,6 +22,7 @@ export default defineConfig(({ command, mode }) => {
           },
         },
       }),
+      tailwindcss(),
     ],
     resolve: {
       alias: {
