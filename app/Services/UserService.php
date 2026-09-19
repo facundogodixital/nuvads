@@ -49,4 +49,31 @@ class UserService
         return $this->userRepository->findOneByGoogleId($googleId);
     }
 
+
+    public function createApiToken(User $user): array
+    {
+        $expiresAt = now()->addHours(24);
+        $token = bin2hex(random_bytes(32));
+
+        $this->userRepository->update($user->client, $user->id, [
+            'api_token_expires_at' => $expiresAt,
+            'api_token_hash' => hash('sha256', $token),
+        ]);
+
+        // La credencial original se entrega una sola vez; la base conserva únicamente su hash.
+        return ['token' => $token, 'expires_at' => $expiresAt->toISOString()];
+    }
+
+
+    public function findOneByApiToken(string $token): ?User
+    {
+        return $this->userRepository->findOneByApiTokenHash(hash('sha256', $token));
+    }
+
+
+    public function revokeApiToken(User $user): int
+    {
+        return $this->userRepository->revokeApiToken($user->id, $user->api_token_hash);
+    }
+
 }

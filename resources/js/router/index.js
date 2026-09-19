@@ -1,0 +1,62 @@
+import { ref } from 'vue';
+import { createRouter, createWebHistory } from 'vue-router';
+import LoginPage from '@/pages/LoginPage.vue';
+import DashboardPage from '@/pages/DashboardPage.vue';
+import NotFoundPage from '@/pages/NotFoundPage.vue';
+import LoginCallbackPage from '@/pages/LoginCallbackPage.vue';
+import SessionService from '@/services/SessionService';
+import { getLoginError } from '@/helpers/loginErrors';
+import { getAuthToken, clearAuthToken, rememberDestination, takeDestination } from '@/helpers/authStorage';
+
+export const navigationError = ref('');
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', component: DashboardPage, meta: { requiresAuth: true } },
+    {
+      path: '/login',
+      component: LoginPage,
+      props: (route) => ({ error: getLoginError(route.query.error) }),
+    },
+    { path: '/login/callback', component: LoginCallbackPage },
+    // También se conserva el destino de enlaces a futuras pantallas protegidas.
+    { path: '/:pathMatch(.*)*', component: NotFoundPage, meta: { requiresAuth: true } },
+  ],
+});
+
+router.beforeEach(async (to) => {
+  navigationError.value = '';
+  if (to.path === '/login/callback') {
+    return true;
+  }
+
+  try {
+    const token = getAuthToken();
+    if (token) {
+      await SessionService.find();
+      return to.path === '/login' ? takeDestination() : true;
+    }
+  } catch (error) {
+    const accessWasRejected = error.code === 'unauthenticated' || error.code === 'account_disabled';
+    if (!accessWasRejected) {
+      navigationError.value = 'No se pudo comprobar el acceso. Vuelve a intentarlo.';
+      return false;
+    }
+    clearAuthToken();
+  }
+
+  if (to.meta.requiresAuth) {
+    rememberDestination(to.fullPath);
+    return '/login';
+  }
+  return true;
+});
+
+router.afterEach((to) => {
+  const isLoginPage = to.path === '/login' || to.path === '/login/callback';
+  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = isLoginPage || systemPrefersDark ? 'dark' : 'light';
+});
+
+export default router;

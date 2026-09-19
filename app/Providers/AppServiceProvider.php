@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Services\UserService;
 use App\Services\ClientService;
 use App\Helpers\GoogleOAuthHelper;
+use App\Services\LoginCodeService;
 use App\Services\GoogleAuthService;
 use App\Helpers\IpGeolocationHelper;
 use App\Repositories\UserRepository;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(UserService::class);
+        $this->app->scoped(LoginCodeService::class);
         $this->app->scoped(ClientService::class);
         $this->app->scoped(GoogleAuthService::class);
         $this->app->scoped(GoogleOAuthHelper::class);

@@ -20,13 +20,11 @@ class SmokeTest extends TestCase
     }
 
 
-    // Una visita sin sesión debe recibir la página inicial sin datos de un usuario autenticado.
+    // Una visita sin sesión debe recibir la página de login.
     #[Test]
     public function presents_login_page_to_guests(): void
     {
-        $this->get('/')->assertOk()
-            ->assertViewHas('page.user')
-            ->assertViewHas('page.user', fn (mixed $user): bool => $user === null);
+        $this->get('/login')->assertOk()->assertViewIs('app');
         $this->assertGuest();
     }
 

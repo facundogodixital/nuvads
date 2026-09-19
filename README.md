@@ -120,10 +120,54 @@ identificador combina el usuario del email y la primera parte del dominio con
 guiones: `pepito.perez@lala.co.uk` se convierte en `pepito-perez-lala`. Si está
 ocupado se agrega `-2`, `-3`, etc. El identificador no cambia en accesos posteriores.
 
-Las rutas OAuth están en `/auth/google/redirect` y `/auth/google/callback`, con
-sesión y validación de `state`. El cierre de sesión es `POST /auth/logout`, con
-protección CSRF. Una cuenta o usuario deshabilitado no puede iniciar ni mantener
-el acceso. Esta etapa implementa únicamente el acceso del titular con Google.
+Las rutas OAuth están en `routes/web.php`: `/auth/google/redirect` y
+`/auth/google/callback`, con sesión temporal y validación de `state`. El botón de
+Google genera un secreto en `sessionStorage` y envía su hash como `challenge` al
+iniciar el flujo. El callback devuelve a `/login/callback` con un código en el
+fragmento de la URL; no incluye el token de acceso. El código dura 60 segundos,
+solo puede usarse una vez y su canje exige el secreto del navegador original.
+Se guarda temporalmente en la caché existente, sin una tabla propia.
+
+### API y navegación
+
+- `routes/api.php` contiene `/api/*`. La API devuelve JSON incluso en errores y
+  no autentica mediante cookies o sesiones web.
+- `POST /api/auth/exchange`: canjea `code` y `verifier` por `token` y `expires_at`.
+- `GET /api/auth/me`: devuelve el usuario y cliente del Bearer token.
+- `POST /api/auth/logout`: revoca el token utilizado y devuelve JSON.
+- Los tokens son opacos y duran 24 horas. `users.api_token_hash` guarda su SHA-256
+  y `users.api_token_expires_at` su vencimiento. Hay un token vigente por usuario:
+  un nuevo login reemplaza al anterior. No hay refresh tokens ni renovación automática.
+- Vue guarda el token en `localStorage`, según la decisión acordada. Esto permite
+  mantener el acceso al recargar, con la contrapartida de exposición a JavaScript
+  si existe una vulnerabilidad XSS.
+- Vue Router controla `/login`, `/` y el retorno a la pantalla pendiente. Guarda
+  ruta, query y fragmento en `sessionStorage` y solo admite destinos internos.
+  Al agregar una pantalla protegida se usa `meta: { requiresAuth: true }`.
+- Las URLs del frontend entregan la entrada de Vue; las rutas desconocidas de
+  `/api` o `/auth` conservan su 404. Una pantalla inexistente muestra un 404 en Vue
+  después de comprobar el acceso.
+
+Los endpoints protegidos usan, en orden, `AuthenticateAccessToken` y
+`ResolveClientContext`. Sus requests extienden `AuthenticatedRequest`, que expone
+`$request->user` y `$request->client` como propiedades
+tipadas obtenidas de atributos internos, no del cuerpo ni de la query. Si un
+request redefine `prepareForValidation()`, debe llamar al método padre.
+Los controllers pasan explícitamente el usuario o cliente a los services que lo
+necesitan; disponer del contexto no reemplaza el filtrado por cliente en consultas.
+
+### Revocar el acceso
+
+Para revocar el acceso desde la base, establecer `users.api_token_hash` y
+`users.api_token_expires_at` en `NULL`. El logout hace lo mismo para el token
+utilizado; una petición de logout anterior no borra un token emitido posteriormente.
+Deshabilitar `users.is_enabled` o `clients.is_enabled` bloquea tanto el acceso
+existente como un nuevo login. La siguiente petición es rechazada y Vue limpia
+la credencial y muestra el login. No se fuerza un cierre visual instantáneo en
+una pestaña que no hace peticiones.
+
+Esta etapa implementa únicamente el acceso del titular con Google; el formulario
+con contraseña y el acceso de administradores siguen pendientes.
 
 ## Comandos
 

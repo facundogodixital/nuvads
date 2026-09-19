@@ -1,10 +1,7 @@
 import axios from 'axios';
 import APIError from '@/classes/APIError';
 
-// Dónde se guarda el token de sesión y a dónde se redirige si la API
-// responde que no hay sesión. Ajustar cuando exista el login.
-const AUTH_TOKEN_STORAGE_KEY = 'auth_token';
-const LOGIN_PATH = '/login';
+import { getAuthToken, redirectToLogin } from '@/helpers/authStorage';
 
 const METHODS_WITH_BODY = ['post', 'put', 'patch'];
 
@@ -73,7 +70,9 @@ async function send(config) {
   } catch (error) {
     const apiError = await toAPIError(error);
 
-    if (apiError.status === 401 && apiError.code === 'unauthenticated') {
+    const isUnauthenticated = apiError.code === 'unauthenticated';
+    const isAccountDisabled = apiError.code === 'account_disabled';
+    if (isUnauthenticated || isAccountDisabled) {
       redirectToLogin();
     }
 
@@ -116,21 +115,5 @@ async function readErrorBody(data) {
     return JSON.parse(await data.text());
   } catch {
     return {};
-  }
-}
-
-
-function getAuthToken() {
-  try {
-    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-
-function redirectToLogin() {
-  if (window.location.pathname !== LOGIN_PATH) {
-    window.location.assign(LOGIN_PATH);
   }
 }

@@ -1,8 +1,6 @@
 import { createApp } from 'vue';
 import App from './App.vue';
+import router from './router';
 import '../css/app.css';
 
-const appElement = document.getElementById('app');
-const page = JSON.parse(appElement.dataset.page);
-
-createApp(App, page).mount(appElement);
+createApp(App).use(router).mount('#app');

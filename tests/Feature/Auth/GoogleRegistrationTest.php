@@ -21,9 +21,9 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     use RefreshDatabase;
 
 
-    // El primer acceso con Google debe crear cliente y titular vinculados, e iniciar una sesión con ID renovado.
+    // El primer acceso crea cliente y titular; entrega un código canjeable sin autenticar la sesión web.
     #[Test]
-    public function registers_client_and_owner_and_starts_session(): void
+    public function registers_client_and_owner_and_issues_login_code(): void
     {
         Http::fake();
         $this->queueGoogleProfile([
@@ -33,15 +33,16 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
             'email' => 'pepito.perez@lala.co.uk',
         ]);
 
-        $this->withSession(['state' => 'valid-state']);
+        $this->withSession(['state' => 'valid-state', 'login_challenge' => hash('sha256', str_repeat('b', 64))]);
         $previousSessionId = session()->getId();
 
         $response = $this->get('/auth/google/callback?state=valid-state&code=valid-code');
 
-        $response->assertRedirect('/');
+        $response->assertRedirect();
+        $this->assertStringContainsString('/login/callback#code=', $response->headers->get('Location'));
         $user = User::query()->sole();
         $client = Client::query()->sole();
-        $this->assertAuthenticatedAs($user);
+        $this->assertGuest();
         $this->assertNotSame($previousSessionId, session()->getId());
         $this->assertTrue($user->is_owner);
         $this->assertSame($client->id, $user->client_id);
@@ -50,7 +51,10 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
         $this->assertSame('pepito-perez-lala', $client->login_identifier);
         $this->assertSame('AR', $client->country_code);
         $this->assertSame('America/Argentina/Buenos_Aires', $client->timezone);
-        $response->assertSessionMissing('state');
+        $response->assertSessionMissing('state')->assertSessionMissing('login_challenge');
+        $credentials = $this->exchangeLoginCode($response);
+        $this->withToken($credentials['token'])->getJson('/api/auth/me')
+            ->assertOk()->assertJsonPath('data.user.id', $user->id);
         Http::assertNothingSent();
     }
 
@@ -69,11 +73,15 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
             'email' => 'changed@example.com',
         ]);
 
-        $this->withSession(['state' => 'valid-state'])
-            ->get('/auth/google/callback?state=valid-state&code=valid-code')
-            ->assertRedirect('/');
+        $response = $this->withSession([
+            'state' => 'valid-state',
+            'login_challenge' => hash('sha256', str_repeat('b', 64)),
+        ])->get('/auth/google/callback?state=valid-state&code=valid-code')->assertRedirect();
 
-        $this->assertAuthenticatedAs($user);
+        $credentials = $this->exchangeLoginCode($response);
+        $this->withToken($credentials['token'])->getJson('/api/auth/me')
+            ->assertOk()->assertJsonPath('data.user.id', $user->id);
+        $this->assertGuest();
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('clients', 1);
         $this->assertSame($user->email, $user->fresh()->email);
@@ -96,7 +104,7 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
             'email_verified' => true,
         ]);
 
-        $this->withSession(['state' => 'valid-state'])
+        $this->withSession(['state' => 'valid-state', 'login_challenge' => hash('sha256', str_repeat('b', 64))])
             ->getJson('/auth/google/callback?state=valid-state&code=valid-code')
             ->assertForbidden()
             ->assertJsonPath('code', 'account_disabled');
@@ -140,7 +148,7 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
         );
         $this->instance(UserService::class, $userService);
 
-        $this->withSession(['state' => 'valid-state'])
+        $this->withSession(['state' => 'valid-state', 'login_challenge' => hash('sha256', str_repeat('b', 64))])
             ->getJson('/auth/google/callback?state=valid-state&code=valid-code')
             ->assertInternalServerError()
             ->assertJsonPath('code', 'internal_error');

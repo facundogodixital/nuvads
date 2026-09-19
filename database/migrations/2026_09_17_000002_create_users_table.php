@@ -20,6 +20,8 @@ return new class() extends Migration
             $table->string('email')->nullable();
             $table->string('username')->nullable();
             $table->string('password')->nullable();
+            $table->string('api_token_hash', 64)->nullable();
+            $table->dateTime('api_token_expires_at')->nullable();
 
             $table->boolean('is_owner')->default(false);
             $table->boolean('is_enabled')->default(true);

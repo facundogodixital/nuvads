@@ -7,6 +7,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Handler\MockHandler;
+use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GoogleProvider;
 
@@ -45,6 +46,17 @@ abstract class GoogleOAuthTestCase extends TestCase
             new Response(200, [], json_encode(['access_token' => 'testing-token'], JSON_THROW_ON_ERROR)),
             new Response(200, [], json_encode($profile, JSON_THROW_ON_ERROR)),
         );
+    }
+
+
+    protected function exchangeLoginCode(TestResponse $response): array
+    {
+        parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parameters);
+
+        return $this->postJson('/api/auth/exchange', [
+            'code' => $parameters['code'],
+            'verifier' => str_repeat('b', 64),
+        ])->assertOk()->json('data');
     }
 
 }

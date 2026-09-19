@@ -178,6 +178,14 @@ class Product extends Model
 
 ## 5. Convenciones de modelos y tablas, y nomenclatura de servicios y repositorios
 
+### Autorización y aplicación de cambios de esquema
+
+- Nunca crear tablas ni agregar campos sin autorización explícita del usuario para esas tablas o campos concretos. Aprobar una funcionalidad no autoriza a decidir ampliaciones del esquema.
+- Para agregar campos a una tabla existente, entregar primero el SQL `ALTER TABLE` al usuario. El usuario lo ejecuta manualmente; el agente no ejecuta el ALTER ni una migración que lo aplique.
+- Después de que el usuario confirme la ejecución, incorporar los campos aprobados en la migración original que crea esa tabla, respetando el orden de columnas acordado. No crear una migración incremental para ese cambio.
+
+### Nombres
+
 - Modelos en singular y UpperCamelCase: `Product`, `OrderItem`.
 - Servicios y repositorios asociados a un modelo: nombre del modelo en singular con el sufijo `Service` o `Repository`: `ProductService`, `ProductRepository`.
 - Tablas y columnas con la convención por defecto de Laravel: tablas en plural snake_case (`products`, `order_items`) y columnas en snake_case. No se declara `$table` en los modelos para cambiar esa convención; Eloquent infiere el nombre de la tabla a partir del modelo.

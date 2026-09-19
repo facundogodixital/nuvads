@@ -17,7 +17,7 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
     #[Test]
     public function redirects_to_google_and_stores_state(): void
     {
-        $response = $this->get('/auth/google/redirect');
+        $response = $this->get('/auth/google/redirect?challenge='.str_repeat('a', 64));
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
@@ -31,16 +31,16 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
     }
 
 
-    // Al cancelar con state válido, debe consumirlo y volver al inicio con un aviso, sin iniciar sesión.
+    // Al cancelar con state válido, debe consumirlo y mostrar el aviso en el login, sin iniciar sesión.
     #[Test]
     public function handles_cancellation_without_contacting_google(): void
     {
-        $this->withSession(['state' => 'valid-state'])
+        $response = $this->withSession(['state' => 'valid-state'])
             ->get('/auth/google/callback?state=valid-state&error=access_denied')
-            ->assertRedirect('/')
-            ->assertSessionHas('auth_error', 'No se completó el acceso con Google.')
+            ->assertRedirect('/login?error=google_access_denied')
             ->assertSessionMissing('state');
 
+        $this->followRedirects($response)->assertOk()->assertViewIs('app');
         $this->assertGuest();
     }
 

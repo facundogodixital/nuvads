@@ -69,17 +69,19 @@
       </p>
 
       <p
-        v-if="error"
+        v-if="error || loginError"
         role="alert"
         class="mt-8 rounded-sm border border-danger px-4 py-3 text-sm text-danger"
       >
-        {{ error }}
+        {{ error || loginError }}
       </p>
 
-      <a
-        href="/auth/google/redirect"
+      <button
+        type="button"
+        :disabled="isStartingLogin"
         class="mt-10 flex items-center justify-center gap-3 rounded-sm bg-accent px-6 py-3 font-medium
           text-text-on-accent transition hover:bg-accent-hover active:translate-y-px"
+        @click="loginWithGoogle"
       >
         <svg
           class="h-5 w-5 shrink-0"
@@ -111,7 +113,7 @@
           />
         </svg>
         Continuar con Google
-      </a>
+      </button>
       <p class="mt-3 text-center text-sm text-text-muted">
         Inicia sesión o crea tu cuenta en un paso.
       </p>
@@ -233,6 +235,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue';
 import lockupUrl from '@/assets/brand/lockup.svg';
+import { createGoogleLoginUrl } from '@/helpers/authStorage';
 
 defineProps({
   error: { type: String, default: '' },
@@ -241,9 +244,11 @@ defineProps({
 const username = ref('');
 const password = ref('');
 const theme = ref('dark');
+const loginError = ref('');
 const identifier = ref('');
 const userFormIsOpen = ref(false);
 const identifierInput = ref(null);
+const isStartingLogin = ref(false);
 
 const themeIsDark = computed(() => theme.value === 'dark');
 const themeToggleLabel = computed(() => (themeIsDark.value ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'));
@@ -252,6 +257,17 @@ const themeToggleLabel = computed(() => (themeIsDark.value ? 'Cambiar a tema cla
 onMounted(() => {
   document.documentElement.dataset.theme = theme.value;
 });
+
+async function loginWithGoogle() {
+  loginError.value = '';
+  isStartingLogin.value = true;
+  try {
+    window.location.assign(await createGoogleLoginUrl());
+  } catch {
+    loginError.value = 'No se pudo iniciar el acceso. Comprueba que el navegador permita almacenar datos.';
+    isStartingLogin.value = false;
+  }
+}
 
 function toggleTheme() {
   theme.value = themeIsDark.value ? 'light' : 'dark';

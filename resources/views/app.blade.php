@@ -7,6 +7,6 @@
         @vite('resources/js/app.js')
     </head>
     <body>
-        <div id="app" data-page="{{ json_encode($page) }}"></div>
+        <div id="app"></div>
     </body>
 </html>

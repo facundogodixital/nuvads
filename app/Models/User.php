@@ -23,10 +23,13 @@ class User extends Authenticatable
         'client_id',
         'google_id',
         'is_enabled',
+        'api_token_hash',
+        'api_token_expires_at',
     ];
 
     protected $hidden = [
         'password',
+        'api_token_hash',
         'remember_token',
     ];
 
@@ -46,7 +49,9 @@ class User extends Authenticatable
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
+            'api_token_hash' => 'string',
             'remember_token' => 'string',
+            'api_token_expires_at' => 'datetime',
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use Tests\TestCase;
+use App\Services\UserService;
 use Database\Factories\UserFactory;
 use Database\Factories\ClientFactory;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,55 +17,112 @@ class SessionTest extends TestCase
     use RefreshDatabase;
 
 
-    // Con una sesión válida, la página debe recibir el nombre, email e identificador de cuenta del usuario actual.
+    // Las páginas entregan la entrada de Vue; la API rechaza sin redirigir, incluso si se pide HTML.
     #[Test]
-    public function presents_authenticated_user_and_client_identifier(): void
+    public function serves_frontend_and_protects_api_without_redirects(): void
     {
-        $user = UserFactory::new()->owner()->create();
-
-        $this->actingAs($user)->get('/')
-            ->assertOk()
-            ->assertViewHas('page.user', [
-                'name' => $user->name,
-                'email' => $user->email,
-                'login_identifier' => $user->client->login_identifier,
-            ]);
+        $this->get('/')->assertOk()->assertViewIs('app');
+        $this->get('/lalala?tab=details')->assertOk()->assertViewIs('app');
+        $this->get('/login')->assertOk()->assertViewIs('app');
+        $this->get('/api/auth/me')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
+        $this->get('/api/missing')->assertNotFound()->assertJsonPath('code', 'not_found');
+        $this->get('/auth/missing')->assertNotFound();
     }
 
 
-    // El logout debe cerrar el acceso, descartar los datos privados de sesión y renovar el token CSRF.
+    // Una sesión web válida no sustituye al Bearer token de la API.
     #[Test]
-    public function logs_out_and_invalidates_session_data_and_csrf_token(): void
+    public function rejects_web_session_without_access_token(): void
     {
         $user = UserFactory::new()->owner()->create();
 
-        $response = $this->actingAs($user)->withSession(['private_data' => 'value', '_token' => 'old-token'])
-            ->post('/auth/logout');
-
-        $response->assertRedirect('/')->assertSessionMissing('private_data');
-        $this->assertGuest();
-        $this->assertNotEmpty(session()->token());
-        $this->assertNotSame('old-token', session()->token());
+        $this->actingAs($user)->getJson('/api/auth/me')->assertUnauthorized();
     }
 
 
-    // Si el usuario o cliente está bloqueado o dado de baja, debe cerrar la sesión, limpiar sus datos y avisar.
+    // El contexto tipado pertenece al token; los campos enviados no pueden suplantar usuario ni cliente.
+    #[Test]
+    public function resolves_user_and_client_from_token_without_cookies(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $otherUser = UserFactory::new()->owner()->create();
+        $credentials = resolve(UserService::class)->createApiToken($user);
+
+        $this->withToken($credentials['token'])->getJson('/api/auth/me?'.http_build_query([
+            'user' => $otherUser->id,
+            'client' => $otherUser->client_id,
+            'authenticated_user' => $otherUser->id,
+            'authenticated_client' => $otherUser->client_id,
+        ]))->assertOk()
+            ->assertJsonPath('data.user.id', $user->id)
+            ->assertJsonPath('data.client.id', $user->client_id)
+            ->assertHeaderMissing('Set-Cookie');
+    }
+
+
+    // El token se guarda como hash y deja de funcionar después de sus 24 horas de vigencia.
+    #[Test]
+    public function expires_access_token_after_twenty_four_hours(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $credentials = resolve(UserService::class)->createApiToken($user);
+        $storedUser = $user->fresh();
+
+        $this->assertSame(hash('sha256', $credentials['token']), $storedUser->api_token_hash);
+        $this->withToken($credentials['token'])->getJson('/api/auth/me')->assertOk();
+        $this->travel(24)->hours();
+        $this->travel(1)->seconds();
+        $this->getJson('/api/auth/me')->assertUnauthorized();
+    }
+
+
+    // Revocar en la base impide la siguiente petición aunque el navegador conserve su credencial.
+    #[Test]
+    public function rejects_token_revoked_in_database(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $credentials = resolve(UserService::class)->createApiToken($user);
+        $user->update(['api_token_hash' => null, 'api_token_expires_at' => null]);
+
+        $this->withToken($credentials['token'])->getJson('/api/auth/me')->assertUnauthorized();
+    }
+
+
+    // Un nuevo acceso reemplaza al anterior; el logout revoca la credencial vigente del usuario.
+    #[Test]
+    public function replaces_previous_token_and_revokes_current_token_on_logout(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $firstLogin = resolve(UserService::class)->createApiToken($user);
+        $currentLogin = resolve(UserService::class)->createApiToken($user);
+
+        $this->withToken($firstLogin['token'])->getJson('/api/auth/me')->assertUnauthorized();
+        $this->withToken($currentLogin['token'])->getJson('/api/auth/me')->assertOk();
+        $this->postJson('/api/auth/logout')->assertOk()->assertExactJson(['data' => []]);
+        $this->getJson('/api/auth/me')->assertUnauthorized();
+        $this->assertNull($user->fresh()->api_token_hash);
+        $this->assertNull($user->fresh()->api_token_expires_at);
+    }
+
+
+    // Bloquear o dar de baja usuario o cliente corta inmediatamente el acceso de un token existente.
     #[Test]
     #[DataProvider('disabledAccounts')]
-    public function ends_existing_session_when_account_access_is_revoked(
-        array $userAttributes,
-        array $clientAttributes,
-    ): void {
-        $client = ClientFactory::new()->create($clientAttributes);
-        $user = UserFactory::new()->owner()->for($client)->create($userAttributes);
+    public function rejects_access_when_account_is_disabled(array $userAttributes, array $clientAttributes): void
+    {
+        $client = ClientFactory::new()->create();
+        $user = UserFactory::new()->owner()->for($client)->create();
+        $credentials = resolve(UserService::class)->createApiToken($user);
+        $user->forceFill($userAttributes)->save();
+        $client->forceFill($clientAttributes)->save();
 
-        $this->actingAs($user)->withSession(['private_data' => 'value'])
-            ->get('/')
-            ->assertRedirect('/')
-            ->assertSessionHas('auth_error', 'El acceso a esta cuenta está deshabilitado.')
-            ->assertSessionMissing('private_data');
-
-        $this->assertGuest();
+        $response = $this->withToken($credentials['token'])->getJson('/api/auth/me');
+        $userWasDeleted = isset($userAttributes['deleted_at']);
+        if ($userWasDeleted) {
+            $response->assertUnauthorized();
+            return;
+        }
+        $response->assertForbidden()->assertJsonPath('code', 'account_disabled');
     }
 
 
@@ -79,22 +137,11 @@ class SessionTest extends TestCase
     }
 
 
-    // Un usuario autenticado que intenta iniciar otro acceso con Google debe volver al inicio conservando su sesión.
-    #[Test]
-    public function prevents_authenticated_users_from_restarting_google_login(): void
-    {
-        $user = UserFactory::new()->owner()->create();
-
-        $this->actingAs($user)->get('/auth/google/redirect')->assertRedirect('/');
-        $this->assertAuthenticatedAs($user);
-    }
-
-
-    // Pedir el logout por JSON sin sesión debe devolver 401 con el código unauthenticated.
+    // El logout también requiere Bearer y nunca redirige al login desde la API.
     #[Test]
     public function requires_authentication_for_logout(): void
     {
-        $this->postJson('/auth/logout')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
+        $this->postJson('/api/auth/logout')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
     }
 
 }
