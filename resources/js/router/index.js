@@ -6,6 +6,7 @@ import NotFoundPage from '@/pages/NotFoundPage.vue';
 import LoginCallbackPage from '@/pages/LoginCallbackPage.vue';
 import SessionService from '@/services/SessionService';
 import { getLoginError } from '@/helpers/loginErrors';
+import { applyTheme, getStoredTheme, getSystemTheme } from '@/helpers/preferencesStorage';
 import { getAuthToken, clearAuthToken, rememberDestination, takeDestination } from '@/helpers/authStorage';
 
 export const navigationError = ref('');
@@ -53,10 +54,12 @@ router.beforeEach(async (to) => {
   return true;
 });
 
+// El tema elegido por el usuario gana siempre; sin elección, el login arranca
+// en dark por decisión de producto y el resto hereda la preferencia del sistema.
 router.afterEach((to) => {
   const isLoginPage = to.path === '/login' || to.path === '/login/callback';
-  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.dataset.theme = isLoginPage || systemPrefersDark ? 'dark' : 'light';
+  const fallbackTheme = isLoginPage ? 'dark' : getSystemTheme();
+  applyTheme(getStoredTheme() ?? fallbackTheme);
 });
 
 export default router;

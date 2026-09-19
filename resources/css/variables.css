@@ -21,6 +21,9 @@
   --accent-soft: #e9effc;
   --accent-hover: #1a4fc0;
   --text-on-accent: #ffffff;
+
+  /* Velo de tinta detrás de paneles superpuestos (drawer mobile). */
+  --scrim: rgb(16 21 29 / 0.45);
 }
 
 /* El manual en negativo: misma semántica, tinta clara sobre papel oscuro. */
@@ -38,6 +41,14 @@
   --accent-soft: #16203a;
   --accent-hover: #2452c4;
   --text-on-accent: #ffffff;
+
+  --scrim: rgb(2 5 10 / 0.6);
+}
+
+/* Geometría del sistema: radio único de controles, subido a 8px (decisión 19/09/2026).
+   Avatar y chips usan rounded-full; el resto de los controles usa rounded-sm. */
+@theme {
+  --radius-sm: 8px;
 }
 
 /* Las utilidades y el CSS local consumen las mismas variables de tema. */

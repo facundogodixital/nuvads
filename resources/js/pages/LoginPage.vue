@@ -11,50 +11,7 @@
         <p class="spec-label">
           Nuvads
         </p>
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-sm border border-border
-            text-text-muted transition hover:border-accent hover:text-accent"
-          :aria-label="themeToggleLabel"
-          @click="toggleTheme"
-        >
-          <svg
-            v-if="themeIsDark"
-            class="h-4 w-4"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle
-              cx="8"
-              cy="8"
-              r="3"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-            <path
-              d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4
-                1.4M4.8 11.2l-1.4 1.4"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-          <svg
-            v-else
-            class="h-4 w-4"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.3 4.3 0 0 0 6.5 6.5Z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+        <ThemeToggle />
       </div>
     </header>
 
@@ -233,8 +190,9 @@
 
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue';
+import { ref, nextTick } from 'vue';
 import lockupUrl from '@/assets/brand/lockup.svg';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 import { createGoogleLoginUrl } from '@/helpers/authStorage';
 
 defineProps({
@@ -243,20 +201,11 @@ defineProps({
 
 const username = ref('');
 const password = ref('');
-const theme = ref('dark');
 const loginError = ref('');
 const identifier = ref('');
 const userFormIsOpen = ref(false);
 const identifierInput = ref(null);
 const isStartingLogin = ref(false);
-
-const themeIsDark = computed(() => theme.value === 'dark');
-const themeToggleLabel = computed(() => (themeIsDark.value ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'));
-
-// El login arranca en dark por decisión de producto; el resto de la app hereda del sistema.
-onMounted(() => {
-  document.documentElement.dataset.theme = theme.value;
-});
 
 async function loginWithGoogle() {
   loginError.value = '';
@@ -267,11 +216,6 @@ async function loginWithGoogle() {
     loginError.value = 'No se pudo iniciar el acceso. Comprueba que el navegador permita almacenar datos.';
     isStartingLogin.value = false;
   }
-}
-
-function toggleTheme() {
-  theme.value = themeIsDark.value ? 'light' : 'dark';
-  document.documentElement.dataset.theme = theme.value;
 }
 
 async function toggleUserForm() {
@@ -287,20 +231,6 @@ async function toggleUserForm() {
 
 
 <style scoped>
-.brand-rule {
-  height: 3px;
-  background: linear-gradient(90deg, var(--brand-cyan), var(--brand-mid), var(--brand-blue));
-}
-
-/* Etiquetas specimen: la grotesca del manual en versalitas espaciadas. */
-.spec-label {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* El despliegue anima las filas de la grilla: la nota al pie "se abre". */
 .unfold-frame {
   display: grid;

@@ -12,16 +12,16 @@
 
 /* La base permite que las utilidades de cada pantalla tengan prioridad. */
 @layer base {
+  html {
+    scrollbar-color: var(--border) transparent;
+  }
+
   body {
     margin: 0;
     color: var(--text);
     line-height: 1.5;
     background-color: var(--surface);
     font-family: 'Archivo', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
-  }
-
-  main {
-    padding: 2rem;
   }
 
   /* Las superficies del navegador también llevan la paleta del manual. */
@@ -38,5 +38,23 @@
   input,
   textarea {
     caret-color: var(--accent);
+  }
+}
+
+/* Piezas del manual compartidas entre pantallas. */
+@layer components {
+  /* El degradé del logo aparece solo en el lockup y en esta regla de 3px. */
+  .brand-rule {
+    height: 3px;
+    background: linear-gradient(90deg, var(--brand-cyan), var(--brand-mid), var(--brand-blue));
+  }
+
+  /* Etiquetas specimen: la grotesca del manual en versalitas espaciadas. */
+  .spec-label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
   }
 }
