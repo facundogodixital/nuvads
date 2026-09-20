@@ -41,7 +41,7 @@ class GoogleAuthService
         $signupAttributes = $clientService->getSignupClientAttributes($googleUser->email, $request->ip());
         $signupAttributes['login_identifier'] = $clientService->getAvailableLoginIdentifier($googleUser->email);
 
-        // Cliente y titular se confirman juntos; un fallo no debe dejar una cuenta incompleta.
+        // Cliente, marca y titular se confirman juntos para evitar una cuenta incompleta.
         DB::beginTransaction();
         try {
             $client = $clientService->create($signupAttributes);

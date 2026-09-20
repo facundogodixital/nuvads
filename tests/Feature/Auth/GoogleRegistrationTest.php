@@ -4,9 +4,11 @@ namespace Tests\Feature\Auth;
 
 use Mockery;
 use App\Models\User;
+use App\Models\Brand;
 use RuntimeException;
 use App\Models\Client;
 use App\Services\UserService;
+use App\Services\BrandService;
 use Database\Factories\UserFactory;
 use Illuminate\Support\Facades\Http;
 use Database\Factories\ClientFactory;
@@ -21,7 +23,7 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     use RefreshDatabase;
 
 
-    // El primer acceso crea cliente y titular; entrega un código canjeable sin autenticar la sesión web.
+    // El primer acceso crea cliente, marca y titular; entrega un código canjeable sin autenticar la sesión web.
     #[Test]
     public function registers_client_and_owner_and_issues_login_code(): void
     {
@@ -41,7 +43,10 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
         $response->assertRedirect();
         $this->assertStringContainsString('/login/callback#code=', $response->headers->get('Location'));
         $user = User::query()->sole();
+        $brand = Brand::query()->sole();
         $client = Client::query()->sole();
+        $this->assertSame('Tu marca', $brand->name);
+        $this->assertSame($client->id, $brand->client_id);
         $this->assertGuest();
         $this->assertNotSame($previousSessionId, session()->getId());
         $this->assertTrue($user->is_owner);
@@ -65,6 +70,7 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     {
         Http::fake();
         $user = UserFactory::new()->owner()->create(['google_id' => 'existing-owner']);
+        $brand = resolve(BrandService::class)->create($user->client, 'Mi marca');
         $identifier = $user->client->login_identifier;
         $this->queueGoogleProfile([
             'sub' => 'existing-owner',
@@ -84,6 +90,8 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
         $this->assertGuest();
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('clients', 1);
+        $this->assertDatabaseCount('brands', 1);
+        $this->assertSame('Mi marca', $brand->fresh()->name);
         $this->assertSame($user->email, $user->fresh()->email);
         $this->assertSame($identifier, $user->client->fresh()->login_identifier);
         Http::assertNothingSent();
@@ -137,12 +145,14 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
             'email_verified' => true,
             'email' => 'owner@example.com',
         ]);
+        $brandExistedBeforeFailure = false;
         $clientExistedBeforeFailure = false;
         $userService = Mockery::mock(UserService::class);
         $userService->shouldReceive('findOneByGoogleId')->once()->with('new-owner')->andReturnNull();
         $userService->shouldReceive('create')->once()->andReturnUsing(
-            function (Client $client) use (&$clientExistedBeforeFailure): never {
+            function (Client $client) use (&$clientExistedBeforeFailure, &$brandExistedBeforeFailure): never {
                 $clientExistedBeforeFailure = Client::query()->whereKey($client->id)->exists();
+                $brandExistedBeforeFailure = Brand::query()->where('client_id', $client->id)->exists();
                 throw new RuntimeException('Simulated persistence failure');
             },
         );
@@ -155,9 +165,11 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
 
         // Fuera de la petición: el handler no debe convertir un fallo de esta aserción en el 500 esperado.
         $this->assertTrue($clientExistedBeforeFailure);
+        $this->assertTrue($brandExistedBeforeFailure);
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
         $this->assertDatabaseCount('clients', 0);
+        $this->assertDatabaseCount('brands', 0);
     }
 
 }

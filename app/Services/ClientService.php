@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use Throwable;
 use App\Models\Client;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use App\Helpers\IpGeolocationHelper;
 use App\Repositories\ClientRepository;
 use Illuminate\Database\Eloquent\Collection;
@@ -23,7 +25,18 @@ class ClientService
 
     public function create(array $attributes): Client
     {
-        return $this->clientRepository->create($attributes);
+        // Todo cliente nace con una marca; ambas escrituras deben confirmarse juntas.
+        DB::beginTransaction();
+        try {
+            $client = $this->clientRepository->create($attributes);
+            resolve(BrandService::class)->create($client, 'Tu marca');
+            DB::commit();
+
+            return $client;
+        } catch (Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
     }
 
 

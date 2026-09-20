@@ -39,6 +39,12 @@ class Client extends Model
     }
 
 
+    public function brands(): HasMany
+    {
+        return $this->hasMany(Brand::class);
+    }
+
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
