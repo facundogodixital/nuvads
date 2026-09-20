@@ -38,7 +38,7 @@
           <img
             :src="lockupUrl"
             alt="Nuvads"
-            class="hidden h-10 w-auto md:block"
+            class="hidden h-12 w-auto md:block"
           >
           <img
             :src="logoUrl"
