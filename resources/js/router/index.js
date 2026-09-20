@@ -4,7 +4,7 @@ import LoginPage from '@/pages/LoginPage.vue';
 import DashboardPage from '@/pages/DashboardPage.vue';
 import NotFoundPage from '@/pages/NotFoundPage.vue';
 import LoginCallbackPage from '@/pages/LoginCallbackPage.vue';
-import SessionService from '@/services/SessionService';
+import { useSessionStore } from '@/stores/sessionStore';
 import { getLoginError } from '@/helpers/loginErrors';
 import { applyTheme, getStoredTheme, getSystemTheme } from '@/helpers/preferencesStorage';
 import { getAuthToken, clearAuthToken, rememberDestination, takeDestination } from '@/helpers/authStorage';
@@ -27,6 +27,7 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
+  const sessionStore = useSessionStore();
   navigationError.value = '';
   if (to.path === '/login/callback') {
     return true;
@@ -35,7 +36,7 @@ router.beforeEach(async (to) => {
   try {
     const token = getAuthToken();
     if (token) {
-      await SessionService.find();
+      await sessionStore.find();
       return to.path === '/login' ? takeDestination() : true;
     }
   } catch (error) {
@@ -46,6 +47,8 @@ router.beforeEach(async (to) => {
     }
     clearAuthToken();
   }
+
+  sessionStore.clear();
 
   if (to.meta.requiresAuth) {
     rememberDestination(to.fullPath);

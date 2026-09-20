@@ -67,23 +67,22 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import SessionService from '@/services/SessionService';
 import { clearAuthToken } from '@/helpers/authStorage';
+import { useSessionStore } from '@/stores/sessionStore';
 
-const userName = ref('');
+const sessionStore = useSessionStore();
+
 const router = useRouter();
 const logoutError = ref('');
 const menuIsOpen = ref(false);
 const isLoggingOut = ref(false);
 
-const userInitial = computed(() => userName.value.trim().charAt(0).toUpperCase());
+const userInitial = computed(() => {
+  const userName = sessionStore.session?.user.name ?? '';
+  return userName.trim().charAt(0).toUpperCase();
+});
 
-onMounted(async () => {
+onMounted(() => {
   document.addEventListener('keydown', closeMenuOnEscape);
-  try {
-    const session = await SessionService.find();
-    userName.value = session.user.name;
-  } catch {
-    // Sin sesión legible no hay inicial; el guard del router resuelve el acceso.
-  }
 });
 
 onBeforeUnmount(() => {
@@ -112,6 +111,7 @@ async function logout() {
   try {
     await SessionService.delete();
     clearAuthToken();
+    sessionStore.clear();
     await router.replace('/login');
   } catch (error) {
     logoutError.value = error.message;
