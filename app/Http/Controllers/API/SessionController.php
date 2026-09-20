@@ -26,11 +26,13 @@ class SessionController extends Controller
     public function find(AuthenticatedRequest $request): JsonResponse
     {
         $user = $request->user;
+        $brand = $request->brand;
         $client = $request->client;
 
         return response()->json(['data' => [
             'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
             'client' => ['id' => $client->id, 'name' => $client->name],
+            'brand' => ['id' => $brand->id, 'name' => $brand->name],
         ]])->header('Cache-Control', 'no-store');
     }
 

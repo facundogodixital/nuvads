@@ -1,11 +1,15 @@
 import { ref } from 'vue';
-import { createRouter, createWebHistory } from 'vue-router';
-import LoginPage from '@/pages/LoginPage/LoginPage.vue';
-import DashboardPage from '@/pages/DashboardPage/DashboardPage.vue';
-import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage.vue';
-import LoginCallbackPage from '@/pages/LoginCallbackPage/LoginCallbackPage.vue';
-import { useSessionStore } from '@/stores/sessionStore';
 import { getLoginError } from '@/helpers/loginErrors';
+import BrandPage from '@/pages/BrandPage/BrandPage.vue';
+import LoginPage from '@/pages/LoginPage/LoginPage.vue';
+import { useSessionStore } from '@/stores/sessionStore';
+import CreatePage from '@/pages/CreatePage/CreatePage.vue';
+import { createRouter, createWebHistory } from 'vue-router';
+import LibraryPage from '@/pages/LibraryPage/LibraryPage.vue';
+import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage.vue';
+import DashboardPage from '@/pages/DashboardPage/DashboardPage.vue';
+import InspirationPage from '@/pages/InspirationPage/InspirationPage.vue';
+import LoginCallbackPage from '@/pages/LoginCallbackPage/LoginCallbackPage.vue';
 import { applyTheme, getStoredTheme, getSystemTheme } from '@/helpers/preferencesStorage';
 import { getAuthToken, clearAuthToken, rememberDestination, takeDestination } from '@/helpers/authStorage';
 
@@ -15,6 +19,10 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: DashboardPage, meta: { requiresAuth: true } },
+    { path: '/create', component: CreatePage, meta: { requiresAuth: true } },
+    { path: '/library', component: LibraryPage, meta: { requiresAuth: true } },
+    { path: '/brand', component: BrandPage, meta: { requiresAuth: true } },
+    { path: '/inspiration', component: InspirationPage, meta: { requiresAuth: true } },
     {
       path: '/login',
       component: LoginPage,

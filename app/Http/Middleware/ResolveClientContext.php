@@ -20,6 +20,10 @@ class ResolveClientContext
             throw new ApiException(403, 'account_disabled', 'El acceso a esta cuenta está deshabilitado.');
         }
 
+        // Por ahora cada cliente opera con una única marca activa.
+        $brand = $user->client->brands->sole();
+
+        $request->attributes->set('authenticated_brand', $brand);
         $request->attributes->set('authenticated_client', $user->client);
 
         return $next($request);

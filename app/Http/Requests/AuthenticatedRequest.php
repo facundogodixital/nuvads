@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Models\Brand;
 use App\Models\Client;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,6 +12,7 @@ class AuthenticatedRequest extends FormRequest
 {
 
     public User $user;
+    public Brand $brand;
     public Client $client;
 
 
@@ -18,6 +20,7 @@ class AuthenticatedRequest extends FormRequest
     {
         // Solo se copian los atributos internos preparados por los middlewares, nunca datos de entrada.
         $this->user = $this->attributes->get('authenticated_user');
+        $this->brand = $this->attributes->get('authenticated_brand');
         $this->client = $this->attributes->get('authenticated_client');
     }
 

@@ -62,6 +62,7 @@
         class="hidden shrink-0 flex-col border-r border-border transition-[width] duration-250 md:flex"
         :class="sidebarIsCollapsed ? 'w-[72px]' : 'w-[216px]'"
       >
+        <BrandMenu :is-collapsed="sidebarIsCollapsed" />
         <SidebarNav
           :is-collapsed="sidebarIsCollapsed"
           class="flex-1 overflow-y-auto p-3"
@@ -146,6 +147,7 @@
             </svg>
           </button>
         </div>
+        <BrandMenu />
         <SidebarNav
           class="flex-1 overflow-y-auto p-3"
           @navigate="closeDrawer"
@@ -162,6 +164,7 @@ import { RouterLink } from 'vue-router';
 import logoUrl from '@/assets/brand/logo.svg';
 import UserMenu from '@/components/UserMenu.vue';
 import lockupUrl from '@/assets/brand/lockup.svg';
+import BrandMenu from '@/components/BrandMenu.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import SidebarNav from '@/components/SidebarNav.vue';
 import { getStoredSidebarIsCollapsed, storeSidebarIsCollapsed } from '@/helpers/preferencesStorage';
