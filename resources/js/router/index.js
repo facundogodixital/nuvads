@@ -1,9 +1,9 @@
 import { ref } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
-import LoginPage from '@/pages/LoginPage.vue';
-import DashboardPage from '@/pages/DashboardPage.vue';
-import NotFoundPage from '@/pages/NotFoundPage.vue';
-import LoginCallbackPage from '@/pages/LoginCallbackPage.vue';
+import LoginPage from '@/pages/LoginPage/LoginPage.vue';
+import DashboardPage from '@/pages/DashboardPage/DashboardPage.vue';
+import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage.vue';
+import LoginCallbackPage from '@/pages/LoginCallbackPage/LoginCallbackPage.vue';
 import { useSessionStore } from '@/stores/sessionStore';
 import { getLoginError } from '@/helpers/loginErrors';
 import { applyTheme, getStoredTheme, getSystemTheme } from '@/helpers/preferencesStorage';

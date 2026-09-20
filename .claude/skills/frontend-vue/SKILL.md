@@ -172,8 +172,22 @@ export default {
 ## 4. Organización de layouts, páginas y componentes
 
 - `resources/js/layouts/`: estructuras compartidas que reciben el contenido de las páginas.
-- `resources/js/pages/`: composición de cada pantalla a partir del layout y los componentes que necesita.
-- `resources/js/components/`: piezas reutilizables. Agruparlas en subcarpetas cuando exista una necesidad concreta.
+- `resources/js/pages/`: cada página tiene un directorio con su mismo nombre y, dentro, el componente principal con ese nombre: `pages/DashboardPage/DashboardPage.vue`. Crear el directorio aunque la página todavía no tenga subcomponentes.
+- Los componentes exclusivos de una página (tablas, filas, filtros, etc.) viven en ese mismo directorio, al mismo nivel que el componente principal.
+- `resources/js/components/`: piezas compartidas entre páginas o usadas por los layouts. Agruparlas en subcarpetas cuando exista una necesidad concreta.
+
+Ejemplo de ubicación cuando esos componentes sean necesarios:
+
+```text
+pages/DashboardPage/
+  DashboardPage.vue
+  DashboardTableBody.vue
+  DashboardTableHeader.vue
+  DashboardTableRow.vue
+  UsersFilters.vue
+```
+
+Esta estructura define dónde ubicar los componentes; no obliga a descomponer una página ni a crear los componentes del ejemplo.
 
 El layout organiza las áreas compartidas de la pantalla; cada componente organiza su interior. Las páginas se integran en el área de contenido del layout, sin repetir su estructura ni compensarla con márgenes propios.
 
