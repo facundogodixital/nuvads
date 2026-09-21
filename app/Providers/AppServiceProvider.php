@@ -14,7 +14,11 @@ use App\Repositories\BrandRepository;
 use App\Repositories\ClientRepository;
 use App\Services\AdministratorService;
 use Illuminate\Support\ServiceProvider;
+use App\Services\KnowledgeSourceService;
+use App\Services\KnowledgeInsightService;
 use App\Repositories\AdministratorRepository;
+use App\Repositories\KnowledgeSourceRepository;
+use App\Repositories\KnowledgeInsightRepository;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -26,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(KnowledgeSourceService::class);
+        $this->app->scoped(KnowledgeInsightService::class);
+        $this->app->scoped(KnowledgeSourceRepository::class);
+        $this->app->scoped(KnowledgeInsightRepository::class);
         $this->app->scoped(UserService::class);
         $this->app->scoped(BrandService::class);
         $this->app->scoped(LoginCodeService::class);
