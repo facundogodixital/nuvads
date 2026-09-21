@@ -259,3 +259,18 @@ ease-out. Al abrir, el foco pasa al primer campo. El drawer mobile reutiliza el 
 - **Don't** usar el degradé de marca fuera del lockup y la regla de 3px.
 - **Don't** introducir radios mayores a 8px ni círculos decorativos; las únicas formas redondas sancionadas son el avatar (círculo de 32px) y el chip de créditos (píldora hairline). Nada de tarjetas flotantes centradas sobre fondo gris.
 - **Don't** hardcodear colores de tema; solo las constantes de marca (#25dcea, #2abeff, #2576ff) son literales legítimos.
+
+## Mi marca
+
+La pantalla reúne dos áreas abiertas desde el inicio: investigaciones por fuente (Google Maps,
+Instagram y sitio web) y conocimiento editable de la marca. Cada investigación tiene entrada,
+acción, estado y espacio para datos recopilados y conclusiones. No hay pasos, porcentajes ni
+secciones bloqueadas por completar información.
+
+Por decisión del usuario, esta superficie usa paneles claramente separados: borde hairline,
+papel elevado y radio existente de 8px, sin sombras. Las acciones de análisis pertenecen a cada
+fuente; editar es una acción secundaria dentro de cada bloque. Logo y paleta tienen una
+representación visual propia. La distribución se apila en móvil manteniendo todas las secciones.
+
+La implementación actual es una vista previa local: la edición, el logo y la paleta no persisten;
+los análisis pendientes se identifican explícitamente y no se simulan resultados.
