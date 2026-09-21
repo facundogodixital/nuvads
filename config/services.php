@@ -2,6 +2,11 @@
 
 return [
 
+    'apify' => [
+        'api_key' => env('APIFY_API_KEY'),
+        'user_id' => env('APIFY_USER_ID'),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),

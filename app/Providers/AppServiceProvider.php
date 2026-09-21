@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Helpers\ApifyHelper;
 use App\Services\UserService;
 use App\Services\BrandService;
 use App\Services\ClientService;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(ApifyHelper::class);
         $this->app->scoped(KnowledgeSourceService::class);
         $this->app->scoped(KnowledgeInsightService::class);
         $this->app->scoped(KnowledgeSourceRepository::class);
