@@ -108,7 +108,7 @@ class KnowledgeInsightTest extends TestCase
     public function rejects_foreign_references_on_creation(string $field): void
     {
         $brand = $this->createBrand();
-        $siblingBrand = resolve(BrandService::class)->create($brand->client, 'Segunda marca');
+        $siblingBrand = resolve(BrandService::class)->create($brand->client, ['name' => 'Segunda marca']);
         $references = $this->createReferences($siblingBrand);
         $service = resolve(KnowledgeInsightService::class);
 
@@ -163,7 +163,7 @@ class KnowledgeInsightTest extends TestCase
 
     private function createBrand(): Brand
     {
-        return resolve(BrandService::class)->create(ClientFactory::new()->create(), 'Marca de prueba');
+        return resolve(BrandService::class)->create(ClientFactory::new()->create(), ['name' => 'Marca de prueba']);
     }
 
 

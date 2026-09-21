@@ -17,6 +17,9 @@ class Brand extends Model
     protected $fillable = [
         'name',
         'client_id',
+        'website_url',
+        'google_maps_url',
+        'instagram_username',
     ];
 
 
@@ -25,6 +28,9 @@ class Brand extends Model
         return [
             'id' => 'integer',
             'name' => 'string',
+            'google_maps_url' => 'string',
+            'instagram_username' => 'string',
+            'website_url' => 'string',
             'client_id' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',

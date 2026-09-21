@@ -10,12 +10,20 @@ class BrandRepository
 {
 
 
-    public function create(Client $client, string $name): Brand
+    public function create(Client $client, array $attributes): Brand
     {
-        return Brand::query()->create([
-            'name' => $name,
-            'client_id' => $client->id,
-        ]);
+        $attributes['client_id'] = $client->id;
+
+        return Brand::query()->create($attributes);
+    }
+
+
+    public function update(Brand $brand, array $attributes): Brand
+    {
+        $brand->fill($attributes);
+        $brand->save();
+
+        return $brand;
     }
 
 }

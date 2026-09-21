@@ -31,7 +31,7 @@
       </header>
 
       <div class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border px-4 py-3 text-xs leading-5 text-text-muted">
-        <p><span class="font-medium text-text">Vista previa.</span> Puedes editar datos, probar tu logo y colores. Los cambios no se guardan al salir.</p>
+        <p><span class="font-medium text-text">Vista previa.</span> Los enlaces de tus fuentes se guardan. El resto de los datos, logo y colores siguen en vista previa.</p>
         <span>Análisis automático próximamente</span>
       </div>
 
@@ -57,11 +57,35 @@
             class="py-2 text-sm underline decoration-border underline-offset-4 hover:decoration-text"
           >Ver información de la marca</a>
         </header>
+        <p
+          v-if="isLoadingSources"
+          role="status"
+          class="mb-4 text-sm text-text-muted"
+        >
+          Cargando tus enlaces…
+        </p>
+        <div
+          v-if="sourcesError"
+          role="alert"
+          class="mb-4 flex flex-wrap items-center gap-3 rounded-sm border border-danger p-3 text-sm text-danger"
+        >
+          <span>{{ sourcesError }}</span>
+          <button
+            type="button"
+            class="min-h-11 cursor-pointer underline underline-offset-4"
+            @click="loadSources"
+          >
+            Volver a intentar
+          </button>
+        </div>
         <div class="grid gap-5 lg:grid-cols-3">
           <BrandResearchPanel
             v-for="source in researchSources"
             :key="source.id"
             :source="source"
+            :saved-value="sources[source.field] ?? ''"
+            :is-available="sourcesAreLoaded"
+            @saved="sources[source.field] = $event"
           />
         </div>
       </section>
@@ -103,7 +127,8 @@
 
 
 <script setup>
-import { reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import BrandService from '@/services/BrandService';
 import SystemLayout from '@/layouts/SystemLayout.vue';
 import { useSessionStore } from '@/stores/sessionStore';
 import BrandResearchPanel from './BrandResearchPanel.vue';
@@ -113,6 +138,11 @@ import { brandSections, researchSources } from './brandSections';
 
 const sessionStore = useSessionStore();
 
+const sources = reactive({});
+const sourcesError = ref('');
+const isLoadingSources = ref(true);
+const sourcesAreLoaded = ref(false);
+
 const knowledge = reactive({
   business: { name: sessionStore.session?.brand?.name ?? '' },
   audience: {},
@@ -120,4 +150,25 @@ const knowledge = reactive({
   'customer-insights': {},
   communication: {},
 });
+
+onMounted(loadSources);
+
+async function loadSources() {
+  sourcesError.value = '';
+  isLoadingSources.value = true;
+
+  try {
+    const brand = await BrandService.find();
+
+    for (const source of researchSources) {
+      sources[source.field] = brand[source.field] ?? '';
+    }
+
+    sourcesAreLoaded.value = true;
+  } catch (error) {
+    sourcesError.value = error.message;
+  } finally {
+    isLoadingSources.value = false;
+  }
+}
 </script>

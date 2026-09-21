@@ -272,5 +272,6 @@ papel elevado y radio existente de 8px, sin sombras. Las acciones de análisis p
 fuente; editar es una acción secundaria dentro de cada bloque. Logo y paleta tienen una
 representación visual propia. La distribución se apila en móvil manteniendo todas las secciones.
 
-La implementación actual es una vista previa local: la edición, el logo y la paleta no persisten;
-los análisis pendientes se identifican explícitamente y no se simulan resultados.
+Los enlaces de las fuentes se cargan y guardan por panel para la marca de la sesión. Cada panel
+indica carga, guardado y errores. El resto del conocimiento, el logo y la paleta siguen siendo
+una vista previa local; los análisis pendientes se identifican y no se simulan resultados.

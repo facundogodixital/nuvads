@@ -35,6 +35,31 @@ class BrandCreationTest extends TestCase
     }
 
 
+    // La creación recibe todos los atributos y siempre conserva el cliente indicado por el servicio.
+    #[Test]
+    public function creates_brand_with_source_attributes(): void
+    {
+        $client = ClientFactory::new()->create();
+        $otherClient = ClientFactory::new()->create();
+
+        $brand = resolve(BrandService::class)->create($client, [
+            'name' => 'Mi marca',
+            'client_id' => $otherClient->id,
+            'website_url' => 'https://example.com',
+            'instagram_username' => 'mi.marca',
+            'google_maps_url' => 'https://maps.app.goo.gl/example',
+        ]);
+
+        $this->assertDatabaseHas('brands', [
+            'id' => $brand->id,
+            'client_id' => $client->id,
+            'website_url' => 'https://example.com',
+            'instagram_username' => 'mi.marca',
+            'google_maps_url' => 'https://maps.app.goo.gl/example',
+        ]);
+    }
+
+
     // Un fallo de persistencia de la marca debe deshacer también la creación del cliente.
     #[Test]
     public function rolls_back_client_when_brand_creation_fails(): void
@@ -42,7 +67,7 @@ class BrandCreationTest extends TestCase
         $clientExistedBeforeFailure = false;
         $brandRepository = Mockery::mock(BrandRepository::class);
         $brandRepository->shouldReceive('create')->once()->andReturnUsing(
-            function (Client $client, string $name) use (&$clientExistedBeforeFailure): never {
+            function (Client $client, array $attributes) use (&$clientExistedBeforeFailure): never {
                 $clientExistedBeforeFailure = Client::query()->whereKey($client->id)->exists();
                 throw new RuntimeException('Simulated brand persistence failure');
             },
@@ -70,9 +95,9 @@ class BrandCreationTest extends TestCase
         $brandService = resolve(BrandService::class);
         $otherClient = ClientFactory::new()->create();
 
-        $firstBrand = $brandService->create($client, 'Primera marca');
-        $secondBrand = $brandService->create($client, 'Segunda marca');
-        $otherBrand = $brandService->create($otherClient, 'Otra marca');
+        $firstBrand = $brandService->create($client, ['name' => 'Primera marca']);
+        $secondBrand = $brandService->create($client, ['name' => 'Segunda marca']);
+        $otherBrand = $brandService->create($otherClient, ['name' => 'Otra marca']);
 
         $this->assertSame([$firstBrand->id, $secondBrand->id], $client->brands()->orderBy('id')->pluck('id')->all());
         $this->assertSame([$otherBrand->id], $otherClient->brands->modelKeys());

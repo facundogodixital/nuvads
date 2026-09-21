@@ -100,6 +100,8 @@ Ejemplo de error inesperado en desarrollo — HTTP 500:
 
 Decisión: todos los requests deben seguir el mismo recorrido de validación.
 
+Orden de los métodos: `rules()` primero y `messages()` inmediatamente después, cuando exista. Después van los demás métodos del request.
+
 Paso 1 — Reglas de entrada:
 `rules()` declara los campos obligatorios, tipos, formatos, límites y demás reglas que Laravel pueda expresar directamente. Laravel las evalúa con su comportamiento por defecto y acumula los errores de todos los campos.
 

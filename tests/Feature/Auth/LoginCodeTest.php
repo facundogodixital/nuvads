@@ -21,7 +21,7 @@ class LoginCodeTest extends TestCase
     public function binds_code_to_browser_and_consumes_it_once(): void
     {
         $user = UserFactory::new()->owner()->create();
-        resolve(BrandService::class)->create($user->client, 'Tu marca');
+        resolve(BrandService::class)->create($user->client, ['name' => 'Tu marca']);
         $verifier = str_repeat('b', 64);
         $code = resolve(LoginCodeService::class)->create($user, hash('sha256', $verifier));
 

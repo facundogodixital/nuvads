@@ -19,9 +19,15 @@ class BrandService
     }
 
 
-    public function create(Client $client, string $name): Brand
+    public function create(Client $client, array $attributes): Brand
     {
-        return $this->brandRepository->create($client, $name);
+        return $this->brandRepository->create($client, $attributes);
+    }
+
+
+    public function update(Brand $brand, array $attributes): Brand
+    {
+        return $this->brandRepository->update($brand, $attributes);
     }
 
 }

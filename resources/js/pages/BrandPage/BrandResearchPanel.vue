@@ -33,7 +33,10 @@
       </div>
     </header>
 
-    <div class="p-5">
+    <form
+      class="p-5"
+      @submit.prevent="saveSource"
+    >
       <label
         :for="`${source.id}-url`"
         class="spec-label mb-2 block"
@@ -42,12 +45,33 @@
         :id="`${source.id}-url`"
         v-model="sourceUrl"
         :type="source.inputType"
+        :disabled="!isAvailable || isSaving"
+        :aria-invalid="Boolean(saveError)"
+        :aria-describedby="`${source.id}-save-feedback`"
         :placeholder="source.placeholder"
         autocomplete="off"
         autocapitalize="none"
         :spellcheck="false"
         class="min-h-11 w-full rounded-sm border border-border bg-surface px-3 text-sm placeholder:text-text-muted"
+        @input="clearFeedback"
       >
+      <div class="mt-3 flex items-center justify-between gap-3">
+        <span
+          :id="`${source.id}-save-feedback`"
+          role="status"
+          class="text-xs"
+          :class="saveError ? 'text-danger' : 'text-text-muted'"
+        >
+          {{ saveError || saveMessage || (isAvailable ? 'Puedes cambiarlo o quitarlo cuando quieras.' : 'Enlaces no disponibles todavía.') }}
+        </span>
+        <button
+          type="submit"
+          :disabled="!isAvailable || isSaving || !hasChanges"
+          class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm font-medium enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
+        >
+          {{ isSaving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
       <button
         type="button"
         disabled
@@ -74,7 +98,7 @@
       >
         Análisis pendiente de conexión.
       </p>
-    </div>
+    </form>
 
     <div
       class="mx-5 flex border-b border-border"
@@ -124,16 +148,60 @@
 
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, watch, computed, nextTick } from 'vue';
+import BrandService from '@/services/BrandService';
 
-const props = defineProps({ source: { type: Object, required: true } });
+const props = defineProps({
+  source: { type: Object, required: true },
+  savedValue: { type: String, default: '' },
+  isAvailable: { type: Boolean, default: false },
+});
 
-const sourceUrl = ref('');
+const emit = defineEmits(['saved']);
+
+const saveError = ref('');
+const isSaving = ref(false);
+const saveMessage = ref('');
 const activeTab = ref('data');
+const sourceUrl = ref(props.savedValue);
 const resultTabs = [
   { id: 'data', label: props.source.dataLabel },
   { id: 'insights', label: 'Conclusiones' },
 ];
+
+const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
+
+watch(() => props.savedValue, (value) => {
+  sourceUrl.value = value;
+});
+
+function clearFeedback() {
+  saveError.value = '';
+  saveMessage.value = '';
+}
+
+async function saveSource() {
+  const cannotSave = !props.isAvailable || isSaving.value || !hasChanges.value;
+  if (cannotSave) {
+    return;
+  }
+
+  clearFeedback();
+  isSaving.value = true;
+
+  try {
+    const brand = await BrandService.update({ [props.source.field]: sourceUrl.value.trim() || null });
+    const savedValue = brand[props.source.field] ?? '';
+
+    sourceUrl.value = savedValue;
+    emit('saved', savedValue);
+    saveMessage.value = savedValue ? 'Guardado.' : 'Enlace eliminado.';
+  } catch (error) {
+    saveError.value = error.errors?.[props.source.field]?.[0] ?? error.message;
+  } finally {
+    isSaving.value = false;
+  }
+}
 
 async function selectTab(tabId) {
   activeTab.value = tabId;

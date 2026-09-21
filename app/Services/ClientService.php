@@ -29,7 +29,7 @@ class ClientService
         DB::beginTransaction();
         try {
             $client = $this->clientRepository->create($attributes);
-            resolve(BrandService::class)->create($client, 'Tu marca');
+            resolve(BrandService::class)->create($client, ['name' => 'Tu marca']);
             DB::commit();
 
             return $client;

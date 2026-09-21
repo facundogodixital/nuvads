@@ -70,7 +70,7 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     {
         Http::fake();
         $user = UserFactory::new()->owner()->create(['google_id' => 'existing-owner']);
-        $brand = resolve(BrandService::class)->create($user->client, 'Mi marca');
+        $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
         $identifier = $user->client->login_identifier;
         $this->queueGoogleProfile([
             'sub' => 'existing-owner',

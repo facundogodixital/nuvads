@@ -16,18 +16,18 @@ class AuthenticatedRequest extends FormRequest
     public Client $client;
 
 
+    public function rules(): array
+    {
+        return [];
+    }
+
+
     protected function prepareForValidation(): void
     {
         // Solo se copian los atributos internos preparados por los middlewares, nunca datos de entrada.
         $this->user = $this->attributes->get('authenticated_user');
         $this->brand = $this->attributes->get('authenticated_brand');
         $this->client = $this->attributes->get('authenticated_client');
-    }
-
-
-    public function rules(): array
-    {
-        return [];
     }
 
 }

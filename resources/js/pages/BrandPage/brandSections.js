@@ -51,7 +51,7 @@ export const brandSections = [
 
 export const researchSources = [
   {
-    id: 'google-maps', title: 'Google Maps', description: 'La voz de tus clientes',
+    id: 'google-maps', field: 'google_maps_url', title: 'Google Maps', description: 'La voz de tus clientes',
     label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…',
     dataLabel: 'Reseñas', resultLabel: 'Reseñas y reputación',
     emptyTitle: 'Tus reseñas, reunidas aquí',
@@ -60,7 +60,7 @@ export const researchSources = [
     icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   },
   {
-    id: 'instagram', title: 'Instagram', description: 'Tu comunicación en acción',
+    id: 'instagram', field: 'instagram_username', title: 'Instagram', description: 'Tu comunicación en acción',
     label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca',
     dataLabel: 'Publicaciones', resultLabel: 'Contenido y estilo',
     emptyTitle: 'Lo que ya estás publicando',
@@ -69,7 +69,7 @@ export const researchSources = [
     icon: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4ZM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM17.5 6.5h.01',
   },
   {
-    id: 'website', title: 'Sitio web', description: 'Tu negocio en tus palabras',
+    id: 'website', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
     label: 'Dirección de tu sitio', inputType: 'url', placeholder: 'https://tumarca.com',
     dataLabel: 'Páginas', resultLabel: 'Oferta e historia',
     emptyTitle: 'El contenido de tu sitio',

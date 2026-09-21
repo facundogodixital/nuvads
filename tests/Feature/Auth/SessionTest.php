@@ -47,10 +47,10 @@ class SessionTest extends TestCase
     {
         $user = UserFactory::new()->owner()->create();
         $otherUser = UserFactory::new()->owner()->create();
-        $deletedBrand = resolve(BrandService::class)->create($user->client, 'Marca anterior');
+        $deletedBrand = resolve(BrandService::class)->create($user->client, ['name' => 'Marca anterior']);
         $deletedBrand->delete();
-        $brand = resolve(BrandService::class)->create($user->client, 'Mi marca');
-        $otherBrand = resolve(BrandService::class)->create($otherUser->client, 'Otra marca');
+        $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
+        $otherBrand = resolve(BrandService::class)->create($otherUser->client, ['name' => 'Otra marca']);
         $credentials = resolve(UserService::class)->createApiToken($user);
 
         $this->withToken($credentials['token'])->getJson('/api/auth/me?'.http_build_query([
@@ -65,6 +65,12 @@ class SessionTest extends TestCase
             ->assertJsonPath('data.client.id', $user->client_id)
             ->assertJsonPath('data.brand.id', $brand->id)
             ->assertJsonPath('data.brand.name', 'Mi marca')
+            ->assertJsonPath('data.brand.client_id', $user->client_id)
+            ->assertJsonPath('data.client.timezone', $user->client->timezone)
+            ->assertJsonPath('data.user.is_owner', true)
+            ->assertJsonMissingPath('data.user.password')
+            ->assertJsonMissingPath('data.user.api_token_hash')
+            ->assertJsonMissingPath('data.user.remember_token')
             ->assertHeaderMissing('Set-Cookie');
     }
 
@@ -74,7 +80,7 @@ class SessionTest extends TestCase
     public function expires_access_token_after_twenty_four_hours(): void
     {
         $user = UserFactory::new()->owner()->create();
-        resolve(BrandService::class)->create($user->client, 'Tu marca');
+        resolve(BrandService::class)->create($user->client, ['name' => 'Tu marca']);
         $credentials = resolve(UserService::class)->createApiToken($user);
         $storedUser = $user->fresh();
 
@@ -103,7 +109,7 @@ class SessionTest extends TestCase
     public function replaces_previous_token_and_revokes_current_token_on_logout(): void
     {
         $user = UserFactory::new()->owner()->create();
-        resolve(BrandService::class)->create($user->client, 'Tu marca');
+        resolve(BrandService::class)->create($user->client, ['name' => 'Tu marca']);
         $firstLogin = resolve(UserService::class)->createApiToken($user);
         $currentLogin = resolve(UserService::class)->createApiToken($user);
 

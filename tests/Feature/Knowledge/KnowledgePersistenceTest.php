@@ -78,7 +78,7 @@ class KnowledgePersistenceTest extends TestCase
     {
         $brand = $this->createBrand();
         $otherBrand = $this->createBrand();
-        $siblingBrand = resolve(BrandService::class)->create($brand->client, 'Segunda marca');
+        $siblingBrand = resolve(BrandService::class)->create($brand->client, ['name' => 'Segunda marca']);
         $service = resolve($serviceClass);
         $record = $service->create($brand, $attributes);
         $otherRecord = $service->create($otherBrand, $attributes);
@@ -104,7 +104,7 @@ class KnowledgePersistenceTest extends TestCase
     public function refuses_foreign_updates(string $serviceClass, array $attributes, array $changes): void
     {
         $brand = $this->createBrand();
-        $siblingBrand = resolve(BrandService::class)->create($brand->client, 'Segunda marca');
+        $siblingBrand = resolve(BrandService::class)->create($brand->client, ['name' => 'Segunda marca']);
         $service = resolve($serviceClass);
         $record = $service->create($siblingBrand, $attributes);
         $originalAttributes = $record->fresh()->getAttributes();
@@ -139,7 +139,7 @@ class KnowledgePersistenceTest extends TestCase
 
     private function createBrand(): Brand
     {
-        return resolve(BrandService::class)->create(ClientFactory::new()->create(), 'Marca de prueba');
+        return resolve(BrandService::class)->create(ClientFactory::new()->create(), ['name' => 'Marca de prueba']);
     }
 
 }
