@@ -11,13 +11,13 @@ Aplicar junto con AGENTS.md y [capas-backend](../capas-backend/SKILL.md).
 
 - Los nombres de las clases terminan en `Job` y describen la operación.
 - Agrupar los jobs por dominio y, cuando corresponda, por fuente. Para investigación web, el namespace acordado es `App\Jobs\Research\Website`.
-- Los nombres de las queues terminan siempre en `_queue`. Para investigación, las acordadas son `scraping_queue` y `analysis_queue`; se comparten entre las fuentes que tengan esas responsabilidades.
+- Los nombres de las queues terminan siempre en `_queue`. Para investigación web se usa `research_queue`.
 - Los jobs coordinan el recorrido mediante services obtenidos con `resolve()` cerca de su uso. El acceso a repositories y helpers sigue las reglas de capas; no copiar accesos directos de ejemplos de otros proyectos.
 
 ## Despacho mediante services
 
 - Centralizar los despachos en un dispatcher por dominio, ubicado en `App\Services\Dispatchers`, con nombre `<Domain>DispatcherService`.
-- Cada job tiene un método explícito `dispatch<NombreDelJob>()`. Para investigación se usa `ResearchDispatcherService`, con `dispatchStartWebsiteScrapingJob()`, `dispatchCheckWebsiteScrapingJob()` y `dispatchAnalyzeWebsiteContentJob()`, que reciben el ID de `ResearchRun`.
+- Cada job tiene un método explícito `dispatch<NombreDelJob>()`. Para investigación se usa `ResearchDispatcherService`, con `dispatchResearchWebsiteJob()`, que recibe el ID de `ResearchRun`.
 - El service del dominio decide cuándo corresponde despachar. El dispatcher define cómo encolarlo: prepara los parámetros, selecciona la queue y aplica la demora. No trasladar reglas de negocio al dispatcher.
 - La queue y la demora se definen en el dispatcher, no dentro del job ni mediante llamadas dispersas a `dispatch()`. Si la demora depende de la operación, el método del dispatcher puede recibirla explícitamente y aplicarla allí.
 - Las etapas posteriores y las comprobaciones diferidas también se despachan por esta vía. Los jobs delegan esa coordinación en los services.
@@ -44,8 +44,8 @@ Aplicar junto con AGENTS.md y [capas-backend](../capas-backend/SKILL.md).
 
 - Cada job deja información precisa sobre inicio, IDs relevantes, etapas completadas, resultados, salidas anticipadas y fallos. Evitar mensajes genéricos que no permitan reconstruir qué ocurrió.
 - Los canales y archivos llevan el nombre exacto de la clase, seguido de `Info` o `Errors`. Por ejemplo:
-  - Canal `StartWebsiteScrapingJobInfo`, archivo `storage/logs/StartWebsiteScrapingJobInfo.log`.
-  - Canal `StartWebsiteScrapingJobErrors`, archivo `storage/logs/StartWebsiteScrapingJobErrors.log`.
+  - Canal `ResearchWebsiteJobInfo`, archivo `storage/logs/ResearchWebsiteJobInfo.log`.
+  - Canal `ResearchWebsiteJobErrors`, archivo `storage/logs/ResearchWebsiteJobErrors.log`.
 - Configurar esos canales en `config/logging.php` al implementar el job. La rotación puede agregar la fecha al nombre del archivo; conservar el nombre del job como base.
 - Todas las entradas, incluidas las de error, usan el prefijo `[uuid] | mensaje`.
 - Generar el UUID de correlación una vez en el constructor y conservarlo como propiedad serializada del job. Mantenerlo durante los reintentos y registrar también el número de intento. No generarlo únicamente en `handle()`: Laravel reconstruye el job desde el payload para llamar a `failed()`, por lo que los cambios hechos en `handle()` no están disponibles allí.
@@ -57,13 +57,12 @@ Aplicar junto con AGENTS.md y [capas-backend](../capas-backend/SKILL.md).
 Ejemplo del formato dentro del método de logging:
 
 ```php
-Log::channel('StartWebsiteScrapingJobInfo')->info("[{$this->logUuid}] | {$message}");
+Log::channel('ResearchWebsiteJobInfo')->info("[{$this->logUuid}] | {$message}");
 ```
 
 Ejemplo de salida:
 
 ```text
-[6ae12166-0b35-43b3-96d4-c8cf4832bd29] | Starting StartWebsiteScrapingJob. researchRunId: 42. attempt: 1.
-[6ae12166-0b35-43b3-96d4-c8cf4832bd29] | Apify run started. externalRunId: abc123.
-[6ae12166-0b35-43b3-96d4-c8cf4832bd29] | Finished execution.
+[6ae12166-0b35-43b3-96d4-c8cf4832bd29] | Starting ResearchWebsiteJob. researchRunId: 42. attempt: 1.
+[6ae12166-0b35-43b3-96d4-c8cf4832bd29] | Finished execution. status: completed. knowledgeSourceIds: [3, 4].
 ```

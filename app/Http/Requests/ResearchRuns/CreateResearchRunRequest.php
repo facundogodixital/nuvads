@@ -12,7 +12,10 @@ class CreateResearchRunRequest extends AuthenticatedRequest
 
     public function rules(): array
     {
-        return ['type' => ['required', 'string', 'in:website']];
+        return [
+            'type' => ['required', 'string', 'in:website'],
+            'overwrite' => ['sometimes', 'boolean'],
+        ];
     }
 
 

@@ -148,9 +148,9 @@ Se guarda temporalmente en la caché existente, sin una tabla propia.
   `/api` o `/auth` conservan su 404. Una pantalla inexistente muestra un 404 en Vue
   después de comprobar el acceso.
 
-Los endpoints protegidos usan, en orden, `AuthenticateAccessToken` y
-`ResolveClientContext`. Sus requests extienden `AuthenticatedRequest`, que expone
-`$request->user` y `$request->client` como propiedades
+Los endpoints protegidos usan, en orden, `AuthenticateAccessTokenMiddleware` y
+`ResolveClientContextMiddleware`. Sus requests extienden `AuthenticatedRequest`, que expone
+`$request->user`, `$request->brand` y `$request->client` como propiedades
 tipadas obtenidas de atributos internos, no del cuerpo ni de la query. Si un
 request redefine `prepareForValidation()`, debe llamar al método padre.
 Los controllers pasan explícitamente el usuario o cliente a los services que lo
@@ -240,55 +240,57 @@ Configuración, convenciones y ciclo de la base de datos:
 
 ## Investigación web de marca
 
-**Pendiente: implementar el análisis real con IA** (proveedor/modelo, prompt e
-interpretación y validación de los resultados). El estado `completed` actual
-indica que terminó el recorrido con el mock, no que se haya realizado un análisis real.
+`ResearchWebsiteJob` es el único job del recorrido. Llama a `WebsiteResearchService`,
+que hace todo el trabajo en un solo método: lee la portada con Firecrawl, la analiza
+con OpenAI (`gpt-6-luna`, configurado en `config/research.php` y conservado en cada
+ejecución), lee hasta dos páginas más del mismo sitio elegidas por el modelo, vuelve
+a analizar todo junto y completa la marca. Máximo: tres páginas por investigación.
 
-El backend usa Apify para recopilar el sitio guardado en la marca. La etapa de IA
-está simulada: guarda insights con `model: mock`, `prompt_version: mock-v1` y
-`payload.is_mock: true`. No genera conclusiones reales ni modifica correcciones
-anteriores. La futura llamada de IA está comentada en `ResearchRunService`.
+Por defecto el análisis pisa los campos de `brands` que ya tienen valor, salvo los que
+el modelo devuelva vacíos. Con `overwrite` en `false` se completan únicamente los campos
+vacíos y los valores existentes se conservan. Las deducciones quedan listadas en
+`inferred_fields`. Los JSON tienen forma fija: `brand_logo` es una lista de URLs,
+`brand_colors` un objeto con `primary`, `secondary`, `accent`, `background` y `text`,
+y `brand_fonts` un objeto con `heading` y `body`. Esta etapa no descarga archivos.
 
 Endpoints autenticados:
 
-- `POST /api/research-runs`, body `{"type":"website"}`: crea la ejecución y encola el inicio.
+- `POST /api/research-runs`, body `{"type":"website","overwrite":true}`: crea la ejecución y encola
+  el job. `overwrite` es `true` por defecto; con `false` el análisis solo completa los campos vacíos.
 - `GET /api/research-runs/{id}`: devuelve la ejecución con fuentes e insights.
 - `GET /api/research-runs/website/status`: devuelve `active`, `latest` y `last_completed`.
 
-Se admite una ejecución web activa por marca. `research_runs` conserva la URL
-solicitada y los estados `pending`, `scraping`, `analyzing`, `completed`, `failed`.
+Se admite una ejecución web activa por marca. `research_runs` conserva la URL y el
+modelo en `input`, y pasa por los estados `pending`, `scraping`, `analyzing`,
+`completed` y `failed`. Si el job falla, la ejecución queda en `failed` y se repite
+creando otra; las fuentes ya guardadas se reutilizan por su hash de contenido.
 El frontend todavía no está conectado a estos endpoints.
 
 La tabla se crea con la migración `2026_09_21_000003_create_research_runs_table.php`.
-Se reutilizan `knowledge_sources` y `knowledge_insights`; las fuentes sin cambios
-se deduplican y sus IDs quedan registrados en la ejecución.
+Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` quedaron del
+recorrido anterior con Apify y hoy no se usan.
 
-El helper limita el scraping a diez páginas por defecto y permite indicar otro
-límite en cada llamada. `ResearchRun` conserva el límite utilizado. El seguimiento
-espera hasta 600 segundos (`config/research.php`); comprueba Apify cada 15 segundos,
-según el dispatcher. Las consultas fallidas tienen tres intentos y un backoff de
-15 segundos, declarados en el job. El inicio tiene un solo intento. Requiere
-`APIFY_API_KEY`. El límite de espera es local: no cancela automáticamente el actor.
+Requiere `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. Cada fuente conserva el JSON original
+de Firecrawl en `payload.raw_json`. Cada investigación deja un solo insight de tipo
+`website_brand_analysis`, con la respuesta validada del modelo en `payload`.
 
-Se mantiene `QUEUE_CONNECTION=database` y la conexión de queue en la misma base
-de la aplicación. La ejecución, sus cambios de etapa y los despachos se guardan
-en la misma transacción. Cambiar esa conexión requiere revisar esta garantía.
-
-Cada comando se ejecuta en una terminal independiente; no se instaló un supervisor:
+Se mantiene `QUEUE_CONNECTION=database` en la misma base de la aplicación: la ejecución
+y su job se guardan en la misma transacción. El job tiene un intento y un timeout de
+600 segundos; el `retry_after` de la conexión es 660 para que ninguna entrega se repita
+mientras el job corre. Worker:
 
 ```bash
-docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=scraping_queue
-docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=analysis_queue
+docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=research_queue
 ```
 
-Los parámetros de ejecución están en los jobs; queue y demora, en
-`ResearchDispatcherService`. Los logs llevan el nombre de cada job, sufijo `Info`
-o `Errors` y UUID de correlación. El inicio de Apify no se reintenta automáticamente:
-si su respuesta se pierde, revisar Apify antes de solicitar otra ejecución.
+Los logs del job van a `storage/logs/ResearchWebsiteJobInfo.log` y
+`storage/logs/ResearchWebsiteJobErrors.log`, con un UUID de correlación por job.
+El service informa cada etapa terminada mediante el closure que recibe en
+`research()`; el job la escribe en su log con el mismo UUID. El log incluye el
+pedido completo a OpenAI (instrucciones y páginas tal cual las devolvió Firecrawl)
+y la respuesta completa del modelo.
 
-El contenido se valida según la salida del
-[Website Content Crawler de Apify](https://apify.com/apify/website-content-crawler).
-Los tests simulan todas las llamadas externas; ejecutarlos no inicia scrapers pagos.
+Los tests simulan todas las llamadas externas; ejecutarlos no consume créditos.
 
 ## Datos locales
 

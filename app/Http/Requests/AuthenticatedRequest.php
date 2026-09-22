@@ -25,9 +25,9 @@ class AuthenticatedRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         // Solo se copian los atributos internos preparados por los middlewares, nunca datos de entrada.
-        $this->user = $this->attributes->get('authenticated_user');
-        $this->brand = $this->attributes->get('authenticated_brand');
-        $this->client = $this->attributes->get('authenticated_client');
+        $this->user = $this->attributes->get('user');
+        $this->brand = $this->attributes->get('brand');
+        $this->client = $this->attributes->get('client');
     }
 
 }

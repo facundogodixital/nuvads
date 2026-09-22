@@ -8,7 +8,7 @@ use App\Exceptions\ApiException;
 use Symfony\Component\HttpFoundation\Response;
 
 
-class ResolveClientContext
+class ResolveClientContextMiddleware
 {
 
 
@@ -23,8 +23,8 @@ class ResolveClientContext
         // Por ahora cada cliente opera con una única marca activa.
         $brand = $user->client->brands->sole();
 
-        $request->attributes->set('authenticated_brand', $brand);
-        $request->attributes->set('authenticated_client', $user->client);
+        $request->attributes->set('brand', $brand);
+        $request->attributes->set('client', $user->client);
 
         return $next($request);
     }

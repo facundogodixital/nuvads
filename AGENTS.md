@@ -189,6 +189,7 @@ class Product extends Model
 
 - Modelos en singular y UpperCamelCase: `Product`, `OrderItem`.
 - Servicios y repositorios asociados a un modelo: nombre del modelo en singular con el sufijo `Service` o `Repository`: `ProductService`, `ProductRepository`.
+- Middlewares: siempre con el sufijo `Middleware`: `AuthenticateAccessTokenMiddleware`, `ResolveClientContextMiddleware`.
 - Tablas y columnas con la convención por defecto de Laravel: tablas en plural snake_case (`products`, `order_items`) y columnas en snake_case. No se declara `$table` en los modelos para cambiar esa convención; Eloquent infiere el nombre de la tabla a partir del modelo.
 - Tablas pivot y claves foráneas también con la convención por defecto de Laravel: `product_tag`, `product_id`.
 

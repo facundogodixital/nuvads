@@ -25,14 +25,6 @@ class ResearchRunRepository
     }
 
 
-    public function updateIfStatusMatches(int $researchRunId, array $statuses, array $attributes): ?ResearchRun
-    {
-        ResearchRun::query()->whereKey($researchRunId)->whereIn('status', $statuses)->update($attributes);
-
-        return $this->find($researchRunId);
-    }
-
-
     public function findForBrand(Brand $brand, int $researchRunId): ResearchRun
     {
         return ResearchRun::query()

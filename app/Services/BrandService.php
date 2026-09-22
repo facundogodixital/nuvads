@@ -31,9 +31,9 @@ class BrandService
     }
 
 
-    public function findForUpdate(int $brandId): Brand
+    public function find(int $brandId): Brand
     {
-        return $this->brandRepository->findForUpdate($brandId);
+        return $this->brandRepository->find($brandId);
     }
 
 }

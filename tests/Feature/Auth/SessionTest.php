@@ -56,10 +56,7 @@ class SessionTest extends TestCase
         $this->withToken($credentials['token'])->getJson('/api/auth/me?'.http_build_query([
             'user' => $otherUser->id,
             'brand' => $otherBrand->id,
-            'authenticated_brand' => $otherBrand->id,
             'client' => $otherUser->client_id,
-            'authenticated_user' => $otherUser->id,
-            'authenticated_client' => $otherUser->client_id,
         ]))->assertOk()
             ->assertJsonPath('data.user.id', $user->id)
             ->assertJsonPath('data.client.id', $user->client_id)

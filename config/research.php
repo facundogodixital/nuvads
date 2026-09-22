@@ -3,7 +3,7 @@
 return [
 
     'website' => [
-        'max_wait_seconds' => 600,
+        'analysis_model' => 'gpt-6-luna',
     ],
 
 ];

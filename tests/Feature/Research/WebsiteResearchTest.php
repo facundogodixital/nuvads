@@ -7,26 +7,23 @@ use Tests\TestCase;
 use App\Models\Brand;
 use RuntimeException;
 use App\Models\ResearchRun;
-use App\Helpers\ApifyHelper;
 use Psr\Log\LoggerInterface;
 use App\Services\UserService;
 use App\Services\BrandService;
 use App\Exceptions\ApiException;
-use App\Models\KnowledgeInsight;
 use Illuminate\Support\Facades\DB;
 use Database\Factories\UserFactory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Log;
 use App\Services\ResearchRunService;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
+use App\Services\WebsiteResearchService;
 use PHPUnit\Framework\Attributes\DataProvider;
+use App\Jobs\Research\Website\ResearchWebsiteJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Jobs\Research\Website\CheckWebsiteScrapingJob;
-use App\Jobs\Research\Website\StartWebsiteScrapingJob;
-use App\Jobs\Research\Website\AnalyzeWebsiteContentJob;
 use App\Services\Dispatchers\ResearchDispatcherService;
 
 
@@ -42,13 +39,10 @@ class WebsiteResearchTest extends TestCase
     {
         parent::setUp();
         Queue::fake();
-        config()->set('services.apify.api_key', 'testing-key');
-        foreach ([StartWebsiteScrapingJob::class, CheckWebsiteScrapingJob::class,
-            AnalyzeWebsiteContentJob::class] as $jobClass) {
-            foreach (['Info', 'Errors'] as $suffix) {
-                config()->set('logging.channels.'.class_basename($jobClass).$suffix, config('logging.channels.null'));
-            }
-        }
+        config()->set('services.openai.api_key', 'testing-key');
+        config()->set('services.firecrawl.api_key', 'testing-key');
+        config()->set('logging.channels.ResearchWebsiteJobInfo', config('logging.channels.null'));
+        config()->set('logging.channels.ResearchWebsiteJobErrors', config('logging.channels.null'));
 
         $user = UserFactory::new()->owner()->create();
         $this->brand = resolve(BrandService::class)->create($user->client, [
@@ -60,7 +54,7 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    // La URL se toma de la marca autenticada y queda congelada; no se aceptan referencias ajenas.
+    // La URL se toma de la marca autenticada y queda congelada en la ejecución; solo se admite una activa.
     #[Test]
     public function starts_with_saved_url_and_rejects_a_second_active_run(): void
     {
@@ -69,175 +63,405 @@ class WebsiteResearchTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.brand_id', $this->brand->id)
-            ->assertJsonPath('data.input.url', 'https://example.com');
-        $id = $response->json('data.id');
+            ->assertJsonPath('data.input.url', 'https://example.com')
+            ->assertJsonPath('data.input.overwrite', true);
+        $researchRunId = $response->json('data.id');
         resolve(BrandService::class)->update($this->brand, ['website_url' => 'https://changed.example']);
 
         $this->postJson('/api/research-runs', ['type' => 'website'])
             ->assertConflict()->assertJsonPath('code', 'research_already_running');
-        $this->getJson("/api/research-runs/{$id}")->assertOk()
+
+        $this->getJson("/api/research-runs/{$researchRunId}")->assertOk()
             ->assertJsonPath('data.input.url', 'https://example.com');
-        Queue::assertPushedOn('scraping_queue', StartWebsiteScrapingJob::class);
-        Queue::assertPushed(StartWebsiteScrapingJob::class, 1);
+        Queue::assertPushedOn('research_queue', ResearchWebsiteJob::class);
+        Queue::assertPushed(ResearchWebsiteJob::class, 1);
         $this->assertDatabaseCount('research_runs', 1);
     }
 
 
-    // El recorrido guarda contenido real del proveedor y hallazgos inequívocamente simulados.
+    // Con la portada alcanza: el modelo no pide más páginas y la marca se completa con una fuente y un insight.
     #[Test]
-    public function completes_the_pipeline_without_duplicate_scrapes_or_insights(): void
+    public function completes_the_research_with_the_homepage_only(): void
     {
-        $run = $this->createRun();
-        $this->fakeSuccessfulScraping();
-
-        (new StartWebsiteScrapingJob($run->id))->handle();
-        (new StartWebsiteScrapingJob($run->id))->handle();
-        $this->assertSame('scraping', $run->fresh()->status);
-        Queue::assertPushed(CheckWebsiteScrapingJob::class, function (CheckWebsiteScrapingJob $job): bool {
-            return $job->queue === 'scraping_queue' && $job->delay->isFuture();
-        });
-
-        (new CheckWebsiteScrapingJob($run->id))->handle();
-        (new CheckWebsiteScrapingJob($run->id))->handle();
-        $this->assertSame('analyzing', $run->fresh()->status);
-        Queue::assertPushedOn('analysis_queue', AnalyzeWebsiteContentJob::class);
-        Queue::assertPushed(AnalyzeWebsiteContentJob::class, 1);
-
-        (new AnalyzeWebsiteContentJob($run->id))->handle();
-        (new AnalyzeWebsiteContentJob($run->id))->handle();
-        $this->getJson("/api/research-runs/{$run->id}")->assertOk()
-            ->assertJsonPath('data.status', 'completed')
-            ->assertJsonCount(2, 'data.knowledge_sources')
-            ->assertJsonCount(2, 'data.knowledge_insights')
-            ->assertJsonPath('data.knowledge_insights.0.model', 'mock')
-            ->assertJsonPath('data.knowledge_insights.0.payload.is_mock', true);
-        $this->assertDatabaseCount('knowledge_sources', 2);
-        $this->assertDatabaseCount('knowledge_insights', 2);
-        Http::assertSentCount(3);
-        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
-            && $request['startUrls'] === [['url' => 'https://example.com']]
-            && $request['maxCrawlPages'] === 10);
-    }
-
-
-    // Mientras Apify trabaja se agenda otra comprobación, sin ejecutar todavía la etapa de IA.
-    #[Test]
-    public function reschedules_running_scraping_and_expires_overdue_runs(): void
-    {
-        $run = $this->createRun();
-        $run->update(['status' => 'scraping', 'external_run_id' => 'run123', 'started_at' => now()]);
-        Http::fake(['*/actor-runs/run123' => Http::response(['data' => [
-            'id' => 'run123', 'status' => 'RUNNING', 'defaultDatasetId' => 'dataset123',
-        ]])]);
-
-        (new CheckWebsiteScrapingJob($run->id))->handle();
-        $this->assertSame('scraping', $run->fresh()->status);
-        $this->assertNotNull($run->fresh()->last_checked_at);
-        Queue::assertPushed(CheckWebsiteScrapingJob::class, 1);
-        Queue::assertNotPushed(AnalyzeWebsiteContentJob::class);
-
-        $this->travel(11)->minutes();
-        (new CheckWebsiteScrapingJob($run->id))->handle();
-        $this->assertSame('failed', $run->fresh()->status);
-        $this->assertNotNull($run->fresh()->finished_at);
-        Queue::assertPushed(CheckWebsiteScrapingJob::class, 1);
-    }
-
-
-    // Los estados terminales de Apify y un dataset vacío finalizan la ejecución como fallida.
-    #[Test]
-    #[DataProvider('unsuccessfulScrapingStates')]
-    public function records_unsuccessful_scraping(string $status): void
-    {
-        $run = $this->createRun();
-        $run->update(['status' => 'scraping', 'external_run_id' => 'run123', 'started_at' => now()]);
+        $colors = ['primary' => '#339D33', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null];
+        $analysis = $this->analysis([
+            'brand_offer_description' => 'Jardinería',
+            'brand_logo' => ['https://example.com/logo.png'],
+            'brand_colors' => $colors,
+        ]);
         Http::fake([
-            '*/actor-runs/run123' => Http::response(['data' => [
-                'id' => 'run123', 'status' => $status, 'defaultDatasetId' => 'dataset123',
-            ]]),
-            '*/datasets/dataset123/items*' => Http::response([]),
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Vendemos plantas.')),
+            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
+        ]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $researchRun->refresh();
+        $this->assertSame('completed', $researchRun->status);
+        $this->assertNotNull($researchRun->started_at);
+        $this->assertNotNull($researchRun->finished_at);
+        $this->assertCount(1, $researchRun->knowledge_source_ids);
+        $this->assertSame('Jardinería', $this->brand->fresh()->brand_offer_description);
+        // MySQL guarda las claves del JSON en otro orden; se compara el contenido.
+        $this->assertEquals($colors, $this->brand->fresh()->brand_colors);
+        $this->assertSame(['https://example.com/logo.png'], $this->brand->fresh()->brand_logo);
+        $this->assertDatabaseCount('knowledge_sources', 1);
+        $this->assertDatabaseCount('knowledge_insights', 1);
+        Http::assertSentCount(2);
+        $this->getJson("/api/research-runs/{$researchRun->id}")->assertOk()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonCount(1, 'data.knowledge_sources')
+            ->assertJsonCount(1, 'data.knowledge_insights')
+            ->assertJsonPath('data.knowledge_insights.0.model', config('research.website.analysis_model'))
+            ->assertJsonPath('data.knowledge_insights.0.payload.brand.brand_offer_description', 'Jardinería');
+    }
+
+
+    // El modelo elige hasta dos enlaces internos de la portada; se leen y se analiza todo junto en una
+    // segunda consulta que ya no ofrece enlaces.
+    #[Test]
+    public function reads_the_pages_chosen_by_the_model_and_analyzes_them_together(): void
+    {
+        $homepageLinks = [
+            '/about', '/services', '/about#team', 'https://outside.example/about', 'mailto:a@example.com',
+            'https://example.com/',
+        ];
+        $chosenUrls = ['https://example.com/about', 'https://example.com/services'];
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::sequence()
+                ->push($this->firecrawlPage('Portada', $homepageLinks))
+                ->push($this->firecrawlPage('Desde 2010'))
+                ->push($this->firecrawlPage('Asesoramiento')),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($this->analysis([], $chosenUrls)))
+                ->push($this->openAiResponse($this->analysis(['brand_history_description' => 'Desde 2010']))),
+        ]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $this->assertSame('completed', $researchRun->fresh()->status);
+        $this->assertCount(3, $researchRun->fresh()->knowledge_source_ids);
+        $this->assertSame('Desde 2010', $this->brand->fresh()->brand_history_description);
+        $this->assertDatabaseCount('knowledge_sources', 3);
+        $this->assertDatabaseCount('knowledge_insights', 1);
+        Http::assertSentCount(5);
+        $isOpenAiRequest = fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses';
+        $openAiInputs = Http::recorded($isOpenAiRequest)
+            ->map(fn (array $pair) => $this->decodeOpenAiInput($pair[0]))->values();
+        $this->assertSame($chosenUrls, $openAiInputs[0]['available_links']);
+        $this->assertCount(1, $openAiInputs[0]['pages']);
+        $this->assertSame([], $openAiInputs[1]['available_links']);
+        $this->assertCount(3, $openAiInputs[1]['pages']);
+    }
+
+
+    // Cada etapa terminada se informa por el closure recibido, con los datos útiles para seguir el recorrido.
+    #[Test]
+    public function reports_each_stage_through_the_given_log_closure(): void
+    {
+        resolve(BrandService::class)->update($this->brand, ['brand_tone_of_voice_description' => 'Mi voz']);
+        $chosenUrls = ['https://example.com/about'];
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::sequence()
+                ->push($this->firecrawlPage('Portada', ['/about']))
+                ->push($this->firecrawlPage('Desde 2010')),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($this->analysis([], $chosenUrls)))
+                ->push($this->openAiResponse($this->analysis(['brand_history_description' => 'Desde 2010']))),
+        ]);
+        $researchRun = $this->createResearchRun();
+        $stages = [];
+        $log = function (string $message, array $context) use (&$stages): void {
+            $stages[] = [$message, $context];
+        };
+
+        resolve(WebsiteResearchService::class)->research($researchRun, $log);
+
+        $this->assertSame([
+            'Page scraped.', 'Internal links found.', 'Analysis requested.', 'Analysis received.', 'Page scraped.',
+            'Analysis requested.', 'Analysis received.', 'Insight saved.', 'Brand fields filled.',
+        ], array_column($stages, 0));
+        [$homepage, $links, $firstRequest, $firstAnalysis, $aboutPage, $secondRequest, $secondAnalysis, $insight,
+            $brandFields] = array_column($stages, 1);
+        $this->assertSame(1, $links['count']);
+        $this->assertSame('Portada', $firstRequest['input']['pages'][0]['data']['markdown']);
+        $this->assertStringContainsString('brand_logo', $firstRequest['instructions']);
+        $this->assertSame($chosenUrls, $firstAnalysis['additionalUrls']);
+        $this->assertSame(2, $secondAnalysis['pages']);
+        $this->assertSame([], $secondRequest['input']['available_links']);
+        $this->assertSame(['brand_history_description'], $brandFields['savedFields']);
+        $this->assertSame(['name', 'brand_tone_of_voice_description'], $brandFields['preservedFields']);
+    }
+
+
+    // Sin overwrite, los valores que la marca ya tiene se conservan, incluso los editados durante el análisis.
+    #[Test]
+    public function keeps_existing_brand_values_and_edits_made_during_the_analysis(): void
+    {
+        resolve(BrandService::class)->update($this->brand, ['brand_tone_of_voice_description' => 'Mi voz']);
+        $analysis = $this->analysis([
+            'name' => 'Otro nombre',
+            'brand_tone_of_voice_description' => 'Voz sugerida',
+            'brand_history_description' => 'Historia sugerida',
+            'brand_offer_description' => '  Jardinería  ',
+        ]);
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
+            'https://api.openai.com/v1/responses' => function () use ($analysis) {
+                // El usuario edita la marca mientras el modelo responde.
+                Brand::query()->whereKey($this->brand->id)->update(['brand_history_description' => 'Mi historia']);
+                return Http::response($this->openAiResponse($analysis));
+            },
+        ]);
+        $researchRun = resolve(ResearchRunService::class)->create($this->brand, [
+            'type' => 'website', 'overwrite' => false,
         ]);
 
-        (new CheckWebsiteScrapingJob($run->id))->handle();
-        $this->assertSame('failed', $run->fresh()->status);
-        Queue::assertNotPushed(AnalyzeWebsiteContentJob::class);
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $brand = $this->brand->fresh();
+        $this->assertSame('Mi marca', $brand->name);
+        $this->assertSame('Mi voz', $brand->brand_tone_of_voice_description);
+        $this->assertSame('Mi historia', $brand->brand_history_description);
+        $this->assertSame('Jardinería', $brand->brand_offer_description);
     }
 
 
-    public static function unsuccessfulScrapingStates(): array
-    {
-        return [['FAILED'], ['ABORTED'], ['TIMED-OUT'], ['SUCCEEDED']];
-    }
-
-
-    // Una nueva investigación reutiliza fuentes idénticas y mantiene las correcciones anteriores.
+    // Con overwrite el análisis pisa los valores existentes; lo que el modelo devuelve vacío no borra nada.
     #[Test]
-    public function reuses_sources_and_preserves_manual_edits_and_previous_results(): void
+    public function overwrites_existing_brand_values_when_requested(): void
     {
-        $this->fakeSuccessfulScraping();
-        $first = $this->createRun();
-        (new StartWebsiteScrapingJob($first->id))->handle();
-        (new CheckWebsiteScrapingJob($first->id))->handle();
-        (new AnalyzeWebsiteContentJob($first->id))->handle();
-        $insight = KnowledgeInsight::query()->firstOrFail();
-        $insight->update(['user_body' => 'Corrección del usuario', 'is_user_edited' => true]);
+        resolve(BrandService::class)->update($this->brand, [
+            'brand_history_description' => 'Mi historia',
+            'brand_tone_of_voice_description' => 'Mi voz',
+        ]);
+        $analysis = $this->analysis(['name' => 'Otro nombre', 'brand_tone_of_voice_description' => 'Voz sugerida']);
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
+            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
+        ]);
+        $researchRunId = $this->postJson('/api/research-runs', ['type' => 'website', 'overwrite' => true])
+            ->assertCreated()->assertJsonPath('data.input.overwrite', true)->json('data.id');
 
-        $second = $this->createRun();
-        $this->getJson('/api/research-runs/website/status')->assertOk()
-            ->assertJsonPath('data.active.id', $second->id)
-            ->assertJsonPath('data.last_completed.id', $first->id);
-        (new StartWebsiteScrapingJob($second->id))->handle();
-        (new CheckWebsiteScrapingJob($second->id))->handle();
-        (new AnalyzeWebsiteContentJob($second->id))->handle();
+        (new ResearchWebsiteJob($researchRunId))->handle();
 
-        $this->assertDatabaseCount('knowledge_sources', 2);
-        $this->assertSame($first->fresh()->knowledge_source_ids, $second->fresh()->knowledge_source_ids);
-        $this->assertSame('Corrección del usuario', $insight->fresh()->getEffectiveBody());
-        $this->assertTrue($insight->fresh()->is_user_edited);
+        $brand = $this->brand->fresh();
+        $this->assertSame('Otro nombre', $brand->name);
+        $this->assertSame('Voz sugerida', $brand->brand_tone_of_voice_description);
+        $this->assertSame('Mi historia', $brand->brand_history_description);
+    }
+
+
+    // Un JSON sin ningún valor, como colores todos en null o una lista de logos vacía, se guarda como null.
+    #[Test]
+    public function stores_null_for_empty_json_values(): void
+    {
+        $analysis = $this->analysis([
+            'brand_logo' => [],
+            'brand_colors' => [
+                'primary' => null, 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
+            ],
+            'brand_fonts' => ['heading' => null, 'body' => null],
+        ]);
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
+            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
+        ]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $brand = $this->brand->fresh();
+        $this->assertSame('completed', $researchRun->fresh()->status);
+        $this->assertNull($brand->brand_logo);
+        $this->assertNull($brand->brand_colors);
+        $this->assertNull($brand->brand_fonts);
+    }
+
+
+    // Un JSON con otra forma que la fija se rechaza aunque el resto de la respuesta sea válido.
+    #[Test]
+    #[DataProvider('jsonValuesOutsideTheFixedShape')]
+    public function rejects_json_values_outside_the_fixed_shape(array $brandValues): void
+    {
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
+            'https://api.openai.com/v1/responses' => Http::response(
+                $this->openAiResponse($this->analysis($brandValues)),
+            ),
+        ]);
+        $researchRun = $this->createResearchRun();
+        $job = new ResearchWebsiteJob($researchRun->id);
+
+        try {
+            $job->handle();
+            $this->fail('La forma inválida debía interrumpir la investigación.');
+        } catch (ApiException $exception) {
+            $this->assertSame('website_analysis_invalid', $exception->errorCode);
+        }
+
+        $this->assertDatabaseCount('knowledge_insights', 0);
+    }
+
+
+    public static function jsonValuesOutsideTheFixedShape(): array
+    {
+        return [
+            'logo as text' => [['brand_logo' => 'https://example.com/logo.png']],
+            'colors as list' => [['brand_colors' => [['hex' => '#339D33', 'role' => 'primary']]]],
+            'colors missing keys' => [['brand_colors' => ['primary' => '#339D33']]],
+            'colors with unknown key' => [['brand_colors' => [
+                'primary' => '#339D33', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
+                'link' => '#000000',
+            ]]],
+            'invalid hex' => [['brand_colors' => [
+                'primary' => 'green', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
+            ]]],
+            'fonts with extra key' => [['brand_fonts' => [
+                'heading' => 'Poppins', 'body' => null, 'paragraph' => 'Arial',
+            ]]],
+        ];
+    }
+
+
+    // Una selección fuera de los enlaces ofrecidos, o de más de dos, interrumpe la investigación antes
+    // de leer más páginas.
+    #[Test]
+    #[DataProvider('invalidAdditionalUrls')]
+    public function rejects_additional_urls_the_model_was_not_offered(array $additionalUrls): void
+    {
+        $homepageLinks = ['/about', '/services', '/contact'];
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada', $homepageLinks)),
+            'https://api.openai.com/v1/responses' => Http::response(
+                $this->openAiResponse($this->analysis([], $additionalUrls)),
+            ),
+        ]);
+        $researchRun = $this->createResearchRun();
+        $job = new ResearchWebsiteJob($researchRun->id);
+
+        try {
+            $job->handle();
+            $this->fail('La selección inválida debía interrumpir la investigación.');
+        } catch (ApiException $exception) {
+            $this->assertSame('website_analysis_invalid', $exception->errorCode);
+            $job->failed($exception);
+        }
+
+        $this->assertSame('failed', $researchRun->fresh()->status);
+        $this->assertDatabaseCount('knowledge_insights', 0);
+        Http::assertSentCount(2);
+    }
+
+
+    public static function invalidAdditionalUrls(): array
+    {
+        return [
+            'unknown page' => [['https://example.com/unknown']],
+            'external site' => [['https://outside.example/about']],
+            'three pages' => [[
+                'https://example.com/about', 'https://example.com/services', 'https://example.com/contact',
+            ]],
+        ];
+    }
+
+
+    // Dos investigaciones sobre el mismo contenido comparten la fuente en vez de duplicarla.
+    #[Test]
+    public function reuses_identical_sources_between_research_runs(): void
+    {
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
+            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($this->analysis())),
+        ]);
+        $firstResearchRun = $this->createResearchRun();
+        (new ResearchWebsiteJob($firstResearchRun->id))->handle();
+
+        $secondResearchRun = $this->createResearchRun();
+        (new ResearchWebsiteJob($secondResearchRun->id))->handle();
+
+        $this->assertDatabaseCount('knowledge_sources', 1);
+        $this->assertDatabaseCount('knowledge_insights', 2);
+        $this->assertSame(
+            $firstResearchRun->fresh()->knowledge_source_ids, $secondResearchRun->fresh()->knowledge_source_ids,
+        );
         $this->getJson('/api/research-runs/website/status')->assertOk()
             ->assertJsonPath('data.active', null)
-            ->assertJsonPath('data.last_completed.id', $second->id);
+            ->assertJsonPath('data.last_completed.id', $secondResearchRun->id);
     }
 
 
-    // El fallo definitivo cambia el estado visible, pero un fallo tardío no pisa una etapa posterior.
+    // Un fallo del proveedor deja la ejecución como fallida, con un mensaje genérico y sin datos parciales.
     #[Test]
-    public function marks_permanent_failures_without_overwriting_later_stages(): void
+    public function marks_the_run_as_failed_when_a_provider_fails(): void
     {
-        $run = $this->createRun();
-        $job = unserialize(serialize(new StartWebsiteScrapingJob($run->id)));
-        $job->failed(new RuntimeException('secret-data'));
-        $this->assertSame('failed', $run->fresh()->status);
-        $this->assertStringNotContainsString('secret-data', $run->fresh()->error_message);
-        $this->getJson('/api/research-runs/website/status')->assertOk()
-            ->assertJsonPath('data.latest.status', 'failed')
-            ->assertJsonPath('data.active', null);
-
-        $run->update(['status' => 'completed']);
-        (new CheckWebsiteScrapingJob($run->id))->failed(new RuntimeException('late failure'));
-        $this->assertSame('completed', $run->fresh()->status);
-    }
-
-
-    // Un inicio con respuesta perdida nunca vuelve a llamar al proveedor al recibir el mismo job.
-    #[Test]
-    public function does_not_start_apify_again_after_an_ambiguous_failure(): void
-    {
-        $run = $this->createRun();
-        $helper = Mockery::mock(ApifyHelper::class);
-        $helper->shouldReceive('startWebsiteContentCrawler')->once()->andThrow(new RuntimeException('Connection lost'));
-        $this->app->instance(ApifyHelper::class, $helper);
-        $job = new StartWebsiteScrapingJob($run->id);
+        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::response(['error' => 'secret-data'], 500)]);
+        $researchRun = $this->createResearchRun();
+        $job = new ResearchWebsiteJob($researchRun->id);
 
         try {
             $job->handle();
             $this->fail('El error del proveedor debía propagarse.');
-        } catch (RuntimeException $exception) {
+        } catch (ApiException $exception) {
             $job->failed($exception);
         }
-        $job->handle();
-        $this->assertSame('failed', $run->fresh()->status);
-        Queue::assertNotPushed(CheckWebsiteScrapingJob::class);
+
+        $researchRun->refresh();
+        $this->assertSame('failed', $researchRun->status);
+        $this->assertNotNull($researchRun->finished_at);
+        $this->assertStringNotContainsString('secret-data', $researchRun->error_message);
+        $this->assertDatabaseCount('knowledge_sources', 0);
+        $this->getJson('/api/research-runs/website/status')->assertOk()
+            ->assertJsonPath('data.latest.status', 'failed')
+            ->assertJsonPath('data.active', null);
+    }
+
+
+    // Si la ejecución ya no existe, el job termina sin llamar a ningún proveedor.
+    #[Test]
+    public function does_nothing_when_the_research_run_is_missing(): void
+    {
+        Http::fake();
+
+        (new ResearchWebsiteJob(999))->handle();
+
+        Http::assertNothingSent();
+    }
+
+
+    // El UUID nace con el job y sobrevive a la serialización: el fallo va a los dos logs con el prefijo de handle().
+    #[Test]
+    public function correlates_logs_with_the_same_uuid_after_serialization(): void
+    {
+        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::response([], 500)]);
+        $researchRun = $this->createResearchRun();
+        $job = new ResearchWebsiteJob($researchRun->id);
+        $serializedJob = serialize($job);
+        $messages = [];
+        $logger = Mockery::mock(LoggerInterface::class);
+        $logger->shouldReceive('info')->andReturnUsing(function (string $message) use (&$messages): void {
+            $messages[] = $message;
+        });
+        $logger->shouldReceive('error')->andReturnUsing(function (string $message) use (&$messages): void {
+            $messages[] = $message;
+        });
+        Log::shouldReceive('channel')->with('ResearchWebsiteJobInfo')->andReturn($logger);
+        Log::shouldReceive('channel')->with('ResearchWebsiteJobErrors')->andReturn($logger);
+
+        try {
+            $job->handle();
+        } catch (ApiException $exception) {
+            unserialize($serializedJob)->failed($exception);
+        }
+
+        $this->assertCount(3, $messages);
+        preg_match('/^\[[a-f0-9-]{36}\] \| /', $messages[0], $matches);
+        $this->assertNotEmpty($matches);
+        foreach ($messages as $message) {
+            $this->assertStringStartsWith($matches[0], $message);
+        }
     }
 
 
@@ -245,35 +469,14 @@ class WebsiteResearchTest extends TestCase
     #[Test]
     public function rolls_back_creation_when_dispatch_fails(): void
     {
-        $dispatcher = Mockery::mock(ResearchDispatcherService::class);
-        $dispatcher->shouldReceive('dispatchStartWebsiteScrapingJob')->once()
+        $researchDispatcherService = Mockery::mock(ResearchDispatcherService::class);
+        $researchDispatcherService->shouldReceive('dispatchResearchWebsiteJob')->once()
             ->andThrow(new RuntimeException('Queue unavailable'));
-        $this->app->instance(ResearchDispatcherService::class, $dispatcher);
+        $this->app->instance(ResearchDispatcherService::class, $researchDispatcherService);
 
         $this->postJson('/api/research-runs', ['type' => 'website'])->assertStatus(500);
+
         $this->assertDatabaseCount('research_runs', 0);
-    }
-
-
-    // Las lecturas y la creación requieren autenticación y nunca exponen ejecuciones de otra marca.
-    #[Test]
-    public function isolates_runs_and_validates_the_requested_source(): void
-    {
-        $run = $this->createRun();
-        $otherUser = UserFactory::new()->owner()->create();
-        resolve(BrandService::class)->create($otherUser->client, ['name' => 'Otra marca']);
-        $credentials = resolve(UserService::class)->createApiToken($otherUser);
-        $this->withToken($credentials['token']);
-
-        $this->getJson("/api/research-runs/{$run->id}")->assertNotFound();
-        $this->getJson('/api/research-runs/website/status')->assertOk()->assertJsonPath('data.latest', null);
-        $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnprocessable()
-            ->assertJsonValidationErrors('website_url');
-        $this->postJson('/api/research-runs', ['type' => 'instagram'])->assertUnprocessable()
-            ->assertJsonValidationErrors('type');
-        $this->withoutToken();
-        $this->getJson("/api/research-runs/{$run->id}")->assertUnauthorized();
-        $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnauthorized();
     }
 
 
@@ -284,47 +487,39 @@ class WebsiteResearchTest extends TestCase
         $this->app->forgetInstance('queue');
         Queue::clearResolvedInstance('queue');
         config()->set('queue.default', 'database');
+
         DB::beginTransaction();
-        $run = $this->createRun();
-        $queued = DB::table('jobs')->where('queue', 'scraping_queue')->first();
-        $this->assertNotNull($queued);
-        $this->assertStringNotContainsString('https://example.com', $queued->payload);
-        $this->assertStringContainsString('researchRunId', $queued->payload);
+        $researchRun = $this->createResearchRun();
+        $queuedJob = DB::table('jobs')->where('queue', 'research_queue')->first();
+        $this->assertNotNull($queuedJob);
+        $this->assertStringNotContainsString('https://example.com', $queuedJob->payload);
+        $this->assertStringContainsString('researchRunId', $queuedJob->payload);
         DB::rollBack();
 
-        $this->assertDatabaseMissing('research_runs', ['id' => $run->id]);
+        $this->assertDatabaseMissing('research_runs', ['id' => $researchRun->id]);
         $this->assertDatabaseCount('jobs', 0);
     }
 
 
-    // Un dataset inválido no deja fuentes parciales; el fallo definitivo queda visible.
+    // Las lecturas y la creación requieren autenticación y nunca exponen ejecuciones de otra marca.
     #[Test]
-    public function rejects_invalid_external_content_without_partial_sources(): void
+    public function isolates_runs_and_validates_the_requested_source(): void
     {
-        $run = $this->createRun();
-        $run->update(['status' => 'scraping', 'external_run_id' => 'run123', 'started_at' => now()]);
-        Http::fake([
-            '*/actor-runs/run123' => Http::response(['data' => [
-                'id' => 'run123', 'status' => 'SUCCEEDED', 'defaultDatasetId' => 'dataset123',
-            ]]),
-            '*/datasets/dataset123/items*' => Http::response([
-                ['url' => 'https://example.com', 'text' => 'Contenido válido'],
-                ['url' => 'https://example.com/about', 'text' => ['invalid']],
-            ]),
-        ]);
-        $job = new CheckWebsiteScrapingJob($run->id);
-        try {
-            $job->handle();
-            $this->fail('Se esperaba rechazar la respuesta inválida.');
-        } catch (ApiException $exception) {
-            $this->assertSame('apify_content_invalid', $exception->errorCode);
-            $this->assertSame('scraping', $run->fresh()->status);
-            $job->failed($exception);
-        }
+        $researchRun = $this->createResearchRun();
+        $otherUser = UserFactory::new()->owner()->create();
+        resolve(BrandService::class)->create($otherUser->client, ['name' => 'Otra marca']);
+        $credentials = resolve(UserService::class)->createApiToken($otherUser);
+        $this->withToken($credentials['token']);
 
-        $this->assertSame('failed', $run->fresh()->status);
-        $this->assertDatabaseCount('knowledge_sources', 0);
-        Queue::assertNotPushed(AnalyzeWebsiteContentJob::class);
+        $this->getJson("/api/research-runs/{$researchRun->id}")->assertNotFound();
+        $this->getJson('/api/research-runs/website/status')->assertOk()->assertJsonPath('data.latest', null);
+        $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnprocessable()
+            ->assertJsonValidationErrors('website_url');
+        $this->postJson('/api/research-runs', ['type' => 'instagram'])->assertUnprocessable()
+            ->assertJsonValidationErrors('type');
+        $this->withoutToken();
+        $this->getJson("/api/research-runs/{$researchRun->id}")->assertUnauthorized();
+        $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnauthorized();
     }
 
 
@@ -334,135 +529,79 @@ class WebsiteResearchTest extends TestCase
     {
         $otherUser = UserFactory::new()->owner()->create();
         $otherBrand = resolve(BrandService::class)->create($otherUser->client, ['name' => 'Otra marca']);
-        $source = resolve(KnowledgeSourceService::class)->create($otherBrand, [
+        $knowledgeSource = resolve(KnowledgeSourceService::class)->create($otherBrand, [
             'type' => 'web_page', 'title' => 'Privado', 'status' => 'ready',
         ]);
-        $run = $this->createRun();
-        $run->update(['knowledge_source_ids' => [$source->id]]);
+        $researchRun = $this->createResearchRun();
+        $researchRun->update(['knowledge_source_ids' => [$knowledgeSource->id]]);
 
-        $this->getJson("/api/research-runs/{$run->id}")->assertOk()->assertJsonCount(0, 'data.knowledge_sources');
+        $this->getJson("/api/research-runs/{$researchRun->id}")
+            ->assertOk()->assertJsonCount(0, 'data.knowledge_sources');
     }
 
 
-    // La serialización conserva el UUID incluso cuando failed() recibe otra instancia del job.
-    #[Test]
-    public function correlates_logs_across_serialization_and_records_skip_reasons(): void
-    {
-        $run = $this->createRun();
-        $run->update(['status' => 'scraping']);
-        $job = new StartWebsiteScrapingJob($run->id);
-        $payload = serialize($job);
-        $messages = [];
-        $logger = Mockery::mock(LoggerInterface::class);
-        $logger->shouldReceive('info')->twice()
-            ->withArgs(function (string $message, array $context) use (&$messages): bool {
-                $messages[] = $message;
-                return isset($context['researchRunId']);
-            });
-        $logger->shouldReceive('error')->once()
-            ->withArgs(function (string $message, array $context) use (&$messages): bool {
-                $messages[] = $message;
-                return isset($context['exception']);
-            });
-        Log::shouldReceive('channel')
-            ->with('StartWebsiteScrapingJobInfo')->andReturn($logger);
-        Log::shouldReceive('channel')
-            ->with('StartWebsiteScrapingJobErrors')->andReturn($logger);
-
-        $job->handle();
-        unserialize($payload)->failed(new RuntimeException('Failure'));
-
-        $this->assertStringContainsString('no longer pending', $messages[1]);
-        preg_match('/^\[([a-f0-9-]{36})\] \| /', $messages[0], $matches);
-        $this->assertNotEmpty($matches);
-        foreach ($messages as $message) {
-            $this->assertStringStartsWith($matches[0], $message);
-        }
-    }
-
-
-    // Si falla el despacho de la siguiente etapa, se revierten las fuentes y el avance juntos.
-    #[Test]
-    public function rolls_back_sources_when_analysis_dispatch_fails(): void
-    {
-        $run = $this->createRun();
-        $run->update(['status' => 'scraping', 'external_run_id' => 'run123', 'started_at' => now()]);
-        $this->fakeSuccessfulScraping();
-        $dispatcher = Mockery::mock(ResearchDispatcherService::class);
-        $dispatcher->shouldReceive('dispatchAnalyzeWebsiteContentJob')->once()
-            ->andThrow(new RuntimeException('Queue unavailable'));
-        $this->app->instance(ResearchDispatcherService::class, $dispatcher);
-
-        try {
-            (new CheckWebsiteScrapingJob($run->id))->handle();
-            $this->fail('Se esperaba el error del despacho.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame('Queue unavailable', $exception->getMessage());
-        }
-
-        $this->assertDatabaseCount('knowledge_sources', 0);
-        $this->assertSame('scraping', $run->fresh()->status);
-        $this->assertSame([], $run->fresh()->knowledge_source_ids);
-    }
-
-
-    // Una ejecución concurrente se omite en el job, antes de acceder al proveedor o guardar resultados.
-    #[Test]
-    public function skips_jobs_already_running_and_releases_lock_after_failure(): void
-    {
-        $run = $this->createRun();
-        Http::fake();
-        foreach ([StartWebsiteScrapingJob::class, CheckWebsiteScrapingJob::class,
-            AnalyzeWebsiteContentJob::class] as $jobClass) {
-            $key = $jobClass.':'.$run->id;
-            $lock = Cache::lock($key, 90);
-            $this->assertTrue($lock->get());
-            try {
-                (new $jobClass($run->id))->handle();
-                $this->assertSame('pending', $run->fresh()->status);
-                Queue::assertPushed($jobClass, fn (object $job): bool => $job->delay?->isFuture() === true);
-            } finally {
-                $lock->release();
-            }
-        }
-        Http::assertNothingSent();
-        $this->assertDatabaseCount('knowledge_insights', 0);
-
-        $helper = Mockery::mock(ApifyHelper::class);
-        $helper->shouldReceive('startWebsiteContentCrawler')->once()->andThrow(new RuntimeException('Failed'));
-        $this->app->instance(ApifyHelper::class, $helper);
-        try {
-            (new StartWebsiteScrapingJob($run->id))->handle();
-            $this->fail('Se esperaba el fallo del proveedor.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame('Failed', $exception->getMessage());
-        }
-        $lock = Cache::lock(StartWebsiteScrapingJob::class.':'.$run->id, 90);
-        $this->assertTrue($lock->get());
-        $lock->release();
-    }
-
-
-    private function createRun(): ResearchRun
+    private function createResearchRun(): ResearchRun
     {
         return resolve(ResearchRunService::class)->create($this->brand, ['type' => 'website']);
     }
 
 
-    private function fakeSuccessfulScraping(): void
+    // El helper de OpenAI agrega un recordatorio de JSON al final del input; se decodifica solo el objeto.
+    private function decodeOpenAiInput(Request $request): array
     {
-        Http::fake([
-            '*/actors/apify~website-content-crawler/runs' => Http::response(['data' => [
-                'id' => 'run123', 'status' => 'RUNNING', 'defaultDatasetId' => 'dataset123',
-            ]]),
-            '*/actor-runs/run123' => Http::response(['data' => [
-                'id' => 'run123', 'status' => 'SUCCEEDED', 'defaultDatasetId' => 'dataset123',
-            ]]),
-            '*/datasets/dataset123/items*' => Http::response([
-                ['url' => 'https://example.com', 'metadata' => ['title' => 'Inicio'], 'text' => 'Servicios de ejemplo'],
-                ['url' => 'https://example.com/about', 'markdown' => '# Sobre nosotros'],
-            ]),
-        ]);
+        $input = $request['input'];
+        $jsonObject = substr($input, 0, strrpos($input, '}') + 1);
+
+        return json_decode($jsonObject, true);
+    }
+
+
+    private function firecrawlPage(string $markdown, array $links = []): array
+    {
+        return ['success' => true, 'data' => [
+            'markdown' => $markdown,
+            'metadata' => ['title' => 'Mi marca'],
+            'images' => ['https://example.com/logo.png'],
+            'links' => $links,
+        ]];
+    }
+
+
+    // Respuesta del modelo con todos los campos de la marca en null, salvo los indicados.
+    private function analysis(array $brandValues = [], array $additionalUrls = []): array
+    {
+        $brand = [
+            'name' => null,
+            'brand_offer_description' => null,
+            'brand_differentiators_description' => null,
+            'brand_history_description' => null,
+            'brand_customers_description' => null,
+            'brand_customers_needs_description' => null,
+            'brand_visual_style_description' => null,
+            'brand_tone_of_voice_description' => null,
+            'brand_customers_valued_aspects_description' => null,
+            'brand_customers_faq_description' => null,
+            'brand_communication_topics_description' => null,
+            'brand_content_opportunities_description' => null,
+            'brand_logo' => [],
+            'brand_colors' => null,
+            'brand_fonts' => null,
+        ];
+
+        return [
+            'brand' => [...$brand, ...$brandValues],
+            'inferred_fields' => [],
+            'additional_urls' => $additionalUrls,
+        ];
+    }
+
+
+    private function openAiResponse(array $analysis): array
+    {
+        return ['status' => 'completed', 'output' => [[
+            'type' => 'message', 'role' => 'assistant', 'status' => 'completed',
+            'content' => [['type' => 'output_text', 'text' => json_encode($analysis)]],
+        ]]];
     }
 
 }

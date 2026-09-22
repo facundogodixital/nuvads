@@ -33,7 +33,7 @@ class BrandSourcesTest extends TestCase
             'instagram_username' => '@Mi.Marca',
             'brand_id' => $otherBrand->id,
             'client_id' => $otherUser->client_id,
-            'authenticated_brand' => $otherBrand->id,
+            'brand' => $otherBrand->id,
             'name' => 'Cambio no autorizado',
         ])->assertOk()->assertJsonPath('data.instagram_username', 'mi.marca');
 

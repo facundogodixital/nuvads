@@ -9,7 +9,7 @@ use Illuminate\Auth\AuthenticationException;
 use Symfony\Component\HttpFoundation\Response;
 
 
-class AuthenticateAccessToken
+class AuthenticateAccessTokenMiddleware
 {
 
 
@@ -27,7 +27,7 @@ class AuthenticateAccessToken
         }
 
         $request->setUserResolver(fn () => $user);
-        $request->attributes->set('authenticated_user', $user);
+        $request->attributes->set('user', $user);
 
         return $next($request);
     }

@@ -52,39 +52,15 @@ return [
 
     'channels' => [
 
-        'StartWebsiteScrapingJobInfo' => [
+        'ResearchWebsiteJobInfo' => [
             'driver' => 'single',
-            'path' => storage_path('logs/StartWebsiteScrapingJobInfo.log'),
+            'path' => storage_path('logs/ResearchWebsiteJobInfo.log'),
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
-        'StartWebsiteScrapingJobErrors' => [
+        'ResearchWebsiteJobErrors' => [
             'driver' => 'single',
-            'path' => storage_path('logs/StartWebsiteScrapingJobErrors.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-        ],
-
-        'CheckWebsiteScrapingJobInfo' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/CheckWebsiteScrapingJobInfo.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-        ],
-
-        'CheckWebsiteScrapingJobErrors' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/CheckWebsiteScrapingJobErrors.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-        ],
-
-        'AnalyzeWebsiteContentJobInfo' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/AnalyzeWebsiteContentJobInfo.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-        ],
-
-        'AnalyzeWebsiteContentJobErrors' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/AnalyzeWebsiteContentJobErrors.log'),
+            'path' => storage_path('logs/ResearchWebsiteJobErrors.log'),
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
