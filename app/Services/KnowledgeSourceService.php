@@ -49,4 +49,16 @@ class KnowledgeSourceService
         return $this->knowledgeSourceRepository->delete($brand, $knowledgeSourceId);
     }
 
+
+    public function findByIds(Brand $brand, array $knowledgeSourceIds): Collection
+    {
+        return $this->knowledgeSourceRepository->findByIds($brand, $knowledgeSourceIds);
+    }
+
+
+    public function findOneByContentHash(Brand $brand, string $contentHash): ?KnowledgeSource
+    {
+        return $this->knowledgeSourceRepository->findOneByContentHash($brand, $contentHash);
+    }
+
 }

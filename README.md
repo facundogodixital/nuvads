@@ -238,6 +238,58 @@ make lint-php
 Configuración, convenciones y ciclo de la base de datos:
 [skill testing-backend](.claude/skills/testing-backend/SKILL.md).
 
+## Investigación web de marca
+
+**Pendiente: implementar el análisis real con IA** (proveedor/modelo, prompt e
+interpretación y validación de los resultados). El estado `completed` actual
+indica que terminó el recorrido con el mock, no que se haya realizado un análisis real.
+
+El backend usa Apify para recopilar el sitio guardado en la marca. La etapa de IA
+está simulada: guarda insights con `model: mock`, `prompt_version: mock-v1` y
+`payload.is_mock: true`. No genera conclusiones reales ni modifica correcciones
+anteriores. La futura llamada de IA está comentada en `ResearchRunService`.
+
+Endpoints autenticados:
+
+- `POST /api/research-runs`, body `{"type":"website"}`: crea la ejecución y encola el inicio.
+- `GET /api/research-runs/{id}`: devuelve la ejecución con fuentes e insights.
+- `GET /api/research-runs/website/status`: devuelve `active`, `latest` y `last_completed`.
+
+Se admite una ejecución web activa por marca. `research_runs` conserva la URL
+solicitada y los estados `pending`, `scraping`, `analyzing`, `completed`, `failed`.
+El frontend todavía no está conectado a estos endpoints.
+
+La tabla se crea con la migración `2026_09_21_000003_create_research_runs_table.php`.
+Se reutilizan `knowledge_sources` y `knowledge_insights`; las fuentes sin cambios
+se deduplican y sus IDs quedan registrados en la ejecución.
+
+El helper limita el scraping a diez páginas por defecto y permite indicar otro
+límite en cada llamada. `ResearchRun` conserva el límite utilizado. El seguimiento
+espera hasta 600 segundos (`config/research.php`); comprueba Apify cada 15 segundos,
+según el dispatcher. Las consultas fallidas tienen tres intentos y un backoff de
+15 segundos, declarados en el job. El inicio tiene un solo intento. Requiere
+`APIFY_API_KEY`. El límite de espera es local: no cancela automáticamente el actor.
+
+Se mantiene `QUEUE_CONNECTION=database` y la conexión de queue en la misma base
+de la aplicación. La ejecución, sus cambios de etapa y los despachos se guardan
+en la misma transacción. Cambiar esa conexión requiere revisar esta garantía.
+
+Cada comando se ejecuta en una terminal independiente; no se instaló un supervisor:
+
+```bash
+docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=scraping_queue
+docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=analysis_queue
+```
+
+Los parámetros de ejecución están en los jobs; queue y demora, en
+`ResearchDispatcherService`. Los logs llevan el nombre de cada job, sufijo `Info`
+o `Errors` y UUID de correlación. El inicio de Apify no se reintenta automáticamente:
+si su respuesta se pierde, revisar Apify antes de solicitar otra ejecución.
+
+El contenido se valida según la salida del
+[Website Content Crawler de Apify](https://apify.com/apify/website-content-crawler).
+Los tests simulan todas las llamadas externas; ejecutarlos no inicia scrapers pagos.
+
 ## Datos locales
 
 Las bases guardan sus archivos directamente en carpetas del proyecto mediante

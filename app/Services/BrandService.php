@@ -30,4 +30,10 @@ class BrandService
         return $this->brandRepository->update($brand, $attributes);
     }
 
+
+    public function findForUpdate(int $brandId): Brand
+    {
+        return $this->brandRepository->findForUpdate($brandId);
+    }
+
 }

@@ -102,6 +102,8 @@ Decisión: todos los requests deben seguir el mismo recorrido de validación.
 
 Orden de los métodos: `rules()` primero y `messages()` inmediatamente después, cuando exista. Después van los demás métodos del request.
 
+Antes de validar, `prepareForValidation()` puede normalizar las entradas cuando haga falta; por ejemplo, convertir un enlace de Instagram en un nombre de usuario. No reemplaza las reglas ni las comprobaciones adicionales. Como recibe datos todavía sin validar, debe comprobar el tipo antes de transformarlos. Si se sobrescribe en un request que hereda de `AuthenticatedRequest`, llamar a `parent::prepareForValidation()` para conservar la preparación del contexto autenticado.
+
 Paso 1 — Reglas de entrada:
 `rules()` declara los campos obligatorios, tipos, formatos, límites y demás reglas que Laravel pueda expresar directamente. Laravel las evalúa con su comportamiento por defecto y acumula los errores de todos los campos.
 
@@ -185,7 +187,9 @@ public function create(CreateTagRequest $request)
 - Si el modelo llegó por route model binding y solo hay que devolverlo, no hace falta pasar por un service.
 
 Respuesta:
-- El controller elige la representación del resultado y el estado HTTP. Usa Resources cuando corresponde y respeta el formato JSON de la sección 1.
+- Los controllers de API heredan de `App\Http\Controllers\API\ApiController` y devuelven las respuestas exitosas mediante `respond($data, $status)`. Este método centraliza el envoltorio `data` y la cabecera `Cache-Control: no-store`; el estado HTTP predeterminado es 200.
+- Por defecto, se devuelve el modelo completo mediante su serialización habitual, respetando `$hidden`. No se enumeran sus campos en el controller. Elegir campos específicos o usar Resources queda para excepciones justificadas.
+- El controller pasa el resultado a `respond()` e indica el estado HTTP cuando corresponde, por ejemplo 201 al crear un recurso. Puede agrupar resultados con claves como `user`, `brand` y `client`, sin seleccionar los atributos de cada modelo.
 - Los errores los presenta el handler central (sección 4). No se escriben try/catch en el controller solo para armar respuestas de error.
 
 Nombres de los métodos: no se usa `apiResource` ni los nombres de acción de Laravel (`index`, `store`, `show`, `destroy`). Los controllers usan estos verbos:
@@ -206,9 +210,7 @@ public function create(CreateTagRequest $request): JsonResponse
 
     $tag = resolve(TagService::class)->create($data);
 
-    $resource = new TagResource($tag);
-
-    return $resource->response()->setStatusCode(201);
+    return $this->respond($tag, 201);
 }
 ```
 

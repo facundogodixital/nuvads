@@ -14,6 +14,8 @@ use Illuminate\Http\Client\ConnectionException;
 class ApifyHelper
 {
 
+    public const int DEFAULT_WEBSITE_MAX_PAGES = 10;
+
 
     /** @param list<string> $urls */
     public function startFacebookAdsScraper(array $urls, ?int $resultsLimit = null): ApifyRunDto
@@ -82,26 +84,25 @@ class ApifyHelper
 
 
     /**
-     * Sin maxCrawlPages se conserva el límite predeterminado del actor.
+     * El límite puede ajustarse por llamada; por defecto se recopilan hasta diez páginas.
      *
      * @param  list<string>  $urls
      */
-    public function startWebsiteContentCrawler(array $urls, ?int $maxCrawlPages = null): ApifyRunDto
-    {
+    public function startWebsiteContentCrawler(
+        array $urls,
+        int $maxCrawlPages = self::DEFAULT_WEBSITE_MAX_PAGES,
+    ): ApifyRunDto {
         Validator::make(compact('urls', 'maxCrawlPages'), [
             'urls' => ['required', 'array', 'list', 'min:1'],
             'urls.*' => ['required', 'string', 'url:http,https'],
-            'maxCrawlPages' => ['nullable', 'integer', 'min:1'],
+            'maxCrawlPages' => ['required', 'integer', 'min:1'],
         ])->validate();
 
         $input = ['startUrls' => []];
         foreach ($urls as $url) {
             $input['startUrls'][] = ['url' => $url];
         }
-        $hasMaxCrawlPages = $maxCrawlPages !== null;
-        if ($hasMaxCrawlPages) {
-            $input['maxCrawlPages'] = $maxCrawlPages;
-        }
+        $input['maxCrawlPages'] = $maxCrawlPages;
 
         $response = $this->sendRequest('POST', 'actors/apify~website-content-crawler/runs', $input);
         return $this->getValidatedRun($response);
@@ -151,6 +152,44 @@ class ApifyHelper
         }
 
         return $response->json();
+    }
+
+
+    /** @return list<array{url: string, title: string, content: string, payload: array}> */
+    public function getWebsitePages(string $datasetId, int $maxPages): array
+    {
+        $items = $this->getDatasetItems($datasetId, limit: $maxPages);
+        $pages = [];
+        foreach ($items as $item) {
+            $validator = Validator::make($item, [
+                'url' => ['required', 'string', 'url:http,https'],
+                'text' => ['nullable', 'string'],
+                'markdown' => ['nullable', 'string'],
+                'metadata' => ['sometimes', 'array'],
+                'metadata.title' => ['nullable', 'string'],
+            ]);
+            if ($validator->fails()) {
+                throw new ApiException(502, 'apify_content_invalid', 'Apify devolvió contenido web inválido.');
+            }
+
+            $content = trim($item['markdown'] ?? '');
+            if ($content === '') {
+                $content = trim($item['text'] ?? '');
+            }
+            // El dataset puede contener archivos u otras páginas sin texto aprovechable.
+            if ($content === '') {
+                continue;
+            }
+
+            $pages[] = [
+                'url' => $item['url'],
+                'title' => $item['metadata']['title'] ?? $item['url'],
+                'content' => $content,
+                'payload' => $item,
+            ];
+        }
+
+        return $pages;
     }
 
 

@@ -65,4 +65,23 @@ class KnowledgeSourceRepository
         return $knowledgeSource->delete();
     }
 
+
+    public function findByIds(Brand $brand, array $knowledgeSourceIds): Collection
+    {
+        return KnowledgeSource::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->whereIn('id', $knowledgeSourceIds)
+            ->orderBy('id')->get();
+    }
+
+
+    public function findOneByContentHash(Brand $brand, string $contentHash): ?KnowledgeSource
+    {
+        return KnowledgeSource::withTrashed()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->where('content_hash', $contentHash)->first();
+    }
+
 }

@@ -11,15 +11,18 @@ use App\Services\LoginCodeService;
 use App\Services\GoogleAuthService;
 use App\Helpers\IpGeolocationHelper;
 use App\Repositories\UserRepository;
+use App\Services\ResearchRunService;
 use App\Repositories\BrandRepository;
 use App\Repositories\ClientRepository;
 use App\Services\AdministratorService;
 use Illuminate\Support\ServiceProvider;
 use App\Services\KnowledgeSourceService;
 use App\Services\KnowledgeInsightService;
+use App\Repositories\ResearchRunRepository;
 use App\Repositories\AdministratorRepository;
 use App\Repositories\KnowledgeSourceRepository;
 use App\Repositories\KnowledgeInsightRepository;
+use App\Services\Dispatchers\ResearchDispatcherService;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(ApifyHelper::class);
+        $this->app->scoped(ResearchRunService::class);
+        $this->app->scoped(ResearchRunRepository::class);
+        $this->app->scoped(ResearchDispatcherService::class);
         $this->app->scoped(KnowledgeSourceService::class);
         $this->app->scoped(KnowledgeInsightService::class);
         $this->app->scoped(KnowledgeSourceRepository::class);

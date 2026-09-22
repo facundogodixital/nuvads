@@ -26,4 +26,10 @@ class BrandRepository
         return $brand;
     }
 
+
+    public function findForUpdate(int $brandId): Brand
+    {
+        return Brand::query()->lockForUpdate()->findOrFail($brandId);
+    }
+
 }

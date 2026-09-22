@@ -60,7 +60,7 @@ class ApifyHelperTest extends TestCase
                 'startUrls' => [['url' => $websiteUrl]], 'maxCrawlPages' => 20,
             ]],
             ['startWebsiteContentCrawler', 'apify~website-content-crawler', [[$websiteUrl]], [
-                'startUrls' => [['url' => $websiteUrl]],
+                'startUrls' => [['url' => $websiteUrl]], 'maxCrawlPages' => 10,
             ]],
             ['startFacebookAdsScraper', 'apify~facebook-ads-scraper', [[$facebookUrl], 10], [
                 'startUrls' => [['url' => $facebookUrl]], 'resultsLimit' => 10,
