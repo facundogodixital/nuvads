@@ -50,10 +50,14 @@ class GoogleOAuthHelper
         try {
             return $this->getProvider($request)->user();
         } catch (InvalidStateException $exception) {
-            throw new ApiException(419, 'google_session_expired', 'El intento de acceso expiró. Volvé a intentarlo.');
+            // El usuario ve un mensaje propio; la excepción original queda como previous y llega al log.
+            throw new ApiException(
+                419, 'google_session_expired', 'El intento de acceso expiró. Volvé a intentarlo.', $exception,
+            );
         } catch (GuzzleException $exception) {
-            // No incluir respuestas del proveedor que puedan contener credenciales o tokens.
-            throw new ApiException(502, 'google_unavailable', 'No pudimos completar el acceso con Google.');
+            throw new ApiException(
+                502, 'google_unavailable', 'No pudimos completar el acceso con Google.', $exception,
+            );
         }
     }
 

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
+use Illuminate\Http\Client\RequestException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use App\Jobs\Research\Website\ResearchWebsiteJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -407,7 +408,7 @@ class WebsiteResearchTest extends TestCase
         try {
             $job->handle();
             $this->fail('El error del proveedor debía propagarse.');
-        } catch (ApiException $exception) {
+        } catch (RequestException $exception) {
             $job->failed($exception);
         }
 
@@ -452,7 +453,7 @@ class WebsiteResearchTest extends TestCase
         $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnprocessable()
             ->assertJsonValidationErrors('website_url');
         $this->postJson('/api/research-runs', ['type' => 'instagram'])->assertUnprocessable()
-            ->assertJsonValidationErrors('type');
+            ->assertJsonValidationErrors('instagram_username');
         $this->withoutToken();
         $this->getJson("/api/research-runs/{$researchRun->id}")->assertUnauthorized();
         $this->postJson('/api/research-runs', ['type' => 'website'])->assertUnauthorized();

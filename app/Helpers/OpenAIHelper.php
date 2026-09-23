@@ -2,11 +2,9 @@
 
 namespace App\Helpers;
 
-use JsonException;
 use App\Exceptions\ApiException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Client\ConnectionException;
 
 
 class OpenAIHelper
@@ -47,18 +45,11 @@ class OpenAIHelper
     ): array {
         $content = $this->generateContent($model, $instructions, $input, 'json_object', $maxOutputTokens, $imageUrls);
 
-        try {
-            $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            $detail = "{$exception->getMessage()}: {$content}";
-            throw new ApiException(
-                502, 'openai_json_invalid', "OpenAI devolvió un JSON inválido. {$detail}", $exception,
-            );
-        }
-
-        $isJsonObject = str_starts_with(ltrim($content), '{');
+        $data = json_decode($content, true);
+        $isJsonObject = is_array($data) && str_starts_with(ltrim($content), '{');
         if (!$isJsonObject) {
-            throw new ApiException(502, 'openai_json_invalid', "OpenAI no devolvió un objeto JSON: {$content}");
+            $detail = json_last_error_msg().": {$content}";
+            throw new ApiException(502, 'openai_json_invalid', "OpenAI no devolvió un objeto JSON válido. {$detail}");
         }
 
         return $data;
@@ -113,25 +104,15 @@ class OpenAIHelper
             $payload['max_output_tokens'] = $maxOutputTokens;
         }
 
-        try {
-            // No reintentar automáticamente: una respuesta perdida puede duplicar el consumo.
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->withoutRedirecting()
-                ->timeout(120)
-                ->post('https://api.openai.com/v1/responses', $payload);
-        } catch (ConnectionException $exception) {
-            throw new ApiException(
-                502, 'openai_unavailable', "No se pudo conectar con OpenAI: {$exception->getMessage()}", $exception,
-            );
-        }
-
-        if (!$response->successful()) {
-            $providerMessage = $response->json('error.message') ?? $response->body();
-            throw new ApiException(
-                502, 'openai_request_failed', "OpenAI respondió {$response->status()}: {$providerMessage}",
-            );
-        }
+        // No reintentar automáticamente: una respuesta perdida puede duplicar el consumo. Un error HTTP sube como
+        // RequestException, con el estado y la respuesta completa.
+        $response = Http::withToken($apiKey)
+            ->acceptJson()
+            ->withoutRedirecting()
+            ->timeout(120)
+            ->dontTruncateExceptions()
+            ->throw()
+            ->post('https://api.openai.com/v1/responses', $payload);
 
         $result = $response->json();
         $isResultArray = is_array($result);

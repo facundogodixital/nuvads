@@ -8,6 +8,7 @@ use App\Helpers\FirecrawlHelper;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Http\Client\RequestException;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 
@@ -48,8 +49,7 @@ class FirecrawlHelperTest extends TestCase
     }
 
 
-    // Un error del proveedor, una respuesta inutilizable o una página con error se informan con su propio código,
-    // sin repetir la petición.
+    // Una respuesta inutilizable o una página con error se informan con su propio código, sin repetir la petición.
     #[Test]
     #[DataProvider('invalidResponses')]
     public function rejects_invalid_responses(string $body, int $status, string $errorCode, string $detail): void
@@ -73,12 +73,30 @@ class FirecrawlHelperTest extends TestCase
         $pageWithError = '{"success":true,"data":{"markdown":"","metadata":{"statusCode":404},"images":[],"links":[]}}';
 
         return [
-            'provider error' => ['{"error":"Rate limit"}', 500, 'firecrawl_request_failed', '500: Rate limit'],
             'blocked page' => [
                 '{"success":false,"error":"Blocked page"}', 200, 'firecrawl_response_invalid', 'Blocked page',
             ],
             'page with error status' => [$pageWithError, 200, 'firecrawl_page_failed', '404'],
         ];
+    }
+
+
+    // Un error HTTP del proveedor sube como RequestException, con su estado y la respuesta completa, sin repetir la
+    // petición.
+    #[Test]
+    public function reports_provider_errors_with_status_and_body(): void
+    {
+        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::response('{"error":"Rate limit"}', 500)]);
+
+        try {
+            resolve(FirecrawlHelper::class)->scrapeWebsite('https://example.com');
+            $this->fail('Se esperaba un error de Firecrawl.');
+        } catch (RequestException $exception) {
+            $this->assertSame(500, $exception->response->status());
+            $this->assertStringContainsString('Rate limit', $exception->getMessage());
+        }
+
+        Http::assertSentCount(1);
     }
 
 }

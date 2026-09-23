@@ -11,6 +11,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use App\Helpers\OpenAIHelper;
 use InvalidArgumentException;
+use App\DTO\HomepageReviewDto;
+use App\DTO\WebsiteAnalysisDto;
 use App\Models\KnowledgeSource;
 use Illuminate\Validation\Rule;
 use App\Exceptions\ApiException;
@@ -41,15 +43,15 @@ class WebsiteResearchService
         $researchRunService = resolve(ResearchRunService::class);
         $researchRun = $researchRunService->update($researchRun, ['status' => 'scraping', 'started_at' => now()]);
 
-        $homepage = $this->scrapePage($brand, $homepageUrl);
+        $homepage = $this->saveScrapedPage($brand, $homepageUrl);
         $knowledgeSources = collect([$homepage]);
         $researchRun = $researchRunService->update($researchRun, [
             'status' => 'analyzing',
             'knowledge_source_ids' => [$homepage->id],
         ]);
 
-        $visualIdentity = $this->getFirecrawlVisualIdentity($homepage);
-        $missingVisualFields = array_keys(array_filter($visualIdentity, $this->isEmptyBrandValue(...)));
+        $visualBrandFields = $this->getFirecrawlVisualBrandFields($homepage);
+        $missingVisualFields = array_keys(array_filter($visualBrandFields, $this->isEmptyBrandValue(...)));
         $internalLinks = $this->getInternalLinks($homepage);
         $this->logStage('Homepage prepared.', [
             'internalLinks' => count($internalLinks),
@@ -58,10 +60,11 @@ class WebsiteResearchService
         // Sin enlaces para elegir ni datos visuales faltantes, la primera consulta no tiene nada que hacer.
         $needsHomepageReview = $internalLinks !== [] || $missingVisualFields !== [];
         if ($needsHomepageReview) {
-            $homepageReview = $this->reviewHomepage($homepage, $internalLinks, $missingVisualFields, $model);
-            $visualIdentity = [...$visualIdentity, ...Arr::only($homepageReview['visual'], $missingVisualFields)];
-            foreach ($homepageReview['additional_urls'] as $url) {
-                $knowledgeSources->push($this->scrapePage($brand, $url));
+            $homepageReview = $this->requestHomepageReview($homepage, $internalLinks, $missingVisualFields, $model);
+            $modelVisualBrandFields = Arr::only($homepageReview->visualBrandFields, $missingVisualFields);
+            $visualBrandFields = [...$visualBrandFields, ...$modelVisualBrandFields];
+            foreach ($homepageReview->additionalUrls as $url) {
+                $knowledgeSources->push($this->saveScrapedPage($brand, $url));
             }
         }
 
@@ -71,17 +74,18 @@ class WebsiteResearchService
                 'knowledge_source_ids' => $knowledgeSources->pluck('id')->all(),
             ]);
         }
-        $analysis = $this->analyze($knowledgeSources, $model);
+        $websiteAnalysis = $this->requestWebsiteAnalysis($knowledgeSources, $model);
 
-        $this->saveInsights($researchRun, $knowledgeSources, [...$analysis, 'visual' => $visualIdentity]);
-        $this->fillBrandFields($brand, [...$analysis['brand'], ...$visualIdentity], $overwriteBrandFields);
+        $this->saveInsights($researchRun, $knowledgeSources, $websiteAnalysis, $visualBrandFields);
+        $suggestedBrandFields = [...$websiteAnalysis->brandFields, ...$visualBrandFields];
+        $this->fillBrandFields($brand, $suggestedBrandFields, $overwriteBrandFields);
 
         return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
     }
 
 
     // Obtiene la página con Firecrawl y la guarda como fuente de la marca.
-    private function scrapePage(Brand $brand, string $url): KnowledgeSource
+    private function saveScrapedPage(Brand $brand, string $url): KnowledgeSource
     {
         $rawJson = resolve(FirecrawlHelper::class)->scrapeWebsite($url);
         $page = json_decode($rawJson, true)['data'];
@@ -110,9 +114,9 @@ class WebsiteResearchService
 
     // Colores, fuentes y logo que Firecrawl detectó en la portada. Un color que no es #RRGGBB o un logo que
     // no es una URL http(s), como los placeholders incrustados en base64, cuentan como ausentes.
-    private function getFirecrawlVisualIdentity(KnowledgeSource $homepage): array
+    private function getFirecrawlVisualBrandFields(KnowledgeSource $homepage): array
     {
-        $branding = $this->getFirecrawlPage($homepage)['branding'] ?? [];
+        $branding = $this->getFirecrawlPageData($homepage)['branding'] ?? [];
         $logo = $branding['logo'] ?? null;
         $colors = $branding['colors'] ?? [];
         $fontFamilies = $branding['typography']['fontFamilies'] ?? [];
@@ -170,15 +174,15 @@ class WebsiteResearchService
     }
 
 
-    // Primera consulta, solo con la portada. Devuelve additional_urls (hasta dos enlaces de availableLinks
-    // para leer) y visual (los campos de missingVisualFields que el modelo encontró en la portada).
-    private function reviewHomepage(
+    // Primera consulta a OpenAI, solo con la portada: elige hasta dos enlaces de availableLinks para leer y completa
+    // los campos de missingVisualFields que encuentre en la portada.
+    private function requestHomepageReview(
         KnowledgeSource $homepage,
         array $availableLinks,
         array $missingVisualFields,
         string $model,
-    ): array {
-        $page = $this->getFirecrawlPage($homepage);
+    ): HomepageReviewDto {
+        $page = $this->getFirecrawlPageData($homepage);
         $input = [
             'page' => [
                 'url' => $homepage->payload['url'],
@@ -192,23 +196,26 @@ class WebsiteResearchService
         ];
         $instructions = $this->getHomepageReviewInstructions();
         $rules = $this->getHomepageReviewRules($availableLinks, $missingVisualFields);
-        $homepageReview = $this->generateValidatedJson($model, $instructions, $input, $rules);
+        $response = $this->requestJsonFromOpenAI($model, $instructions, $input, $rules);
         $this->logStage('Homepage review received.', [
-            'additionalUrls' => $homepageReview['additional_urls'],
-            'visual' => $homepageReview['visual'],
+            'additionalUrls' => $response['additional_urls'],
+            'visual' => $response['visual'],
         ]);
 
-        return $homepageReview;
+        return new HomepageReviewDto(
+            additionalUrls: $response['additional_urls'],
+            visualBrandFields: $response['visual'],
+        );
     }
 
 
-    // Segunda consulta, con todas las páginas juntas. Devuelve brand (los campos de texto de la marca),
-    // inferred_fields (campos que son deducciones), summary (resumen de la marca) e insights (conclusiones).
-    private function analyze(Collection $knowledgeSources, string $model): array
+    // Segunda consulta a OpenAI, con todas las páginas juntas: completa los campos de texto de la marca, resume la
+    // marca y saca conclusiones.
+    private function requestWebsiteAnalysis(Collection $knowledgeSources, string $model): WebsiteAnalysisDto
     {
         $pages = [];
         foreach ($knowledgeSources as $knowledgeSource) {
-            $page = $this->getFirecrawlPage($knowledgeSource);
+            $page = $this->getFirecrawlPageData($knowledgeSource);
             $pages[] = [
                 'url' => $knowledgeSource->payload['url'],
                 'metadata' => $page['metadata'] ?? [],
@@ -216,23 +223,30 @@ class WebsiteResearchService
             ];
         }
         $input = ['pages' => $pages];
-        $instructions = $this->getAnalysisInstructions();
-        $analysis = $this->generateValidatedJson($model, $instructions, $input, $this->getAnalysisRules());
-        $this->logStage('Analysis received.', [
+        $instructions = $this->getWebsiteAnalysisInstructions();
+        $response = $this->requestJsonFromOpenAI($model, $instructions, $input, $this->getWebsiteAnalysisRules());
+        $this->logStage('Website analysis received.', [
             'pages' => count($pages),
-            'returnedFields' => array_keys(array_filter($analysis['brand'])),
-            'inferredFields' => $analysis['inferred_fields'],
-            'insights' => count($analysis['insights']),
-            'output' => $analysis,
+            'returnedFields' => array_keys(array_filter($response['brand'])),
+            'inferredFields' => $response['inferred_fields'],
+            'insights' => count($response['insights']),
+            'output' => $response,
         ]);
 
-        return $analysis;
+        return new WebsiteAnalysisDto(
+            brandFields: $response['brand'],
+            inferredFields: $response['inferred_fields'],
+            summary: $response['summary'],
+            insights: $response['insights'],
+        );
     }
 
 
-    private function generateValidatedJson(string $model, string $instructions, array $input, array $rules): array
+    // Pide un objeto JSON a OpenAI y lo valida con rules. Lo devuelve tal cual, con la forma que describen esas
+    // rules; si no las cumple, el error incluye la respuesta completa.
+    private function requestJsonFromOpenAI(string $model, string $instructions, array $input, array $rules): array
     {
-        $this->logStage('Model requested.', ['model' => $model, 'instructions' => $instructions, 'input' => $input]);
+        $this->logStage('OpenAI requested.', ['model' => $model, 'instructions' => $instructions, 'input' => $input]);
         $response = resolve(OpenAIHelper::class)->generateJson(
             $model, $instructions, json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         );
@@ -249,7 +263,8 @@ class WebsiteResearchService
     }
 
 
-    private function getFirecrawlPage(KnowledgeSource $knowledgeSource): array
+    // Los datos de la página tal como los devolvió Firecrawl: markdown, metadata, branding, images y links.
+    private function getFirecrawlPageData(KnowledgeSource $knowledgeSource): array
     {
         return json_decode($knowledgeSource->payload['raw_json'], true)['data'];
     }
@@ -293,7 +308,7 @@ class WebsiteResearchService
     }
 
 
-    private function getAnalysisInstructions(): string
+    private function getWebsiteAnalysisInstructions(): string
     {
         return <<<'PROMPT'
         Sos un analista de marca. Recibís un JSON con las páginas de un sitio web (markdown y metadata).
@@ -389,7 +404,7 @@ class WebsiteResearchService
     }
 
 
-    private function getAnalysisRules(): array
+    private function getWebsiteAnalysisRules(): array
     {
         $brandFields = [
             'name',
@@ -432,10 +447,14 @@ class WebsiteResearchService
 
 
     // Las conclusiones activas de corridas anteriores pasan a outdated y se guardan las nuevas: el análisis de
-    // la marca, con la respuesta completa en payload, y una fila por conclusión. Todas apuntan a las páginas
-    // leídas en la corrida.
-    private function saveInsights(ResearchRun $researchRun, Collection $knowledgeSources, array $analysis): Collection
-    {
+    // la marca, con el análisis completo y la identidad visual en payload, y una fila por conclusión. Todas apuntan
+    // a las páginas leídas en la corrida.
+    private function saveInsights(
+        ResearchRun $researchRun,
+        Collection $knowledgeSources,
+        WebsiteAnalysisDto $websiteAnalysis,
+        array $visualBrandFields,
+    ): Collection {
         $brand = $researchRun->brand;
         $knowledgeInsightService = resolve(KnowledgeInsightService::class);
         $commonAttributes = [
@@ -454,10 +473,16 @@ class WebsiteResearchService
             $knowledgeInsights = collect([$knowledgeInsightService->create($brand, [
                 ...$commonAttributes,
                 'type' => 'website_brand_analysis',
-                'body' => $analysis['summary'],
-                'payload' => $analysis,
+                'body' => $websiteAnalysis->summary,
+                'payload' => [
+                    'brand' => $websiteAnalysis->brandFields,
+                    'inferred_fields' => $websiteAnalysis->inferredFields,
+                    'summary' => $websiteAnalysis->summary,
+                    'insights' => $websiteAnalysis->insights,
+                    'visual' => $visualBrandFields,
+                ],
             ])]);
-            foreach ($analysis['insights'] as $insight) {
+            foreach ($websiteAnalysis->insights as $insight) {
                 $knowledgeInsights->push($knowledgeInsightService->create($brand, [
                     ...$commonAttributes,
                     'type' => 'website_insight',

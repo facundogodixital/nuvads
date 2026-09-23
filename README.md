@@ -268,8 +268,8 @@ creando otra; cada ejecución guarda sus propias fuentes.
 El frontend todavía no está conectado a estos endpoints.
 
 La tabla se crea con la migración `2026_09_21_000002_create_research_runs_table.php`.
-Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` quedaron del
-recorrido anterior con Apify y hoy no se usan.
+Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` las usa la
+investigación de Instagram.
 
 Requiere `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. Cada fuente conserva el JSON original
 de Firecrawl en `payload.raw_json`. Los colores, las fuentes y el logo salen de Firecrawl;
@@ -280,7 +280,7 @@ activas de investigaciones anteriores pasan a `outdated`.
 
 Se mantiene `QUEUE_CONNECTION=database` en la misma base de la aplicación: la ejecución
 y su job se guardan en la misma transacción. El job tiene un intento y un timeout de
-600 segundos; el `retry_after` de la conexión es 660 para que ninguna entrega se repita
+600 segundos; el `retry_after` de la conexión es 900 para que ninguna entrega se repita
 mientras el job corre. Worker, que procesa `research_queue` y `default`:
 
 ```bash
@@ -295,6 +295,34 @@ pedido completo de cada consulta a OpenAI (instrucciones y páginas, con el mark
 sin URLs ni imágenes) y la respuesta completa del modelo.
 
 Los tests simulan todas las llamadas externas; ejecutarlos no consume créditos.
+
+## Investigación de Instagram
+
+`ResearchInstagramJob` llama a `InstagramResearchService`, que hace todo el trabajo en
+`research()`: arranca el actor `apify~instagram-post-scraper` con el `instagram_username`
+de la marca, consulta la ejecución cada 10 segundos hasta que termina y lee los últimos
+posteos, tantos como indique `instagram.posts_limit` en `config/research.php`. Cada posteo pasa por OpenAI (`gpt-6-luna`) con todas
+sus imágenes; el modelo devuelve, por cada una, el texto que aparece (`transcription`) y
+qué muestra (`description`). El posteo se guarda como fuente `instagram_post`, con `url`,
+`caption`, las imágenes enviadas en `image_urls`, lo que devolvió el modelo en `images` y
+el ítem completo de Apify en `raw`. Los reels se analizan solo con su portada. Un posteo
+que falla se saltea y queda registrado, con el error completo, en los logs Info y Errors;
+solo si fallan todos, falla la investigación.
+
+Con los posteos y las métricas calculadas en PHP (posteos por semana sin contar los
+fijados, y promedios de likes y comentarios por formato), un análisis final mezcla con su
+texto actual cinco campos de la marca: `brand_tone_of_voice_description`,
+`brand_visual_style_description`, `brand_communication_topics_description`,
+`brand_customers_description` y `brand_customers_needs_description`. Lo que el modelo
+devuelve vacío no borra nada. Deja un insight `instagram_analysis`, con el resumen en
+`body` y las métricas y la respuesta del modelo en `payload`, y hasta siete de tipo
+`instagram_insight`. Las conclusiones activas anteriores pasan a `outdated`.
+
+Se pide con `POST /api/research-runs`, body `{"type":"instagram"}`. Requiere
+`instagram_username` en la marca, `APIFY_API_KEY` y `OPENAI_API_KEY`. El job corre en
+`research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos
+60 segundos. Los logs van a `storage/logs/ResearchInstagramJobInfo.log` y
+`storage/logs/ResearchInstagramJobErrors.log`.
 
 ## Datos locales
 

@@ -5,7 +5,6 @@ namespace App\Helpers;
 use App\Exceptions\ApiException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Client\ConnectionException;
 
 
 class FirecrawlHelper
@@ -25,30 +24,18 @@ class FirecrawlHelper
             );
         }
 
-        try {
-            // No reintentar automáticamente una operación que consume créditos.
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->withoutRedirecting()
-                ->timeout(120)
-                ->post('https://api.firecrawl.dev/v2/scrape', [
-                    'url' => $url,
-                    'formats' => ['markdown', 'branding', 'images', 'links'],
-                ]);
-        } catch (ConnectionException $exception) {
-            $detail = $exception->getMessage();
-            throw new ApiException(
-                502, 'firecrawl_unavailable', "No se pudo conectar con Firecrawl: {$detail}", $exception,
-            );
-        }
-
-        if (!$response->successful()) {
-            $error = $response->json('error');
-            $providerMessage = is_string($error) ? $error : $response->body();
-            throw new ApiException(
-                502, 'firecrawl_request_failed', "Firecrawl respondió {$response->status()}: {$providerMessage}",
-            );
-        }
+        // No reintentar automáticamente una operación que consume créditos. Un error HTTP sube como
+        // RequestException, con el estado y la respuesta completa.
+        $response = Http::withToken($apiKey)
+            ->acceptJson()
+            ->withoutRedirecting()
+            ->timeout(120)
+            ->dontTruncateExceptions()
+            ->throw()
+            ->post('https://api.firecrawl.dev/v2/scrape', [
+                'url' => $url,
+                'formats' => ['markdown', 'branding', 'images', 'links'],
+            ]);
 
         $payload = $response->json();
         $isPayloadArray = is_array($payload);

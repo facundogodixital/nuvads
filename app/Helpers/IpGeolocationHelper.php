@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use DateTimeZone;
+use RuntimeException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 
@@ -27,16 +28,20 @@ class IpGeolocationHelper
         try {
             $response = Http::acceptJson()->connectTimeout(1)->timeout(2)->get("https://ipapi.co/{$ipAddress}/json/");
         } catch (ConnectionException $exception) {
+            // Sin respuesta se usan los valores por defecto; el fallo queda registrado en el log.
+            report($exception);
             return $location;
         }
 
         if (!$response->successful()) {
+            report(new RuntimeException("ipapi respondió {$response->status()}: {$response->body()}"));
             return $location;
         }
 
         $attributes = $response->json();
         $hasLocation = is_array($attributes) && empty($attributes['error']);
         if (!$hasLocation) {
+            report(new RuntimeException("ipapi no devolvió una ubicación: {$response->body()}"));
             return $location;
         }
 

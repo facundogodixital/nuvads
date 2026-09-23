@@ -25,29 +25,50 @@ class ResearchRunService
 
     public function create(Brand $brand, array $attributes): ResearchRun
     {
-        $activeResearchRun = $this->findOneActiveForBrand($brand, $attributes['type']);
+        $type = $attributes['type'];
+        $isWebsiteResearch = $type === 'website';
+        $activeResearchRun = $this->findOneActiveForBrand($brand, $type);
         if ($activeResearchRun !== null) {
-            throw new ApiException(409, 'research_already_running', 'Ya hay una investigación web en curso.');
+            throw new ApiException(409, 'research_already_running', 'Ya hay una investigación en curso.');
         }
-        if ($brand->website_url === null) {
+        $isWebsiteMissing = $isWebsiteResearch && $brand->website_url === null;
+        if ($isWebsiteMissing) {
             throw new ApiException(422, 'website_missing', 'Guarda el sitio web antes de analizarlo.');
         }
+        $isInstagramMissing = $type === 'instagram' && $brand->instagram_username === null;
+        if ($isInstagramMissing) {
+            throw new ApiException(422, 'instagram_missing', 'Guarda el usuario de Instagram antes de analizarlo.');
+        }
+
+        $input = match ($type) {
+            'website' => [
+                'url' => $brand->website_url,
+                'model' => config('research.website.analysis_model'), // gpt-6-luna
+                // Por defecto el análisis pisa la marca; con overwrite en false solo completa los vacíos.
+                'overwrite' => $attributes['overwrite'] ?? true,
+            ],
+            'instagram' => [
+                'username' => $brand->instagram_username,
+                'model' => config('research.instagram.analysis_model'), // gpt-6-luna
+                'posts_limit' => config('research.instagram.posts_limit'),
+            ],
+        };
 
         DB::beginTransaction();
         try {
             $researchRun = $this->researchRunRepository->create($brand, [
+                'type' => $type,
+                'input' => $input,
                 'status' => 'pending',
                 'knowledge_source_ids' => [],
-                'type' => $attributes['type'],
-                'input' => [
-                    'url' => $brand->website_url,
-                    'model' => config('research.website.analysis_model'), // gpt-6-luna
-                    // Por defecto el análisis pisa la marca; con overwrite en false solo completa los vacíos.
-                    'overwrite' => $attributes['overwrite'] ?? true,
-                ],
             ]);
             // La queue database comparte la transacción: la ejecución y su job se guardan juntos.
-            resolve(ResearchDispatcherService::class)->dispatchResearchWebsiteJob($researchRun->id);
+            $researchDispatcherService = resolve(ResearchDispatcherService::class);
+            if ($isWebsiteResearch) {
+                $researchDispatcherService->dispatchResearchWebsiteJob($researchRun->id);
+            } else {
+                $researchDispatcherService->dispatchResearchInstagramJob($researchRun->id);
+            }
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();

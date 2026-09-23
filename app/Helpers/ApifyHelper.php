@@ -8,7 +8,6 @@ use App\Exceptions\ApiException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Client\ConnectionException;
 
 
 class ApifyHelper
@@ -141,13 +140,16 @@ class ApifyHelper
         $items = $response->object();
         $isDatasetArray = is_array($items);
         if (!$isDatasetArray) {
-            throw new ApiException(502, 'apify_response_invalid', 'Apify devolvió una respuesta inválida.');
+            throw new ApiException(
+                502, 'apify_response_invalid', "Apify devolvió una respuesta inválida: {$response->body()}",
+            );
         }
 
         foreach ($items as $item) {
             $isDatasetItemObject = $item instanceof stdClass;
             if (!$isDatasetItemObject) {
-                throw new ApiException(502, 'apify_response_invalid', 'Apify devolvió una respuesta inválida.');
+                $detail = json_encode($item);
+                throw new ApiException(502, 'apify_response_invalid', "Apify devolvió un ítem inválido: {$detail}");
             }
         }
 
@@ -169,7 +171,10 @@ class ApifyHelper
                 'metadata.title' => ['nullable', 'string'],
             ]);
             if ($validator->fails()) {
-                throw new ApiException(502, 'apify_content_invalid', 'Apify devolvió contenido web inválido.');
+                $detail = implode(' ', $validator->errors()->all());
+                throw new ApiException(
+                    502, 'apify_content_invalid', "Apify devolvió contenido web inválido: {$detail}",
+                );
             }
 
             $content = trim($item['markdown'] ?? '');
@@ -198,7 +203,9 @@ class ApifyHelper
         $run = $response->json('data');
         $isRunArray = is_array($run);
         if (!$isRunArray) {
-            throw new ApiException(502, 'apify_response_invalid', 'Apify devolvió una respuesta inválida.');
+            throw new ApiException(
+                502, 'apify_response_invalid', "Apify devolvió una respuesta inválida: {$response->body()}",
+            );
         }
 
         $validator = Validator::make($run, [
@@ -208,7 +215,8 @@ class ApifyHelper
         ]);
         $hasInvalidRunData = $validator->fails();
         if ($hasInvalidRunData) {
-            throw new ApiException(502, 'apify_response_invalid', 'Apify devolvió una respuesta inválida.');
+            $detail = implode(' ', $validator->errors()->all()).' Respuesta: '.$response->body();
+            throw new ApiException(502, 'apify_response_invalid', "Apify devolvió una ejecución inválida: {$detail}");
         }
 
         return new ApifyRunDto(
@@ -229,23 +237,14 @@ class ApifyHelper
 
         $parameterType = $method === 'GET' ? 'query' : 'json';
 
-        try {
-            // No reintentar el inicio: una respuesta perdida podría duplicar una ejecución paga.
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->withoutRedirecting()
-                ->send($method, "https://api.apify.com/v2/{$path}", [$parameterType => $parameters]);
-        } catch (ConnectionException $exception) {
-            throw new ApiException(502, 'apify_unavailable', 'No se pudo establecer la comunicación con Apify.');
-        }
-
-        $isRequestSuccessful = $response->successful();
-        if (!$isRequestSuccessful) {
-            // La respuesta externa puede contener información sensible; no se expone en el error.
-            throw new ApiException(502, 'apify_request_failed', 'Apify no pudo completar la solicitud.');
-        }
-
-        return $response;
+        // No reintentar el inicio: una respuesta perdida podría duplicar una ejecución paga. Un error HTTP sube
+        // como RequestException, con el estado y la respuesta completa.
+        return Http::withToken($apiKey)
+            ->acceptJson()
+            ->withoutRedirecting()
+            ->dontTruncateExceptions()
+            ->throw()
+            ->send($method, "https://api.apify.com/v2/{$path}", [$parameterType => $parameters]);
     }
 
 }

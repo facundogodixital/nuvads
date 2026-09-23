@@ -64,6 +64,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchInstagramJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchInstagramJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchInstagramJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchInstagramJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

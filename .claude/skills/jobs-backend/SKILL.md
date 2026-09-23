@@ -52,7 +52,7 @@ Aplicar junto con AGENTS.md y [capas-backend](../capas-backend/SKILL.md).
 - Cada nuevo job tiene su propio UUID. Para seguir un proceso que involucra varios jobs, registrar además su identificador de dominio, como `researchRunId`.
 - Centralizar el formato en métodos pequeños del job, como `logInfo()` y `logError()`, evitando repetir el prefijo en cada llamada. No hace falta crear una infraestructura de logging adicional para empezar.
 - Registrar el fallo definitivo en `failed(Throwable $exception)`. Cuando se captura un error durante la ejecución para agregar contexto, no ocultarlo: relanzarlo si la operación debe fallar o reintentarse.
-- Registrar IDs, cantidades, etapas y contexto útil, sin volcar credenciales ni payloads completos. Los errores deben permitir identificar el problema sin exponer datos sensibles.
+- Registrar IDs, cantidades, etapas y contexto útil, sin volcar credenciales. Los errores llegan al log con el error original y la respuesta completa del proveedor, según la §10 de AGENTS.md.
 
 Ejemplo del formato dentro del método de logging:
 

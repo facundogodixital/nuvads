@@ -14,7 +14,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:website'],
+            'type' => ['required', 'string', 'in:website,instagram'],
             'overwrite' => ['sometimes', 'boolean'],
         ];
     }
@@ -24,7 +24,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     {
         return [
             'type.required' => 'Indica el tipo de investigación.',
-            'type.in' => 'Por ahora solo está disponible la investigación del sitio web.',
+            'type.in' => 'El tipo de investigación no es válido.',
         ];
     }
 
@@ -36,15 +36,27 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                 return;
             }
 
-            if ($this->brand->website_url === null) {
+            $type = $this->input('type');
+            $isWebsiteMissing = $type === 'website' && $this->brand->website_url === null;
+            if ($isWebsiteMissing) {
                 $validator->errors()->add('website_url', 'Guarda el sitio web de tu marca antes de analizarlo.');
                 return;
             }
+            $isInstagramMissing = $type === 'instagram' && $this->brand->instagram_username === null;
+            if ($isInstagramMissing) {
+                $validator->errors()->add(
+                    'instagram_username', 'Guarda el usuario de Instagram de tu marca antes de analizarlo.',
+                );
+                return;
+            }
 
-            $type = $this->input('type');
             $activeResearchRun = resolve(ResearchRunService::class)->findOneActiveForBrand($this->brand, $type);
             if ($activeResearchRun !== null) {
-                $validator->errors()->add('type', 'Ya hay un análisis del sitio web en curso.');
+                $activeResearchMessages = [
+                    'website' => 'Ya hay un análisis del sitio web en curso.',
+                    'instagram' => 'Ya hay un análisis de Instagram en curso.',
+                ];
+                $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;
             }
         }];

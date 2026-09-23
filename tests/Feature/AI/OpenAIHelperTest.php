@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Http\Client\RequestException;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 
@@ -82,7 +83,8 @@ class OpenAIHelperTest extends TestCase
     }
 
 
-    // Un fallo HTTP del proveedor se informa con su estado y su mensaje, sin reintentar el consumo.
+    // Un fallo HTTP del proveedor sube como RequestException, con su estado y la respuesta completa, sin reintentar
+    // el consumo.
     #[Test]
     public function reports_provider_errors_with_status_and_message(): void
     {
@@ -93,9 +95,9 @@ class OpenAIHelperTest extends TestCase
         try {
             resolve(OpenAIHelper::class)->generateJson('selected-model', 'Extrae la marca.', 'Contenido.');
             $this->fail('Se esperaba una excepción.');
-        } catch (ApiException $exception) {
-            $this->assertSame('openai_request_failed', $exception->errorCode);
-            $this->assertStringContainsString('429: Model not found', $exception->getMessage());
+        } catch (RequestException $exception) {
+            $this->assertSame(429, $exception->response->status());
+            $this->assertStringContainsString('Model not found', $exception->getMessage());
         }
 
         Http::assertSentCount(1);

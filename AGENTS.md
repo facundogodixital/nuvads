@@ -264,3 +264,13 @@ Ejemplo:
 
 - El contexto de producto vive en `PRODUCT.md`. Leerlo antes de trabajar en funcionalidades del producto.
 - Los textos de la aplicación, en principio, en español neutro, para poder atacar todo LATAM al mismo tiempo.
+
+## 10. Errores: no encapsular
+
+> No encapsulemos errores. Está bien manejarlos, pero siempre al final del camino debo ver qué pasó.
+
+- No atrapar una excepción para reemplazarla por otra que oculte el error original. Si no hay nada que hacer con ella, dejarla subir.
+- Para los errores HTTP de un proveedor externo, usar `->throw()` con `->dontTruncateExceptions()` en el cliente HTTP de Laravel: la `RequestException` trae el estado y la respuesta completa.
+- Cuando el error lo detecta el propio código, por ejemplo una respuesta con forma inválida, el mensaje incluye lo que llegó.
+- Manejar un error está bien, por ejemplo usar un valor por defecto, siempre que lo ocurrido quede registrado, por ejemplo con `report($exception)`.
+- En los endpoints, cuando el frontend necesita un `code` y un mensaje propio, se lanza `ApiException` con la excepción original como `previous`, para que llegue al log.
