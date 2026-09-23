@@ -87,7 +87,9 @@ const navItems = [
   },
 ];
 
+// Las secciones con subrutas, como Mi marca, quedan activas en todas sus pestañas.
 function routeIsActive(path) {
-  return route.path === path;
+  const isSubroute = route.path.startsWith(`${path}/`);
+  return route.path === path || isSubroute;
 }
 </script>

@@ -21,7 +21,16 @@ const router = createRouter({
     { path: '/', component: DashboardPage, meta: { requiresAuth: true } },
     { path: '/create', component: CreatePage, meta: { requiresAuth: true } },
     { path: '/library', component: LibraryPage, meta: { requiresAuth: true } },
-    { path: '/brand', component: BrandPage, meta: { requiresAuth: true } },
+    // Las pestañas de Mi marca comparten la página, que carga la marca una sola vez.
+    { path: '/brand', component: BrandPage, props: { view: 'sources' }, meta: { requiresAuth: true } },
+    { path: '/brand/profile', component: BrandPage, props: { view: 'profile' }, meta: { requiresAuth: true } },
+    { path: '/brand/identity', component: BrandPage, props: { view: 'identity' }, meta: { requiresAuth: true } },
+    {
+      path: '/brand/sources/:sourceId',
+      component: BrandPage,
+      props: (route) => ({ view: 'source', sourceId: route.params.sourceId }),
+      meta: { requiresAuth: true },
+    },
     { path: '/inspiration', component: InspirationPage, meta: { requiresAuth: true } },
     {
       path: '/login',

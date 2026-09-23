@@ -1,119 +1,67 @@
 <template>
   <SystemLayout>
-    <div class="max-w-[1296px] space-y-8">
+    <div class="max-w-[1296px] space-y-6">
       <header class="flex flex-wrap items-start justify-between gap-5">
         <div>
           <h1 class="text-3xl font-medium tracking-tight">
             Mi marca
           </h1>
           <p class="mt-2 text-sm text-text-muted">
-            Investiga, revisa y construye lo que sabemos de tu negocio.
+            Lo que sabemos de tu negocio. Cuantas más fuentes sumes, mejor sale tu contenido.
           </p>
         </div>
-        <a
-          href="#research"
+        <RouterLink
+          v-if="view !== 'sources'"
+          to="/brand"
           class="inline-flex min-h-11 items-center gap-3 rounded-sm bg-accent px-5 py-3 text-sm font-medium text-text-on-accent transition hover:bg-accent-hover"
         >
-          Investigar mi marca
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="none"
-            aria-hidden="true"
-          ><path
-            d="M10 4v12m-5-5 5 5 5-5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          /></svg>
-        </a>
+          Sumar fuentes
+        </RouterLink>
       </header>
 
-      <section
-        id="research"
-        class="scroll-mt-6"
-        aria-labelledby="research-heading"
+      <nav
+        class="flex gap-1 border-b border-border"
+        aria-label="Secciones de tu marca"
       >
-        <header class="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2
-              id="research-heading"
-              class="text-xl font-medium"
-            >
-              Investigaciones
-            </h2>
-            <p class="mt-1 text-sm text-text-muted">
-              Cada fuente, su análisis y sus resultados.
-            </p>
-          </div>
-          <a
-            href="#brand-knowledge"
-            class="py-2 text-sm underline decoration-border underline-offset-4 hover:decoration-text"
-          >Ver información de la marca</a>
-        </header>
-        <p
-          v-if="isLoadingBrand"
-          role="status"
-          class="mb-4 text-sm text-text-muted"
+        <RouterLink
+          v-for="tab in tabs"
+          :key="tab.to"
+          :to="tab.to"
+          class="-mb-px border-b-2 px-3 py-2.5 text-sm"
+          :class="tab.isActive ? 'border-text text-text' : 'border-transparent text-text-muted hover:text-text'"
+          :aria-current="tab.isActive ? 'page' : undefined"
         >
-          Cargando tu marca…
-        </p>
-        <div
-          v-if="brandError"
-          role="alert"
-          class="mb-4 flex flex-wrap items-center gap-3 rounded-sm border border-danger p-3 text-sm text-danger"
-        >
-          <span>{{ brandError }}</span>
-          <button
-            type="button"
-            class="min-h-11 cursor-pointer underline underline-offset-4"
-            @click="loadBrand"
-          >
-            Volver a intentar
-          </button>
-        </div>
-        <div class="grid gap-5 lg:grid-cols-3">
-          <BrandResearchPanel
-            v-for="source in researchSources"
-            :key="source.id"
-            :source="source"
-            :saved-value="brand?.[source.field] ?? ''"
-            :is-available="brand !== null"
-            @saved="updateBrand"
-            @analyzed="loadBrand"
-          />
-        </div>
-      </section>
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
 
-      <section
-        id="brand-knowledge"
-        class="scroll-mt-6 border-t border-border pt-8"
-        aria-labelledby="knowledge-heading"
+      <p
+        v-if="isLoadingBrand"
+        role="status"
+        class="text-sm text-text-muted"
       >
-        <header class="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2
-              id="knowledge-heading"
-              class="text-xl font-medium"
-            >
-              La información de tu marca
-            </h2>
-            <p class="mt-1 max-w-2xl text-sm leading-6 text-text-muted">
-              Lo que nos cuentas y lo que aprendemos de tus fuentes. Todo se puede revisar y modificar.
-            </p>
-          </div>
-          <span class="rounded-sm border border-border px-3 py-1.5 text-xs text-text-muted">{{ brand?.name || 'Tu marca' }}</span>
-        </header>
+        Cargando tu marca…
+      </p>
+      <div
+        v-if="brandError"
+        role="alert"
+        class="flex flex-wrap items-center gap-3 rounded-sm border border-danger p-3 text-sm text-danger"
+      >
+        <span>{{ brandError }}</span>
+        <button
+          type="button"
+          class="min-h-11 cursor-pointer underline underline-offset-4"
+          @click="loadBrand"
+        >
+          Volver a intentar
+        </button>
+      </div>
+
+      <template v-if="brand">
         <div
-          v-if="brand"
+          v-if="view === 'profile'"
           class="grid items-start gap-5 xl:grid-cols-2"
         >
-          <BrandVisualIdentity
-            class="xl:col-span-2"
-            :brand="brand"
-            @saved="updateBrand"
-          />
           <BrandKnowledgeSection
             v-for="section in brandSections"
             :key="section.id"
@@ -123,7 +71,39 @@
             @saved="updateBrand"
           />
         </div>
-      </section>
+
+        <BrandVisualIdentity
+          v-if="view === 'identity'"
+          :brand="brand"
+          @saved="updateBrand"
+        />
+
+        <BrandSourceList
+          v-if="view === 'sources'"
+          :sources="researchSources"
+        />
+
+        <BrandSourceDetail
+          v-if="view === 'source' && selectedSource"
+          :key="selectedSource.id"
+          :source="selectedSource"
+          :brand="brand"
+          @saved="updateBrand"
+          @analyzed="loadBrand"
+        />
+        <p
+          v-if="view === 'source' && !selectedSource"
+          class="text-sm text-text-muted"
+        >
+          Esta fuente no existe.
+          <RouterLink
+            to="/brand"
+            class="underline underline-offset-4"
+          >
+            Ver todas las fuentes
+          </RouterLink>
+        </p>
+      </template>
       <BrandLogoModal />
     </div>
   </SystemLayout>
@@ -131,14 +111,21 @@
 
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
+import { ref, computed, onMounted } from 'vue';
 import BrandLogoModal from './BrandLogoModal.vue';
+import BrandSourceList from './BrandSourceList.vue';
 import BrandService from '@/services/BrandService';
+import BrandSourceDetail from './BrandSourceDetail.vue';
 import SystemLayout from '@/layouts/SystemLayout.vue';
 import { useSessionStore } from '@/stores/sessionStore';
-import BrandResearchPanel from './BrandResearchPanel.vue';
 import BrandVisualIdentity from './BrandVisualIdentity.vue';
 import BrandKnowledgeSection from './BrandKnowledgeSection.vue';
+
+const props = defineProps({
+  view: { type: String, required: true },
+  sourceId: { type: String, default: '' },
+});
 
 const sessionStore = useSessionStore();
 
@@ -195,31 +182,55 @@ const brandSections = [
   },
 ];
 
-// Por ahora solo el sitio web se puede analizar; los demás paneles guardan su enlace.
+// Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca;
+// las que no, todavía no tienen backend y muestran un análisis de ejemplo.
 const researchSources = [
   {
-    id: 'google-maps', field: 'google_maps_url', title: 'Google Maps', description: 'La voz de tus clientes',
-    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…', isAnalyzable: false,
-    resultLabel: 'Reseñas y reputación',
-    icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+    id: 'website', group: 'links', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
+    label: 'Dirección de tu sitio', inputType: 'url', placeholder: 'https://tumarca.com', isAnalyzable: true,
+    resultLabel: 'Oferta e historia',
+    icon: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z',
   },
   {
-    id: 'instagram', field: 'instagram_username', title: 'Instagram', description: 'Tu comunicación en acción',
+    id: 'instagram', group: 'links', field: 'instagram_username', title: 'Instagram', description: 'Tus posteos y lo que mejor funciona',
     label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca', isAnalyzable: false,
     resultLabel: 'Contenido y estilo',
     icon: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4ZM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM17.5 6.5h.01',
   },
   {
-    id: 'website', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
-    label: 'Dirección de tu sitio', inputType: 'url', placeholder: 'https://tumarca.com', isAnalyzable: true,
-    resultLabel: 'Oferta e historia',
-    icon: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z',
+    id: 'ads', group: 'links', field: null, title: 'Publicidades', description: 'Los anuncios que corres en redes',
+    icon: 'M4 10v4h3l6 4V6L7 10H4ZM17 9a4 4 0 0 1 0 6',
+  },
+  {
+    id: 'google-maps', group: 'links', field: 'google_maps_url', title: 'Google Maps', description: 'La voz de tus clientes en sus reseñas',
+    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…', isAnalyzable: false,
+    resultLabel: 'Reseñas y reputación',
+    icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  },
+  {
+    id: 'whatsapp', group: 'files', field: null, title: 'Chats de WhatsApp', description: 'Cómo hablas con tus clientes',
+    icon: 'M4 20l1.5-4A8 8 0 1 1 8 18.5L4 20Z',
+  },
+  {
+    id: 'audio', group: 'files', field: null, title: 'Audio', description: 'Cuéntanos tu negocio en dos minutos',
+    icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3',
+  },
+  {
+    id: 'files', group: 'files', field: null, title: 'Fotos y documentos', description: 'Productos, local, menú o catálogo',
+    icon: 'M4 5h16v14H4V5ZM4 15l4-4 4 4 3-3 5 5M15 9h.01',
   },
 ];
 
 const brand = ref(null);
 const brandError = ref('');
 const isLoadingBrand = ref(true);
+
+const tabs = computed(() => [
+  { to: '/brand', label: 'Fuentes', isActive: props.view === 'sources' || props.view === 'source' },
+  { to: '/brand/profile', label: 'Perfil de marca', isActive: props.view === 'profile' },
+  { to: '/brand/identity', label: 'Identidad visual', isActive: props.view === 'identity' },
+]);
+const selectedSource = computed(() => researchSources.find((source) => source.id === props.sourceId) ?? null);
 
 onMounted(loadBrand);
 
