@@ -2,7 +2,7 @@
 
 COMPOSE := docker compose --env-file .env.docker --file compose.yaml
 
-.PHONY: help up down stop restart build dev frontend-build ps logs web tinker php-shell node-shell redis-cli redis-clear lint lint-php lint-front lint-fix setup-hooks
+.PHONY: help up down stop restart build dev queues frontend-build ps logs web tinker php-shell node-shell redis-cli redis-clear lint lint-php lint-front lint-fix setup-hooks
 .PHONY: test-setup test test-unit test-feature
 
 help:
@@ -13,6 +13,7 @@ help:
 		'make restart      Reiniciar los servicios.' \
 		'make build        Construir la imagen de PHP; aplicar luego con make up.' \
 		'make dev          Iniciar Vite en el puerto acordado; detener con Ctrl+C.' \
+		'make queues       Procesar todas las queues (research_queue y default); detener con Ctrl+C.' \
 		'make frontend-build Compilar los archivos del frontend en public/build.' \
 		'make ps           Ver el estado de los servicios.' \
 		'make logs         Seguir los logs de los servicios (Ctrl+C para salir).' \
@@ -49,6 +50,9 @@ build:
 
 dev:
 	$(COMPOSE) exec node npm run dev
+
+queues:
+	$(COMPOSE) exec php php artisan queue:work --queue=research_queue,default
 
 frontend-build:
 	$(COMPOSE) exec -T node npm run build

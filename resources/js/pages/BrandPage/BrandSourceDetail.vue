@@ -14,7 +14,7 @@
         :saved-value="brand[source.field] ?? ''"
         :is-available="true"
         @saved="emit('saved', $event)"
-        @analyzed="emit('analyzed')"
+        @analyzed="handleAnalyzed"
       />
       <section
         v-else
@@ -46,11 +46,54 @@
           >
             Lo que aprendimos
           </h2>
-          <span class="rounded-sm border border-border px-2 py-1 text-xs text-text-muted">Vista de ejemplo</span>
+          <span
+            v-if="!isWebsite"
+            class="rounded-sm border border-border px-2 py-1 text-xs text-text-muted"
+          >Vista de ejemplo</span>
         </header>
 
+        <template v-if="isWebsite">
+          <p
+            v-if="isLoadingInsights"
+            role="status"
+            class="text-sm text-text-muted"
+          >
+            Cargando lo que aprendimos…
+          </p>
+          <p
+            v-else-if="insightsError"
+            role="alert"
+            class="text-sm text-danger"
+          >
+            {{ insightsError }}
+          </p>
+          <p
+            v-else-if="!websiteSummary"
+            class="rounded-sm border border-dashed border-border p-6 text-center text-sm text-text-muted"
+          >
+            Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.
+          </p>
+          <template v-else>
+            <p class="text-sm leading-6">
+              {{ getInsightText(websiteSummary) }}
+            </p>
+            <ul
+              v-if="websiteInsights.length"
+              class="mt-5 space-y-3"
+            >
+              <li
+                v-for="insight in websiteInsights"
+                :key="insight.id"
+                class="rounded-sm bg-surface p-3 text-sm leading-6"
+              >
+                {{ getInsightText(insight) }}
+              </li>
+            </ul>
+          </template>
+        </template>
+
         <dl
-          v-if="exampleAnalysis.metrics.length"
+          v-else-if="exampleAnalysis.metrics.length"
           class="mb-5 grid gap-3 sm:grid-cols-3"
         >
           <div
@@ -67,7 +110,10 @@
           </div>
         </dl>
 
-        <ul class="space-y-3">
+        <ul
+          v-if="!isWebsite"
+          class="space-y-3"
+        >
           <li
             v-for="finding in exampleAnalysis.findings"
             :key="finding"
@@ -83,9 +129,10 @@
 
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import BrandResearchPanel from './BrandResearchPanel.vue';
+import KnowledgeInsightService from '@/services/KnowledgeInsightService';
 
 const props = defineProps({
   source: { type: Object, required: true },
@@ -93,6 +140,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['saved', 'analyzed']);
+
+const insights = ref([]);
+const insightsError = ref('');
+const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura mientras se implementa el análisis real de cada fuente.
 const exampleAnalyses = {
@@ -167,5 +218,40 @@ const exampleAnalyses = {
   },
 };
 
+const isWebsite = computed(() => props.source.id === 'website');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
+// Hay un solo análisis vigente por marca; su texto es el resumen.
+const websiteSummary = computed(() => insights.value.find((insight) => insight.type === 'website_brand_analysis'));
+const websiteInsights = computed(() => insights.value.filter((insight) => insight.type === 'website_insight'));
+
+onMounted(() => {
+  if (isWebsite.value) {
+    loadInsights();
+  }
+});
+
+async function loadInsights() {
+  insightsError.value = '';
+  isLoadingInsights.value = true;
+
+  try {
+    insights.value = await KnowledgeInsightService.list({ types: ['website_brand_analysis', 'website_insight'] });
+  } catch (error) {
+    insightsError.value = error.message;
+  } finally {
+    isLoadingInsights.value = false;
+  }
+}
+
+function handleAnalyzed() {
+  emit('analyzed');
+  if (isWebsite.value) {
+    loadInsights();
+  }
+}
+
+// La corrección del usuario, cuando existe, reemplaza al texto original de la IA.
+function getInsightText(insight) {
+  return insight.user_body ?? insight.body;
+}
 </script>

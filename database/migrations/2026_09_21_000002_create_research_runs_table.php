@@ -15,7 +15,6 @@ return new class() extends Migration
             $table->id();
             $table->foreignId('client_id')->constrained();
             $table->foreignId('brand_id')->constrained();
-            $table->uuid('run_id')->unique();
             $table->string('type', 64);
             $table->enum('status', ['pending', 'scraping', 'analyzing', 'completed', 'failed']);
             $table->json('input');

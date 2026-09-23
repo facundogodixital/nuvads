@@ -25,7 +25,6 @@ class KnowledgeInsightService
     public function create(Brand $brand, array $attributes): KnowledgeInsight
     {
         $this->checkReferencesBelongToBrand($brand, $attributes);
-        $attributes['is_user_edited'] = isset($attributes['user_body']);
 
         return $this->knowledgeInsightRepository->create($brand, $attributes);
     }
@@ -34,12 +33,6 @@ class KnowledgeInsightService
     public function update(Brand $brand, int $knowledgeInsightId, array $attributes): KnowledgeInsight
     {
         $this->checkReferencesBelongToBrand($brand, $attributes);
-
-        // El indicador depende de la corrección; no se modifica por separado.
-        unset($attributes['is_user_edited']);
-        if (array_key_exists('user_body', $attributes)) {
-            $attributes['is_user_edited'] = $attributes['user_body'] !== null;
-        }
 
         return $this->knowledgeInsightRepository->update($brand, $knowledgeInsightId, $attributes);
     }
@@ -63,15 +56,27 @@ class KnowledgeInsightService
     }
 
 
+    // Conclusiones vigentes: las activas y las corregidas por el usuario (superseded).
+    public function findCurrentByTypes(Brand $brand, array $types): Collection
+    {
+        return $this->knowledgeInsightRepository->findByTypesAndStatuses($brand, $types, ['active', 'superseded']);
+    }
+
+
+    // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
+    public function outdateActiveByType(Brand $brand, string $type): int
+    {
+        return $this->knowledgeInsightRepository->updateStatusByTypeAndStatus($brand, $type, 'active', 'outdated');
+    }
+
+
     private function checkReferencesBelongToBrand(Brand $brand, array $attributes): void
     {
-        $knowledgeSourceId = $attributes['knowledge_source_id'] ?? null;
-        if ($knowledgeSourceId !== null) {
-            $knowledgeSourceService = resolve(KnowledgeSourceService::class);
-            $knowledgeSource = $knowledgeSourceService->find($brand, $knowledgeSourceId);
-            if ($knowledgeSource === null) {
-                throw (new ModelNotFoundException())->setModel(KnowledgeSource::class, [$knowledgeSourceId]);
-            }
+        $knowledgeSourceIds = $attributes['knowledge_source_ids'] ?? [];
+        $knowledgeSources = resolve(KnowledgeSourceService::class)->findByIds($brand, $knowledgeSourceIds);
+        $foreignKnowledgeSourceIds = array_values(array_diff($knowledgeSourceIds, $knowledgeSources->modelKeys()));
+        if ($foreignKnowledgeSourceIds !== []) {
+            throw (new ModelNotFoundException())->setModel(KnowledgeSource::class, $foreignKnowledgeSourceIds);
         }
 
         $parentInsightIds = $attributes['parent_insight_ids'] ?? [];

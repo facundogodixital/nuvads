@@ -5,6 +5,7 @@ use App\Http\Controllers\API\BrandController;
 use App\Http\Controllers\API\SessionController;
 use App\Http\Controllers\API\ResearchRunController;
 use App\Http\Middleware\ResolveClientContextMiddleware;
+use App\Http\Controllers\API\KnowledgeInsightController;
 use App\Http\Middleware\AuthenticateAccessTokenMiddleware;
 
 Route::post('auth/exchange', [SessionController::class, 'create'])->middleware('throttle:10,1');
@@ -15,6 +16,8 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
         Route::get('research-runs/website/status', [ResearchRunController::class, 'getWebsiteStatus']);
         Route::get('research-runs/{researchRunId}', [ResearchRunController::class, 'find'])
             ->whereNumber('researchRunId');
+
+        Route::get('knowledge-insights', [KnowledgeInsightController::class, 'list']);
 
         Route::get('brand', [BrandController::class, 'find']);
         Route::patch('brand', [BrandController::class, 'update']);

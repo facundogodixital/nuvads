@@ -55,10 +55,4 @@ class KnowledgeSourceService
         return $this->knowledgeSourceRepository->findByIds($brand, $knowledgeSourceIds);
     }
 
-
-    public function findOneByContentHash(Brand $brand, string $contentHash): ?KnowledgeSource
-    {
-        return $this->knowledgeSourceRepository->findOneByContentHash($brand, $contentHash);
-    }
-
 }

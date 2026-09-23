@@ -30,7 +30,6 @@ return new class() extends Migration
             $table->string('s3_path', 512)->nullable();
             $table->json('payload')->nullable();
             $table->string('source_ref', 512)->nullable();
-            $table->char('content_hash', 64)->nullable();
             $table->timestamp('captured_at')->nullable();
             $table->enum('status', ['pending', 'ready', 'failed'])->default('pending');
 
@@ -39,7 +38,6 @@ return new class() extends Migration
 
             $table->index(['brand_id', 'type']);
             $table->index(['brand_id', 'status']);
-            $table->unique(['brand_id', 'content_hash']);
         });
     }
 

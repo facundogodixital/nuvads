@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
@@ -23,7 +22,6 @@ class KnowledgeSource extends Model
         's3_path',
         'payload',
         'source_ref',
-        'content_hash',
         'captured_at',
         'status',
     ];
@@ -40,7 +38,6 @@ class KnowledgeSource extends Model
             's3_path' => 'string',
             'payload' => 'array',
             'source_ref' => 'string',
-            'content_hash' => 'string',
             'captured_at' => 'datetime',
             'status' => 'string',
             'created_at' => 'datetime',
@@ -59,12 +56,6 @@ class KnowledgeSource extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
-    }
-
-
-    public function knowledgeInsights(): HasMany
-    {
-        return $this->hasMany(KnowledgeInsight::class);
     }
 
 }

@@ -258,36 +258,41 @@ Endpoints autenticados:
   el job. `overwrite` es `true` por defecto; con `false` el análisis solo completa los campos vacíos.
 - `GET /api/research-runs/{id}`: devuelve la ejecución con fuentes e insights.
 - `GET /api/research-runs/website/status`: devuelve `active`, `latest` y `last_completed`.
+- `GET /api/knowledge-insights?types[]=website_brand_analysis&types[]=website_insight`: devuelve
+  las conclusiones vigentes de la marca (`active` y `superseded`) de los tipos pedidos.
 
 Se admite una ejecución web activa por marca. `research_runs` conserva la URL y el
 modelo en `input`, y pasa por los estados `pending`, `scraping`, `analyzing`,
 `completed` y `failed`. Si el job falla, la ejecución queda en `failed` y se repite
-creando otra; las fuentes ya guardadas se reutilizan por su hash de contenido.
+creando otra; cada ejecución guarda sus propias fuentes.
 El frontend todavía no está conectado a estos endpoints.
 
-La tabla se crea con la migración `2026_09_21_000003_create_research_runs_table.php`.
+La tabla se crea con la migración `2026_09_21_000002_create_research_runs_table.php`.
 Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` quedaron del
 recorrido anterior con Apify y hoy no se usan.
 
 Requiere `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. Cada fuente conserva el JSON original
-de Firecrawl en `payload.raw_json`. Cada investigación deja un solo insight de tipo
-`website_brand_analysis`, con la respuesta validada del modelo en `payload`.
+de Firecrawl en `payload.raw_json`. Los colores, las fuentes y el logo salen de Firecrawl;
+el modelo completa solo los que falten. Cada investigación deja un insight de tipo
+`website_brand_analysis`, con el resumen en `body` y la respuesta validada del modelo en
+`payload`, y hasta siete de tipo `website_insight`, uno por conclusión. Las conclusiones
+activas de investigaciones anteriores pasan a `outdated`.
 
 Se mantiene `QUEUE_CONNECTION=database` en la misma base de la aplicación: la ejecución
 y su job se guardan en la misma transacción. El job tiene un intento y un timeout de
 600 segundos; el `retry_after` de la conexión es 660 para que ninguna entrega se repita
-mientras el job corre. Worker:
+mientras el job corre. Worker, que procesa `research_queue` y `default`:
 
 ```bash
-docker compose --env-file .env.docker --file compose.yaml exec php php artisan queue:work --queue=research_queue
+make queues
 ```
 
 Los logs del job van a `storage/logs/ResearchWebsiteJobInfo.log` y
 `storage/logs/ResearchWebsiteJobErrors.log`, con un UUID de correlación por job.
 El service informa cada etapa terminada mediante el closure que recibe en
 `research()`; el job la escribe en su log con el mismo UUID. El log incluye el
-pedido completo a OpenAI (instrucciones y páginas tal cual las devolvió Firecrawl)
-y la respuesta completa del modelo.
+pedido completo de cada consulta a OpenAI (instrucciones y páginas, con el markdown
+sin URLs ni imágenes) y la respuesta completa del modelo.
 
 Los tests simulan todas las llamadas externas; ejecutarlos no consume créditos.
 

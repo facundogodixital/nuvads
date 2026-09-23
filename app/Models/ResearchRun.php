@@ -16,7 +16,7 @@ class ResearchRun extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'client_id', 'brand_id', 'run_id', 'type', 'status', 'input',
+        'client_id', 'brand_id', 'type', 'status', 'input',
         'external_run_id', 'external_dataset_id', 'knowledge_source_ids',
         'started_at', 'finished_at', 'last_checked_at', 'error_message',
     ];
@@ -28,7 +28,6 @@ class ResearchRun extends Model
             'id' => 'integer',
             'client_id' => 'integer',
             'brand_id' => 'integer',
-            'run_id' => 'string',
             'type' => 'string',
             'status' => 'string',
             'input' => 'array',
@@ -60,7 +59,7 @@ class ResearchRun extends Model
 
     public function knowledgeInsights(): HasMany
     {
-        return $this->hasMany(KnowledgeInsight::class, 'run_id', 'run_id');
+        return $this->hasMany(KnowledgeInsight::class);
     }
 
 }

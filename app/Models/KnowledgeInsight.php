@@ -17,19 +17,16 @@ class KnowledgeInsight extends Model
     protected $fillable = [
         'client_id',
         'brand_id',
-        'knowledge_source_id',
+        'knowledge_source_ids',
+        'research_run_id',
         'parent_insight_ids',
+        'status',
         'level',
         'type',
         'body',
         'user_body',
-        'confidence',
         'payload',
-        'run_id',
         'model',
-        'prompt_version',
-        'status',
-        'is_user_edited',
     ];
 
 
@@ -39,19 +36,16 @@ class KnowledgeInsight extends Model
             'id' => 'integer',
             'client_id' => 'integer',
             'brand_id' => 'integer',
-            'knowledge_source_id' => 'integer',
+            'knowledge_source_ids' => 'array',
+            'research_run_id' => 'integer',
             'parent_insight_ids' => 'array',
+            'status' => 'string',
             'level' => 'integer',
             'type' => 'string',
             'body' => 'string',
             'user_body' => 'string',
-            'confidence' => 'decimal:2',
             'payload' => 'array',
-            'run_id' => 'string',
             'model' => 'string',
-            'prompt_version' => 'string',
-            'status' => 'string',
-            'is_user_edited' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
@@ -68,12 +62,6 @@ class KnowledgeInsight extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
-    }
-
-
-    public function knowledgeSource(): BelongsTo
-    {
-        return $this->belongsTo(KnowledgeSource::class);
     }
 
 

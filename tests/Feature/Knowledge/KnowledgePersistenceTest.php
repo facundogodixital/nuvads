@@ -30,7 +30,6 @@ class KnowledgePersistenceTest extends TestCase
             'insights' => [KnowledgeInsightService::class, [
                 'type' => 'strength',
                 'body' => 'Ofrece asesoramiento',
-                'run_id' => 'f36fdba6-7b8b-4b11-9e82-e5c98b4e12ba',
             ], ['user_body' => 'Asesora sobre cantidades']],
         ];
     }

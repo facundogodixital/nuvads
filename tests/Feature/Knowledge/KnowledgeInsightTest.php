@@ -4,7 +4,9 @@ namespace Tests\Feature\Knowledge;
 
 use Tests\TestCase;
 use App\Models\Brand;
+use App\Services\UserService;
 use App\Services\BrandService;
+use Database\Factories\UserFactory;
 use Database\Factories\ClientFactory;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
@@ -20,40 +22,10 @@ class KnowledgeInsightTest extends TestCase
     use RefreshDatabase;
 
 
-    // Corregir y quitar una corrección conserva el original y sincroniza el indicador, incluso ante valores contrarios.
-    #[Test]
-    public function preserves_original_and_synchronizes_user_corrections(): void
-    {
-        $brand = $this->createBrand();
-        $service = resolve(KnowledgeInsightService::class);
-        $insight = $service->create($brand, [...$this->insightAttributes(), 'is_user_edited' => true])->fresh();
-
-        $this->assertFalse($insight->is_user_edited);
-        $this->assertSame('Ofrece asesoramiento', $insight->getEffectiveBody());
-
-        $correctedInsight = $service->update($brand, $insight->id, [
-            'user_body' => 'Asesora sobre cantidades',
-            'is_user_edited' => false,
-        ])->fresh();
-
-        $this->assertTrue($correctedInsight->is_user_edited);
-        $this->assertSame('Ofrece asesoramiento', $correctedInsight->body);
-        $this->assertSame('Asesora sobre cantidades', $correctedInsight->getEffectiveBody());
-
-        $retainedInsight = $service->update($brand, $insight->id, ['is_user_edited' => false])->fresh();
-        $this->assertTrue($retainedInsight->is_user_edited);
-
-        $restoredInsight = $service->update($brand, $insight->id, ['user_body' => null])->fresh();
-        $this->assertFalse($restoredInsight->is_user_edited);
-        $this->assertNull($restoredInsight->user_body);
-        $this->assertSame('Ofrece asesoramiento', $restoredInsight->getEffectiveBody());
-    }
-
-
     public static function referenceFields(): array
     {
         return [
-            'source' => ['knowledge_source_id'],
+            'sources' => ['knowledge_source_ids'],
             'parents' => ['parent_insight_ids'],
         ];
     }
@@ -87,6 +59,34 @@ class KnowledgeInsightTest extends TestCase
     }
 
 
+    // El listado devuelve solo las conclusiones vigentes (activas y corregidas) de los tipos pedidos y de la marca
+    // autenticada.
+    #[Test]
+    public function lists_current_insights_of_the_requested_types(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
+        $otherBrand = $this->createBrand();
+        $service = resolve(KnowledgeInsightService::class);
+        $active = $service->create($brand, ['type' => 'website_insight', 'body' => 'Activa']);
+        $superseded = $service->create($brand, [
+            'type' => 'website_insight', 'body' => 'Corregida', 'status' => 'superseded',
+        ]);
+        $summary = $service->create($brand, ['type' => 'website_brand_analysis', 'body' => 'Resumen']);
+        $service->create($brand, ['type' => 'website_insight', 'body' => 'Vieja', 'status' => 'outdated']);
+        $service->create($brand, ['type' => 'website_insight', 'body' => 'Rechazada', 'status' => 'rejected']);
+        $service->create($brand, ['type' => 'strength', 'body' => 'Otro tipo']);
+        $service->create($otherBrand, ['type' => 'website_insight', 'body' => 'Otra marca']);
+        $credentials = resolve(UserService::class)->createApiToken($user);
+        $query = http_build_query(['types' => ['website_brand_analysis', 'website_insight']]);
+
+        $response = $this->withToken($credentials['token'])->getJson("/api/knowledge-insights?{$query}");
+
+        $response->assertOk();
+        $this->assertSame([$active->id, $superseded->id, $summary->id], array_column($response->json('data'), 'id'));
+    }
+
+
     private function createBrand(): Brand
     {
         return resolve(BrandService::class)->create(ClientFactory::new()->create(), ['name' => 'Marca de prueba']);
@@ -98,7 +98,6 @@ class KnowledgeInsightTest extends TestCase
         return [
             'type' => 'strength',
             'body' => 'Ofrece asesoramiento',
-            'run_id' => 'f36fdba6-7b8b-4b11-9e82-e5c98b4e12ba',
         ];
     }
 
@@ -111,7 +110,7 @@ class KnowledgeInsightTest extends TestCase
         ]);
         $insight = resolve(KnowledgeInsightService::class)->create($brand, $this->insightAttributes());
 
-        return ['knowledge_source_id' => $source->id, 'parent_insight_ids' => [$insight->id]];
+        return ['knowledge_source_ids' => [$source->id], 'parent_insight_ids' => [$insight->id]];
     }
 
 }

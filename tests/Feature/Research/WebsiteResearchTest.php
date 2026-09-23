@@ -10,6 +10,7 @@ use App\Models\ResearchRun;
 use App\Services\UserService;
 use App\Services\BrandService;
 use App\Exceptions\ApiException;
+use App\Models\KnowledgeInsight;
 use Database\Factories\UserFactory;
 use Illuminate\Http\Client\Request;
 use App\Services\ResearchRunService;
@@ -75,18 +76,17 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    // Con la portada alcanza: el modelo no pide más páginas y la marca se completa con una fuente y un insight.
+    // Con la identidad visual completa en Firecrawl y sin enlaces para elegir, alcanza con una consulta: la marca
+    // toma colores, fuentes y logo de Firecrawl, y quedan el análisis y una fila por conclusión.
     #[Test]
     public function completes_the_research_with_the_homepage_only(): void
     {
-        $colors = ['primary' => '#339D33', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null];
-        $analysis = $this->analysis([
-            'brand_offer_description' => 'Jardinería',
-            'brand_logos' => ['https://example.com/logo.png'],
-            'brand_colors' => $colors,
-        ]);
+        $insights = ['Tiene local.', 'Envía en el día.'];
+        $analysis = $this->analysis(['brand_offer_description' => 'Jardinería'], $insights);
+        $branding = $this->firecrawlBranding('https://example.com/logo.png');
+        $homepage = $this->firecrawlPage('Vendemos plantas.', [], $branding);
         Http::fake([
-            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Vendemos plantas.')),
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($homepage),
             'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
         ]);
         $researchRun = $this->createResearchRun();
@@ -94,28 +94,62 @@ class WebsiteResearchTest extends TestCase
         (new ResearchWebsiteJob($researchRun->id))->handle();
 
         $researchRun->refresh();
+        $brand = $this->brand->fresh();
         $this->assertSame('completed', $researchRun->status);
         $this->assertNotNull($researchRun->started_at);
         $this->assertNotNull($researchRun->finished_at);
         $this->assertCount(1, $researchRun->knowledge_source_ids);
-        $this->assertSame('Jardinería', $this->brand->fresh()->brand_offer_description);
+        $this->assertSame('Jardinería', $brand->brand_offer_description);
+        $this->assertSame(['https://example.com/logo.png'], $brand->brand_logos);
+        $this->assertSame('#3F3D38', $brand->brand_colors['text']);
         // MySQL guarda las claves del JSON en otro orden; se compara el contenido.
-        $this->assertEquals($colors, $this->brand->fresh()->brand_colors);
-        $this->assertSame(['https://example.com/logo.png'], $this->brand->fresh()->brand_logos);
-        $this->assertDatabaseCount('knowledge_sources', 1);
-        $this->assertDatabaseCount('knowledge_insights', 1);
+        $this->assertEquals(['heading' => 'Lora', 'body' => 'Poppins'], $brand->brand_fonts);
         Http::assertSentCount(2);
         $this->getJson("/api/research-runs/{$researchRun->id}")->assertOk()
-            ->assertJsonPath('data.status', 'completed')
             ->assertJsonCount(1, 'data.knowledge_sources')
-            ->assertJsonCount(1, 'data.knowledge_insights')
-            ->assertJsonPath('data.knowledge_insights.0.model', config('research.website.analysis_model'))
-            ->assertJsonPath('data.knowledge_insights.0.payload.brand.brand_offer_description', 'Jardinería');
+            ->assertJsonCount(3, 'data.knowledge_insights')
+            ->assertJsonPath('data.knowledge_insights.0.type', 'website_brand_analysis')
+            ->assertJsonPath('data.knowledge_insights.0.body', 'Vivero online.')
+            ->assertJsonPath('data.knowledge_insights.0.knowledge_source_ids', $researchRun->knowledge_source_ids)
+            ->assertJsonPath('data.knowledge_insights.0.payload.brand.brand_offer_description', 'Jardinería')
+            ->assertJsonPath('data.knowledge_insights.2.type', 'website_insight')
+            ->assertJsonPath('data.knowledge_insights.2.body', 'Envía en el día.');
     }
 
 
-    // El modelo elige hasta dos enlaces internos de la portada; se leen y se analiza todo junto en una
-    // segunda consulta que ya no ofrece enlaces.
+    // Un logo de Firecrawl que no es una URL, como un placeholder en base64, se pide al modelo en la primera
+    // consulta; los colores y las fuentes de Firecrawl se conservan.
+    #[Test]
+    public function asks_the_model_only_for_the_visual_fields_firecrawl_missed(): void
+    {
+        $placeholderLogo = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        $branding = $this->firecrawlBranding($placeholderLogo);
+        // El modelo devuelve también colores, pero no se le pidieron: se descartan.
+        $homepageReview = $this->homepageReview([], [
+            'brand_logos' => ['https://example.com/logo.png'],
+            'brand_colors' => [
+                'primary' => '#000000', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
+            ],
+        ]);
+        Http::fake([
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada', [], $branding)),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($homepageReview))
+                ->push($this->openAiResponse($this->analysis())),
+        ]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $brand = $this->brand->fresh();
+        $this->assertSame(['brand_logos'], $this->recordedOpenAiInputs()[0]['missing_fields']);
+        $this->assertSame(['https://example.com/logo.png'], $brand->brand_logos);
+        $this->assertSame('#339D33', $brand->brand_colors['primary']);
+    }
+
+
+    // El modelo elige hasta dos enlaces internos de la portada; se leen y se analizan todas las páginas juntas
+    // en una segunda consulta, con el markdown sin URLs ni imágenes.
     #[Test]
     public function reads_the_pages_chosen_by_the_model_and_analyzes_them_together(): void
     {
@@ -126,11 +160,11 @@ class WebsiteResearchTest extends TestCase
         $chosenUrls = ['https://example.com/about', 'https://example.com/services'];
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::sequence()
-                ->push($this->firecrawlPage('Portada', $homepageLinks))
+                ->push($this->firecrawlPage('Portada [Nosotros](/about) ![Logo](/logo.png)', $homepageLinks))
                 ->push($this->firecrawlPage('Desde 2010'))
                 ->push($this->firecrawlPage('Asesoramiento')),
             'https://api.openai.com/v1/responses' => Http::sequence()
-                ->push($this->openAiResponse($this->analysis([], $chosenUrls)))
+                ->push($this->openAiResponse($this->homepageReview($chosenUrls)))
                 ->push($this->openAiResponse($this->analysis(['brand_history_description' => 'Desde 2010']))),
         ]);
         $researchRun = $this->createResearchRun();
@@ -141,15 +175,11 @@ class WebsiteResearchTest extends TestCase
         $this->assertCount(3, $researchRun->fresh()->knowledge_source_ids);
         $this->assertSame('Desde 2010', $this->brand->fresh()->brand_history_description);
         $this->assertDatabaseCount('knowledge_sources', 3);
-        $this->assertDatabaseCount('knowledge_insights', 1);
         Http::assertSentCount(5);
-        $isOpenAiRequest = fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses';
-        $openAiInputs = Http::recorded($isOpenAiRequest)
-            ->map(fn (array $pair) => $this->decodeOpenAiInput($pair[0]))->values();
+        $openAiInputs = $this->recordedOpenAiInputs();
         $this->assertSame($chosenUrls, $openAiInputs[0]['available_links']);
-        $this->assertCount(1, $openAiInputs[0]['pages']);
-        $this->assertSame([], $openAiInputs[1]['available_links']);
         $this->assertCount(3, $openAiInputs[1]['pages']);
+        $this->assertSame('Portada Nosotros ', $openAiInputs[1]['pages'][0]['markdown']);
     }
 
 
@@ -166,10 +196,11 @@ class WebsiteResearchTest extends TestCase
         ]);
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => function () use ($analysis) {
+            'https://api.openai.com/v1/responses' => function (Request $request) use ($analysis) {
                 // El usuario edita la marca mientras el modelo responde.
                 Brand::query()->whereKey($this->brand->id)->update(['brand_history_description' => 'Mi historia']);
-                return Http::response($this->openAiResponse($analysis));
+                $isHomepageReview = array_key_exists('missing_fields', $this->decodeOpenAiInput($request));
+                return Http::response($this->openAiResponse($isHomepageReview ? $this->homepageReview() : $analysis));
             },
         ]);
         $researchRun = resolve(ResearchRunService::class)->create($this->brand, [
@@ -197,7 +228,9 @@ class WebsiteResearchTest extends TestCase
         $analysis = $this->analysis(['name' => 'Otro nombre', 'brand_tone_of_voice_description' => 'Voz sugerida']);
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($this->homepageReview()))
+                ->push($this->openAiResponse($analysis)),
         ]);
         $researchRunId = $this->postJson('/api/research-runs', ['type' => 'website', 'overwrite' => true])
             ->assertCreated()->assertJsonPath('data.input.overwrite', true)->json('data.id');
@@ -215,7 +248,7 @@ class WebsiteResearchTest extends TestCase
     #[Test]
     public function stores_null_for_empty_json_values(): void
     {
-        $analysis = $this->analysis([
+        $homepageReview = $this->homepageReview([], [
             'brand_logos' => [],
             'brand_colors' => [
                 'primary' => null, 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
@@ -224,7 +257,9 @@ class WebsiteResearchTest extends TestCase
         ]);
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($analysis)),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($homepageReview))
+                ->push($this->openAiResponse($this->analysis())),
         ]);
         $researchRun = $this->createResearchRun();
 
@@ -241,12 +276,12 @@ class WebsiteResearchTest extends TestCase
     // Un JSON con otra forma que la fija se rechaza aunque el resto de la respuesta sea válido.
     #[Test]
     #[DataProvider('jsonValuesOutsideTheFixedShape')]
-    public function rejects_json_values_outside_the_fixed_shape(array $brandValues): void
+    public function rejects_json_values_outside_the_fixed_shape(array $visualValues): void
     {
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
             'https://api.openai.com/v1/responses' => Http::response(
-                $this->openAiResponse($this->analysis($brandValues)),
+                $this->openAiResponse($this->homepageReview([], $visualValues)),
             ),
         ]);
         $researchRun = $this->createResearchRun();
@@ -293,7 +328,7 @@ class WebsiteResearchTest extends TestCase
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada', $homepageLinks)),
             'https://api.openai.com/v1/responses' => Http::response(
-                $this->openAiResponse($this->analysis([], $additionalUrls)),
+                $this->openAiResponse($this->homepageReview($additionalUrls)),
             ),
         ]);
         $researchRun = $this->createResearchRun();
@@ -325,25 +360,36 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    // Dos investigaciones sobre el mismo contenido comparten la fuente en vez de duplicarla.
+    // Una investigación nueva pasa a outdated las conclusiones activas anteriores; las corregidas por el usuario
+    // (superseded) siguen vigentes.
     #[Test]
-    public function reuses_identical_sources_between_research_runs(): void
+    public function outdates_previous_insights_but_keeps_user_corrections(): void
     {
         Http::fake([
             'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => Http::response($this->openAiResponse($this->analysis())),
+            'https://api.openai.com/v1/responses' => Http::sequence()
+                ->push($this->openAiResponse($this->homepageReview()))
+                ->push($this->openAiResponse($this->analysis([], ['Primera', 'Corregida'])))
+                ->push($this->openAiResponse($this->homepageReview()))
+                ->push($this->openAiResponse($this->analysis([], ['Nueva']))),
         ]);
         $firstResearchRun = $this->createResearchRun();
         (new ResearchWebsiteJob($firstResearchRun->id))->handle();
+        $correctedInsight = KnowledgeInsight::query()->where('body', 'Corregida')->first();
+        $correctedInsight->update(['status' => 'superseded', 'user_body' => 'Corregida por el usuario']);
 
         $secondResearchRun = $this->createResearchRun();
         (new ResearchWebsiteJob($secondResearchRun->id))->handle();
 
-        $this->assertDatabaseCount('knowledge_sources', 1);
-        $this->assertDatabaseCount('knowledge_insights', 2);
-        $this->assertSame(
-            $firstResearchRun->fresh()->knowledge_source_ids, $secondResearchRun->fresh()->knowledge_source_ids,
-        );
+        $insightStatuses = KnowledgeInsight::query()->orderBy('id')->get()
+            ->map(fn (KnowledgeInsight $insight): string => "{$insight->body}: {$insight->status}")->all();
+        $this->assertSame([
+            'Vivero online.: outdated',
+            'Primera: outdated',
+            'Corregida: superseded',
+            'Vivero online.: active',
+            'Nueva: active',
+        ], $insightStatuses);
         $this->getJson('/api/research-runs/website/status')->assertOk()
             ->assertJsonPath('data.active', null)
             ->assertJsonPath('data.last_completed.id', $secondResearchRun->id);
@@ -436,6 +482,15 @@ class WebsiteResearchTest extends TestCase
     }
 
 
+    private function recordedOpenAiInputs(): array
+    {
+        $isOpenAiRequest = fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses';
+
+        return Http::recorded($isOpenAiRequest)
+            ->map(fn (array $pair) => $this->decodeOpenAiInput($pair[0]))->values()->all();
+    }
+
+
     // El helper de OpenAI agrega un recordatorio de JSON al final del input; se decodifica solo el objeto.
     private function decodeOpenAiInput(Request $request): array
     {
@@ -446,19 +501,42 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    private function firecrawlPage(string $markdown, array $links = []): array
+    private function firecrawlPage(string $markdown, array $links = [], ?array $branding = null): array
     {
         return ['success' => true, 'data' => [
+            'links' => $links,
+            'branding' => $branding,
             'markdown' => $markdown,
             'metadata' => ['title' => 'Mi marca'],
             'images' => ['https://example.com/logo.png'],
-            'links' => $links,
         ]];
     }
 
 
-    // Respuesta del modelo con todos los campos de la marca en null, salvo los indicados.
-    private function analysis(array $brandValues = [], array $additionalUrls = []): array
+    private function firecrawlBranding(string $logo): array
+    {
+        return [
+            'logo' => $logo,
+            'typography' => ['fontFamilies' => ['primary' => 'Poppins', 'heading' => 'Lora']],
+            'colors' => [
+                'primary' => '#339D33', 'secondary' => '#FFD745', 'accent' => '#2C3E50', 'background' => '#FFFFFF',
+                'textPrimary' => '#3F3D38',
+            ],
+        ];
+    }
+
+
+    // Respuesta de la primera consulta: páginas elegidas y los tres campos visuales vacíos, salvo los indicados.
+    private function homepageReview(array $additionalUrls = [], array $visualValues = []): array
+    {
+        $visual = ['brand_logos' => [], 'brand_colors' => null, 'brand_fonts' => null];
+
+        return ['additional_urls' => $additionalUrls, 'visual' => [...$visual, ...$visualValues]];
+    }
+
+
+    // Respuesta de la segunda consulta con todos los campos de texto en null, salvo los indicados.
+    private function analysis(array $brandValues = [], array $insights = []): array
     {
         $brand = [
             'name' => null,
@@ -473,15 +551,13 @@ class WebsiteResearchTest extends TestCase
             'brand_customers_faq_description' => null,
             'brand_communication_topics_description' => null,
             'brand_content_opportunities_description' => null,
-            'brand_logos' => [],
-            'brand_colors' => null,
-            'brand_fonts' => null,
         ];
 
         return [
             'brand' => [...$brand, ...$brandValues],
             'inferred_fields' => [],
-            'additional_urls' => $additionalUrls,
+            'summary' => 'Vivero online.',
+            'insights' => $insights,
         ];
     }
 

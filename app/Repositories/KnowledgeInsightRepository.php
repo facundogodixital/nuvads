@@ -65,4 +65,27 @@ class KnowledgeInsightRepository
         return $knowledgeInsight->delete();
     }
 
+
+    public function findByTypesAndStatuses(Brand $brand, array $types, array $statuses): Collection
+    {
+        return KnowledgeInsight::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->whereIn('type', $types)
+            ->whereIn('status', $statuses)
+            ->orderBy('id')
+            ->get();
+    }
+
+
+    public function updateStatusByTypeAndStatus(Brand $brand, string $type, string $status, string $newStatus): int
+    {
+        return KnowledgeInsight::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->where('type', $type)
+            ->where('status', $status)
+            ->update(['status' => $newStatus]);
+    }
+
 }

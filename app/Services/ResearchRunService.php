@@ -5,7 +5,6 @@ namespace App\Services;
 use Throwable;
 use App\Models\Brand;
 use App\Models\ResearchRun;
-use Illuminate\Support\Str;
 use App\Exceptions\ApiException;
 use Illuminate\Support\Facades\DB;
 use App\Repositories\ResearchRunRepository;
@@ -40,7 +39,6 @@ class ResearchRunService
                 'status' => 'pending',
                 'knowledge_source_ids' => [],
                 'type' => $attributes['type'],
-                'run_id' => (string) Str::uuid(),
                 'input' => [
                     'url' => $brand->website_url,
                     'model' => config('research.website.analysis_model'), // gpt-6-luna

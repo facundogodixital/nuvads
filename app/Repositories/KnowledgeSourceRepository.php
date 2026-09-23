@@ -75,13 +75,4 @@ class KnowledgeSourceRepository
             ->orderBy('id')->get();
     }
 
-
-    public function findOneByContentHash(Brand $brand, string $contentHash): ?KnowledgeSource
-    {
-        return KnowledgeSource::withTrashed()
-            ->where('brand_id', $brand->id)
-            ->where('client_id', $brand->client_id)
-            ->where('content_hash', $contentHash)->first();
-    }
-
 }

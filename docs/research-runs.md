@@ -17,7 +17,6 @@ Volver a investigar crea otra fila. Las anteriores quedan como historial.
 | --- | --- |
 | `id` | Identificador de la fila. |
 | `client_id`, `brand_id` | Cliente y marca investigados. |
-| `run_id` | UUID que agrupa las conclusiones de esta investigación: `knowledge_insights.run_id` apunta acá. |
 | `type` | Qué se investiga. Hoy solo `website`; a futuro, otras fuentes como Instagram o Google Maps. |
 | `status` | Etapa actual. Ver "Estados". |
 | `input` | Entrada con la que se hizo la investigación, congelada al crearla: por ejemplo la URL del sitio y el modelo de IA. Cambiar después la marca o la configuración no altera investigaciones anteriores. |
@@ -44,14 +43,13 @@ investigación activa por marca y tipo.
 
 ## Relación con el resto del conocimiento
 
-- Fuentes: `knowledge_source_ids` lista el material usado. Una misma fuente puede
-  pertenecer a varias investigaciones si su contenido no cambió.
-- Conclusiones: se buscan por `run_id`.
+- Fuentes: `knowledge_source_ids` lista el material usado; cada página leída es una
+  fuente. Cada investigación guarda sus propias fuentes.
+- Conclusiones: `knowledge_insights.research_run_id` apunta a la investigación que las generó.
 - Una investigación fallida puede haber dejado fuentes y conclusiones guardadas;
   siguen siendo válidas.
 
 ## Identificadores
 
-- `id`: la fila.
-- `run_id`: agrupa las conclusiones.
+- `id`: la fila; las conclusiones la referencian con `research_run_id`.
 - `external_run_id`: la ejecución en el proveedor externo, cuando aplica.
