@@ -20,49 +20,6 @@ class KnowledgeInsightTest extends TestCase
     use RefreshDatabase;
 
 
-    // Las conclusiones conservan su fuente y los padres JSON, junto con los tipos y valores por defecto.
-    #[Test]
-    public function persists_sources_and_both_insight_levels(): void
-    {
-        $brand = $this->createBrand();
-        $sourceService = resolve(KnowledgeSourceService::class);
-        $insightService = resolve(KnowledgeInsightService::class);
-        $source = $sourceService->create($brand, [
-            'type' => 'audio',
-            'title' => 'Audio inicial',
-            'payload' => ['duration_seconds' => 90],
-            'captured_at' => '2026-09-20 10:00:00',
-        ])->fresh();
-
-        $firstInsight = $insightService->create($brand, [
-            ...$this->insightAttributes(),
-            'confidence' => '0.85',
-            'knowledge_source_id' => $source->id,
-        ])->fresh();
-        $secondInsight = $insightService->create($brand, [
-            ...$this->insightAttributes(),
-            'level' => 2,
-            'parent_insight_ids' => [$firstInsight->id],
-            'payload' => ['mentions' => 3],
-        ])->fresh();
-
-        $this->assertSame('pending', $source->status);
-        $this->assertSame(['duration_seconds' => 90], $source->payload);
-        $this->assertSame('2026-09-20 10:00:00', $source->captured_at->format('Y-m-d H:i:s'));
-        $this->assertTrue($firstInsight->knowledgeSource->is($source));
-        $this->assertSame([$firstInsight->id], $source->knowledgeInsights->modelKeys());
-        $this->assertSame(1, $firstInsight->level);
-        $this->assertSame('0.85', $firstInsight->confidence);
-        $this->assertSame('active', $firstInsight->status);
-        $this->assertFalse($firstInsight->is_user_edited);
-        $this->assertNull($firstInsight->parent_insight_ids);
-        $this->assertSame(2, $secondInsight->level);
-        $this->assertNull($secondInsight->knowledge_source_id);
-        $this->assertSame([$firstInsight->id], $secondInsight->parent_insight_ids);
-        $this->assertSame(['mentions' => 3], $secondInsight->payload);
-    }
-
-
     // Corregir y quitar una corrección conserva el original y sincroniza el indicador, incluso ante valores contrarios.
     #[Test]
     public function preserves_original_and_synchronizes_user_corrections(): void
@@ -102,62 +59,31 @@ class KnowledgeInsightTest extends TestCase
     }
 
 
-    // No se pueden crear conclusiones con fuentes o padres de otra marca del mismo cliente.
+    // No se pueden crear conclusiones con fuentes o padres de otra marca del mismo cliente, ni reemplazar una
+    // referencia propia por una ajena al actualizar.
     #[Test]
     #[DataProvider('referenceFields')]
-    public function rejects_foreign_references_on_creation(string $field): void
+    public function rejects_foreign_references_on_creation_and_update(string $field): void
     {
         $brand = $this->createBrand();
         $siblingBrand = resolve(BrandService::class)->create($brand->client, ['name' => 'Segunda marca']);
         $references = $this->createReferences($siblingBrand);
         $service = resolve(KnowledgeInsightService::class);
-
-        $this->expectException(ModelNotFoundException::class);
-        try {
-            $service->create($brand, [...$this->insightAttributes(), $field => $references[$field]]);
-        } finally {
-            $this->assertCount(0, $service->list($brand));
-        }
-    }
-
-
-    // No se puede reemplazar una referencia propia por otra de un cliente ajeno durante una actualización.
-    #[Test]
-    #[DataProvider('referenceFields')]
-    public function rejects_foreign_references_on_update(string $field): void
-    {
-        $brand = $this->createBrand();
-        $references = $this->createReferences($this->createBrand());
-        $service = resolve(KnowledgeInsightService::class);
         $insight = $service->create($brand, $this->insightAttributes());
 
-        $this->expectException(ModelNotFoundException::class);
+        try {
+            $service->create($brand, [...$this->insightAttributes(), $field => $references[$field]]);
+            $this->fail('La creación con una referencia ajena debía fallar.');
+        } catch (ModelNotFoundException) {
+            $this->assertSame([$insight->id], $service->list($brand)->modelKeys());
+        }
+
         try {
             $service->update($brand, $insight->id, [$field => $references[$field]]);
-        } finally {
+            $this->fail('La actualización con una referencia ajena debía fallar.');
+        } catch (ModelNotFoundException) {
             $this->assertNull($insight->fresh()->getAttribute($field));
         }
-    }
-
-
-    // El borrado lógico de una fuente conserva el vínculo; el borrado físico lo deja en null sin borrar la conclusión.
-    #[Test]
-    public function retains_insight_when_source_is_deleted(): void
-    {
-        $brand = $this->createBrand();
-        $sourceService = resolve(KnowledgeSourceService::class);
-        $source = $sourceService->create($brand, ['type' => 'audio', 'title' => 'Audio inicial']);
-        $insight = resolve(KnowledgeInsightService::class)->create($brand, [
-            ...$this->insightAttributes(),
-            'knowledge_source_id' => $source->id,
-        ]);
-
-        $sourceService->delete($brand, $source->id);
-        $this->assertSame($source->id, $insight->fresh()->knowledge_source_id);
-
-        $source->forceDelete();
-        $this->assertNull($insight->fresh()->knowledge_source_id);
-        $this->assertNull($insight->fresh()->deleted_at);
     }
 
 

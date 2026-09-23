@@ -4,11 +4,10 @@ namespace Tests\Feature\Auth;
 
 use Tests\TestCase;
 use App\Services\UserService;
+use Illuminate\Routing\Route;
 use App\Services\BrandService;
 use Database\Factories\UserFactory;
-use Database\Factories\ClientFactory;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 
@@ -28,6 +27,27 @@ class SessionTest extends TestCase
         $this->get('/api/auth/me')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
         $this->get('/api/missing')->assertNotFound()->assertJsonPath('code', 'not_found');
         $this->get('/auth/missing')->assertNotFound();
+    }
+
+
+    // Toda ruta de la API, salvo el canje del código, rechaza con 401 a quien no presenta un Bearer token.
+    // Recorre las rutas registradas, así cubre también los endpoints que se agreguen después.
+    #[Test]
+    public function requires_access_token_on_every_api_route(): void
+    {
+        $isProtectedApiRoute = function (Route $route): bool {
+            $isApiRoute = str_starts_with($route->uri(), 'api/');
+            $isLoginCodeExchange = $route->uri() === 'api/auth/exchange';
+
+            return $isApiRoute && !$isLoginCodeExchange;
+        };
+        $apiRoutes = array_filter($this->app['router']->getRoutes()->getRoutes(), $isProtectedApiRoute);
+
+        $this->assertNotEmpty($apiRoutes);
+        foreach ($apiRoutes as $route) {
+            $uri = preg_replace('/\{[^}]+\}/', '1', $route->uri());
+            $this->json($route->methods()[0], $uri)->assertUnauthorized();
+        }
     }
 
 
@@ -89,18 +109,6 @@ class SessionTest extends TestCase
     }
 
 
-    // Revocar en la base impide la siguiente petición aunque el navegador conserve su credencial.
-    #[Test]
-    public function rejects_token_revoked_in_database(): void
-    {
-        $user = UserFactory::new()->owner()->create();
-        $credentials = resolve(UserService::class)->createApiToken($user);
-        $user->update(['api_token_hash' => null, 'api_token_expires_at' => null]);
-
-        $this->withToken($credentials['token'])->getJson('/api/auth/me')->assertUnauthorized();
-    }
-
-
     // Un nuevo acceso reemplaza al anterior; el logout revoca la credencial vigente del usuario.
     #[Test]
     public function replaces_previous_token_and_revokes_current_token_on_logout(): void
@@ -119,43 +127,17 @@ class SessionTest extends TestCase
     }
 
 
-    // Bloquear o dar de baja usuario o cliente corta inmediatamente el acceso de un token existente.
+    // Deshabilitar la cuenta corta de inmediato el acceso de un token existente.
+    // Las demás combinaciones de usuario y cliente bloqueados las cubre UserAccountAccessTest.
     #[Test]
-    #[DataProvider('disabledAccounts')]
-    public function rejects_access_when_account_is_disabled(array $userAttributes, array $clientAttributes): void
+    public function rejects_access_when_account_is_disabled(): void
     {
-        $client = ClientFactory::new()->create();
-        $user = UserFactory::new()->owner()->for($client)->create();
+        $user = UserFactory::new()->owner()->create();
         $credentials = resolve(UserService::class)->createApiToken($user);
-        $user->forceFill($userAttributes)->save();
-        $client->forceFill($clientAttributes)->save();
+        $user->update(['is_enabled' => false]);
 
-        $response = $this->withToken($credentials['token'])->getJson('/api/auth/me');
-        $userWasDeleted = isset($userAttributes['deleted_at']);
-        if ($userWasDeleted) {
-            $response->assertUnauthorized();
-            return;
-        }
-        $response->assertForbidden()->assertJsonPath('code', 'account_disabled');
-    }
-
-
-    public static function disabledAccounts(): array
-    {
-        return [
-            'disabled user' => [['is_enabled' => false], []],
-            'disabled client' => [[], ['is_enabled' => false]],
-            'deleted user' => [['deleted_at' => '2026-01-01 00:00:00'], []],
-            'deleted client' => [[], ['deleted_at' => '2026-01-01 00:00:00']],
-        ];
-    }
-
-
-    // El logout también requiere Bearer y nunca redirige al login desde la API.
-    #[Test]
-    public function requires_authentication_for_logout(): void
-    {
-        $this->postJson('/api/auth/logout')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
+        $this->withToken($credentials['token'])->getJson('/api/auth/me')
+            ->assertForbidden()->assertJsonPath('code', 'account_disabled');
     }
 
 }

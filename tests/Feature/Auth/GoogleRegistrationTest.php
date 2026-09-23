@@ -11,7 +11,6 @@ use App\Services\UserService;
 use App\Services\BrandService;
 use Database\Factories\UserFactory;
 use Illuminate\Support\Facades\Http;
-use Database\Factories\ClientFactory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -98,13 +97,13 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     }
 
 
-    // Las cuentas bloqueadas o dadas de baja y los usuarios no titulares deben recibir 403, sin sesión ni altas nuevas.
+    // Las cuentas deshabilitadas y los usuarios no titulares reciben 403, sin sesión ni altas nuevas.
+    // Las demás combinaciones de usuario y cliente bloqueados las cubre UserAccountAccessTest.
     #[Test]
     #[DataProvider('blockedAccounts')]
-    public function rejects_owners_without_account_access(array $userAttributes, array $clientAttributes): void
+    public function rejects_owners_without_account_access(array $userAttributes): void
     {
-        $client = ClientFactory::new()->create($clientAttributes);
-        $user = UserFactory::new()->owner()->for($client)->create($userAttributes);
+        $user = UserFactory::new()->owner()->create($userAttributes);
         $this->queueGoogleProfile([
             'sub' => $user->google_id,
             'name' => $user->name,
@@ -126,11 +125,8 @@ class GoogleRegistrationTest extends GoogleOAuthTestCase
     public static function blockedAccounts(): array
     {
         return [
-            'disabled user' => [['is_enabled' => false], []],
-            'disabled client' => [[], ['is_enabled' => false]],
-            'deleted user' => [['deleted_at' => '2026-01-01 00:00:00'], []],
-            'deleted client' => [[], ['deleted_at' => '2026-01-01 00:00:00']],
-            'non-owner' => [['is_owner' => false], []],
+            'disabled user' => [['is_enabled' => false]],
+            'non-owner' => [['is_owner' => false]],
         ];
     }
 

@@ -45,12 +45,13 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
     }
 
 
-    // Un state ausente en sesión o distinto al recibido debe cortar el acceso con 419 antes de consultar a Google.
+    // Un state distinto al guardado en sesión corta el acceso con 419 antes de consultar a Google,
+    // tanto al volver con código como al cancelar.
     #[Test]
     #[DataProvider('invalidStates')]
-    public function rejects_invalid_state_before_contacting_google(string $query, array $session): void
+    public function rejects_invalid_state_before_contacting_google(string $query): void
     {
-        $this->withSession($session)->getJson('/auth/google/callback?'.$query)
+        $this->withSession(['state' => 'expected'])->getJson('/auth/google/callback?'.$query)
             ->assertStatus(419)
             ->assertJsonPath('code', 'google_session_expired')
             ->assertSessionMissing('state');
@@ -62,38 +63,13 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
     public static function invalidStates(): array
     {
         return [
-            'mismatched code state' => ['state=wrong&code=code', ['state' => 'expected']],
-            'missing session state' => ['state=wrong&code=code', []],
-            'mismatched cancellation state' => ['state=wrong&error=access_denied', ['state' => 'expected']],
+            'mismatched code state' => ['state=wrong&code=code'],
+            'mismatched cancellation state' => ['state=wrong&error=access_denied'],
         ];
     }
 
 
-    // Un callback incompleto o con tipos inválidos debe devolver 422 e identificar el campo incorrecto.
-    #[Test]
-    #[DataProvider('invalidCallbacks')]
-    public function validates_callback_input(array $parameters, string $invalidField): void
-    {
-        $this->getJson('/auth/google/callback?'.http_build_query($parameters))
-            ->assertUnprocessable()
-            ->assertJsonPath('code', 'validation_failed')
-            ->assertJsonValidationErrors($invalidField);
-
-        $this->assertGuest();
-    }
-
-
-    public static function invalidCallbacks(): array
-    {
-        return [
-            'missing state' => [['code' => 'code'], 'state'],
-            'missing code' => [['state' => 'state'], 'code'],
-            'array state' => [['state' => ['state'], 'code' => 'code'], 'state'],
-        ];
-    }
-
-
-    // Una identidad incompleta o un email inválido o no verificado deben rechazarse con 422, sin iniciar sesión.
+    // Una identidad sin sub o con email no verificado debe rechazarse con 422, sin iniciar sesión.
     #[Test]
     #[DataProvider('invalidProfiles')]
     public function rejects_invalid_google_profiles(array $profile): void
@@ -115,18 +91,17 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
 
         return [
             'unverified email' => [array_replace($profile, ['email_verified' => false])],
-            'invalid email' => [array_replace($profile, ['email' => 'invalid'])],
             'missing identity' => [array_replace($profile, ['sub' => null])],
-            'missing email' => [array_replace($profile, ['email' => null])],
         ];
     }
 
 
-    // Si Google responde con un error de servidor, debe devolver 502 sin exponer el contenido de esa respuesta.
+    // Si Google falla o no responde, debe devolver 502 con google_unavailable sin exponer la respuesta del proveedor.
     #[Test]
-    public function handles_google_server_failure_without_exposing_provider_response(): void
+    #[DataProvider('googleFailures')]
+    public function reports_google_failures_as_unavailable(Response|ConnectException $failure): void
     {
-        $this->googleResponses->append(new Response(503, [], 'secret-provider-content'));
+        $this->googleResponses->append($failure);
 
         $this->withSession(['state' => 'valid-state'])
             ->getJson('/auth/google/callback?state=valid-state&code=valid-code')
@@ -138,17 +113,14 @@ class GoogleOAuthTest extends GoogleOAuthTestCase
     }
 
 
-    // Si no se puede conectar con Google, debe comunicar google_unavailable con estado 502.
-    #[Test]
-    public function handles_google_connection_failure(): void
+    public static function googleFailures(): array
     {
-        $request = new Request('POST', 'https://www.googleapis.com/oauth2/v4/token');
-        $this->googleResponses->append(new ConnectException('Connection failed', $request));
+        $tokenRequest = new Request('POST', 'https://www.googleapis.com/oauth2/v4/token');
 
-        $this->withSession(['state' => 'valid-state'])
-            ->getJson('/auth/google/callback?state=valid-state&code=valid-code')
-            ->assertStatus(502)
-            ->assertJsonPath('code', 'google_unavailable');
+        return [
+            'server failure' => [new Response(503, [], 'secret-provider-content')],
+            'connection failure' => [new ConnectException('Connection failed', $tokenRequest)],
+        ];
     }
 
 }

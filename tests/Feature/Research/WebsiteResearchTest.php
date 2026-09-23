@@ -7,20 +7,16 @@ use Tests\TestCase;
 use App\Models\Brand;
 use RuntimeException;
 use App\Models\ResearchRun;
-use Psr\Log\LoggerInterface;
 use App\Services\UserService;
 use App\Services\BrandService;
 use App\Exceptions\ApiException;
-use Illuminate\Support\Facades\DB;
 use Database\Factories\UserFactory;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Log;
 use App\Services\ResearchRunService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
-use App\Services\WebsiteResearchService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use App\Jobs\Research\Website\ResearchWebsiteJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -154,45 +150,6 @@ class WebsiteResearchTest extends TestCase
         $this->assertCount(1, $openAiInputs[0]['pages']);
         $this->assertSame([], $openAiInputs[1]['available_links']);
         $this->assertCount(3, $openAiInputs[1]['pages']);
-    }
-
-
-    // Cada etapa terminada se informa por el closure recibido, con los datos útiles para seguir el recorrido.
-    #[Test]
-    public function reports_each_stage_through_the_given_log_closure(): void
-    {
-        resolve(BrandService::class)->update($this->brand, ['brand_tone_of_voice_description' => 'Mi voz']);
-        $chosenUrls = ['https://example.com/about'];
-        Http::fake([
-            'https://api.firecrawl.dev/v2/scrape' => Http::sequence()
-                ->push($this->firecrawlPage('Portada', ['/about']))
-                ->push($this->firecrawlPage('Desde 2010')),
-            'https://api.openai.com/v1/responses' => Http::sequence()
-                ->push($this->openAiResponse($this->analysis([], $chosenUrls)))
-                ->push($this->openAiResponse($this->analysis(['brand_history_description' => 'Desde 2010']))),
-        ]);
-        $researchRun = $this->createResearchRun();
-        $stages = [];
-        $log = function (string $message, array $context) use (&$stages): void {
-            $stages[] = [$message, $context];
-        };
-
-        resolve(WebsiteResearchService::class)->research($researchRun, $log);
-
-        $this->assertSame([
-            'Page scraped.', 'Internal links found.', 'Analysis requested.', 'Analysis received.', 'Page scraped.',
-            'Analysis requested.', 'Analysis received.', 'Insight saved.', 'Brand fields filled.',
-        ], array_column($stages, 0));
-        [$homepage, $links, $firstRequest, $firstAnalysis, $aboutPage, $secondRequest, $secondAnalysis, $insight,
-            $brandFields] = array_column($stages, 1);
-        $this->assertSame(1, $links['count']);
-        $this->assertSame('Portada', $firstRequest['input']['pages'][0]['data']['markdown']);
-        $this->assertStringContainsString('brand_logo', $firstRequest['instructions']);
-        $this->assertSame($chosenUrls, $firstAnalysis['additionalUrls']);
-        $this->assertSame(2, $secondAnalysis['pages']);
-        $this->assertSame([], $secondRequest['input']['available_links']);
-        $this->assertSame(['brand_history_description'], $brandFields['savedFields']);
-        $this->assertSame(['name', 'brand_tone_of_voice_description'], $brandFields['preservedFields']);
     }
 
 
@@ -419,52 +376,6 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    // Si la ejecución ya no existe, el job termina sin llamar a ningún proveedor.
-    #[Test]
-    public function does_nothing_when_the_research_run_is_missing(): void
-    {
-        Http::fake();
-
-        (new ResearchWebsiteJob(999))->handle();
-
-        Http::assertNothingSent();
-    }
-
-
-    // El UUID nace con el job y sobrevive a la serialización: el fallo va a los dos logs con el prefijo de handle().
-    #[Test]
-    public function correlates_logs_with_the_same_uuid_after_serialization(): void
-    {
-        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::response([], 500)]);
-        $researchRun = $this->createResearchRun();
-        $job = new ResearchWebsiteJob($researchRun->id);
-        $serializedJob = serialize($job);
-        $messages = [];
-        $logger = Mockery::mock(LoggerInterface::class);
-        $logger->shouldReceive('info')->andReturnUsing(function (string $message) use (&$messages): void {
-            $messages[] = $message;
-        });
-        $logger->shouldReceive('error')->andReturnUsing(function (string $message) use (&$messages): void {
-            $messages[] = $message;
-        });
-        Log::shouldReceive('channel')->with('ResearchWebsiteJobInfo')->andReturn($logger);
-        Log::shouldReceive('channel')->with('ResearchWebsiteJobErrors')->andReturn($logger);
-
-        try {
-            $job->handle();
-        } catch (ApiException $exception) {
-            unserialize($serializedJob)->failed($exception);
-        }
-
-        $this->assertCount(3, $messages);
-        preg_match('/^\[[a-f0-9-]{36}\] \| /', $messages[0], $matches);
-        $this->assertNotEmpty($matches);
-        foreach ($messages as $message) {
-            $this->assertStringStartsWith($matches[0], $message);
-        }
-    }
-
-
     // Un error al encolar revierte también la creación, evitando una ejecución pendiente sin job.
     #[Test]
     public function rolls_back_creation_when_dispatch_fails(): void
@@ -477,27 +388,6 @@ class WebsiteResearchTest extends TestCase
         $this->postJson('/api/research-runs', ['type' => 'website'])->assertStatus(500);
 
         $this->assertDatabaseCount('research_runs', 0);
-    }
-
-
-    // La ejecución y su job se escriben en la misma transacción de la conexión database.
-    #[Test]
-    public function rolls_back_database_queue_payload_with_its_research_run(): void
-    {
-        $this->app->forgetInstance('queue');
-        Queue::clearResolvedInstance('queue');
-        config()->set('queue.default', 'database');
-
-        DB::beginTransaction();
-        $researchRun = $this->createResearchRun();
-        $queuedJob = DB::table('jobs')->where('queue', 'research_queue')->first();
-        $this->assertNotNull($queuedJob);
-        $this->assertStringNotContainsString('https://example.com', $queuedJob->payload);
-        $this->assertStringContainsString('researchRunId', $queuedJob->payload);
-        DB::rollBack();
-
-        $this->assertDatabaseMissing('research_runs', ['id' => $researchRun->id]);
-        $this->assertDatabaseCount('jobs', 0);
     }
 
 

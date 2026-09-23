@@ -230,7 +230,6 @@ make test-unit
 make test-feature
 make test ARGS='--filter=UserIsolationTest'
 make test ARGS='tests/Feature/Auth'
-make test ARGS='--group=smoke'
 make test ARGS='--order-by=random'
 make lint-php
 ```

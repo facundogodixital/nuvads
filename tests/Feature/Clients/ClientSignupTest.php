@@ -34,7 +34,8 @@ class ClientSignupTest extends TestCase
     }
 
 
-    // El alta debe usar la ubicación válida o los valores por defecto; Argentina conserva su zona horaria acordada.
+    // El alta usa la ubicación válida o los valores por defecto; Argentina conserva su zona acordada y una zona
+    // horaria de otro país se descarta.
     #[Test]
     #[DataProvider('signupLocations')]
     public function chooses_signup_country_and_timezone(array $location, string $countryCode, string $timezone): void
@@ -64,6 +65,9 @@ class ClientSignupTest extends TestCase
                 ['country_code' => 'US', 'timezone' => 'America/Los_Angeles'], 'US', 'America/Los_Angeles',
             ],
             'country without timezone' => [['country_code' => 'ES'], 'ES', 'Europe/Madrid'],
+            'timezone of another country' => [
+                ['country_code' => 'ES', 'timezone' => 'America/New_York'], 'ES', 'Europe/Madrid',
+            ],
             'unknown location' => [[], 'AR', 'America/Argentina/Buenos_Aires'],
         ];
     }

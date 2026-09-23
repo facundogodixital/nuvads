@@ -10,6 +10,38 @@ Las herramientas acordadas son PHPUnit 12.5, Mockery 1.6 y Faker 1.24 como
 dependencias de desarrollo. Los comandos se ejecutan desde la raíz del proyecto,
 con los contenedores Docker levantados y las dependencias de Composer instaladas.
 
+## Qué se prueba y qué no
+
+Los tests existen para fallar cuando se rompe un comportamiento del producto. Antes
+de escribir uno, responder qué bug real atraparía que ningún otro test atrapa. Sin
+esa respuesta, no se escribe.
+
+- Un test por comportamiento del producto, no por rama del código ni por método.
+  Un test denso que recorre el flujo real (endpoint o job) vale más que varios
+  tests chicos sobre sus piezas.
+- No probar código que producción no llama. Un método sin consumidor no tiene test;
+  se escribe cuando llega la funcionalidad que lo usa.
+- No probar Laravel: timestamps, soft deletes, relaciones, casts, reglas estándar
+  de validación (`required`, `string`, `url`, `max`) ni claves foráneas del esquema.
+- No probar logs: ni sus mensajes, ni su orden, ni su formato.
+- Helpers de servicios externos: dos o tres tests. Uno de camino feliz que verifique
+  la petición enviada y el resultado devuelto, y uno por familia de error que el
+  flujo distinga (error del proveedor, respuesta inutilizable). No enumerar variantes
+  de cuerpos malformados, entradas inválidas, credenciales faltantes ni fallos de red.
+- Un escenario se prueba en una sola capa: la que lo expone. No repetirlo abajo.
+  El aislamiento por cliente y por marca se prueba una vez por endpoint o service
+  que lo expone. El 401 de las rutas de la API lo cubre un solo test de `SessionTest`
+  que recorre las rutas registradas; no agregar tests de 401 por endpoint.
+- `#[DataProvider]` solo cuando cada fila cambia la decisión del código. Sin
+  productos cartesianos ni filas que recorran la misma rama.
+- Las aserciones comprueban lo que dice el comentario del test y nada más. Sin
+  aserciones incidentales sobre timestamps, estructura completa del JSON o valores
+  por defecto.
+- Presupuesto orientativo: una funcionalidad nueva lleva de uno a tres tests.
+  Superarlo requiere justificar en la respuesta qué atrapa cada test extra.
+- Al modificar una funcionalidad, leer y ejecutar solo el archivo de tests de su
+  dominio. No recorrer la suite completa para orientarse.
+
 ## Ubicación y alcance
 
 - `tests/Unit/<Domain>/`: lógica aislada, extendiendo `PHPUnit\Framework\TestCase`.
@@ -19,13 +51,9 @@ con los contenedores Docker levantados y las dependencias de Composer instaladas
 - Organizar por dominio del negocio: `Auth`, `Clients`, `Users`, `Errors` y los que
   aparezcan al crecer el producto. Crear subdivisiones cuando faciliten encontrar
   los escenarios; no crear carpetas vacías para funcionalidades futuras.
-- Smoke, regresión y seguridad describen objetivos de pruebas. Usar grupos cuando
-  resulte útil ejecutarlas juntas; el grupo `smoke` ya existe.
 
 Probar resultados observables: respuesta, sesión, datos persistidos, permisos y
-efectos externos esperados. Elegir el nivel que compruebe el comportamiento sin
-duplicar el mismo escenario en todas las capas. En funcionalidades por cliente,
-incluir los casos de acceso a datos de otro cliente que correspondan.
+efectos externos esperados.
 
 ## Escritura y datos
 
@@ -34,8 +62,8 @@ incluir los casos de acceso a datos de otro cliente que correspondan.
   líneas; incluir el motivo cuando aporte contexto y describir solo lo que las
   comprobaciones realmente verifican. No narrar cada instrucción del cuerpo.
 - Usar `#[Test]`, nombres descriptivos en inglés y snake_case para los métodos de
-  test, como exige Pint. Usar `#[DataProvider]` con proveedores públicos y estáticos
-  para variaciones del mismo comportamiento; sus datos no dependen de Laravel.
+  test, como exige Pint. Los proveedores de `#[DataProvider]` son públicos y
+  estáticos, y sus datos no dependen de Laravel.
 - Hacer visibles la preparación, la operación y las comprobaciones, separadas por
   líneas en blanco. Compartir preparación únicamente cuando tenga un propósito
   claro. `Tests\TestCase` contiene solo la configuración común.
@@ -103,7 +131,6 @@ Al cambiar el entorno común, comprobar también la suite completa y su aislamie
 Pint, PHPCS y los hooks comprueban el estilo de tests y factories; actualmente
 los tests se ejecutan a demanda.
 
-No hay medición ni umbral de cobertura configurados. El smoke comprueba Laravel,
-no el despliegue. Laravel deshabilita CSRF durante sus pruebas HTTP: estas pruebas
-no demuestran la protección CSRF real. Completar la revisión de cierre indicada
-por AGENTS.md.
+No hay medición ni umbral de cobertura configurados. Laravel deshabilita CSRF
+durante sus pruebas HTTP: estas pruebas no demuestran la protección CSRF real.
+Completar la revisión de cierre indicada por AGENTS.md.

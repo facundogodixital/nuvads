@@ -20,7 +20,7 @@ class BrandCreationTest extends TestCase
     use RefreshDatabase;
 
 
-    // Crear un cliente debe persistir su marca inicial con timestamps y ambas relaciones disponibles.
+    // Crear un cliente debe persistir su marca inicial asociada a ese cliente.
     #[Test]
     public function creates_client_with_default_brand(): void
     {
@@ -29,9 +29,6 @@ class BrandCreationTest extends TestCase
         $brand = $client->brands()->sole();
         $this->assertSame('Tu marca', $brand->name);
         $this->assertTrue($brand->client->is($client));
-        $this->assertNotNull($brand->created_at);
-        $this->assertNotNull($brand->updated_at);
-        $this->assertNull($brand->deleted_at);
     }
 
 
@@ -84,28 +81,6 @@ class BrandCreationTest extends TestCase
         $this->assertTrue($clientExistedBeforeFailure);
         $this->assertDatabaseCount('brands', 0);
         $this->assertDatabaseCount('clients', 0);
-    }
-
-
-    // Cada cliente puede tener varias marcas; sus relaciones no deben incluir las de otro cliente ni las dadas de baja.
-    #[Test]
-    public function keeps_multiple_brands_associated_with_their_client_and_supports_soft_deletes(): void
-    {
-        $client = ClientFactory::new()->create();
-        $brandService = resolve(BrandService::class);
-        $otherClient = ClientFactory::new()->create();
-
-        $firstBrand = $brandService->create($client, ['name' => 'Primera marca']);
-        $secondBrand = $brandService->create($client, ['name' => 'Segunda marca']);
-        $otherBrand = $brandService->create($otherClient, ['name' => 'Otra marca']);
-
-        $this->assertSame([$firstBrand->id, $secondBrand->id], $client->brands()->orderBy('id')->pluck('id')->all());
-        $this->assertSame([$otherBrand->id], $otherClient->brands->modelKeys());
-
-        $firstBrand->delete();
-
-        $this->assertSoftDeleted($firstBrand);
-        $this->assertSame([$secondBrand->id], $client->brands()->pluck('id')->all());
     }
 
 }

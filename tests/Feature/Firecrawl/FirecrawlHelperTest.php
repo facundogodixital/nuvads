@@ -8,7 +8,6 @@ use App\Helpers\FirecrawlHelper;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
-use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 
@@ -49,7 +48,8 @@ class FirecrawlHelperTest extends TestCase
     }
 
 
-    // Los errores externos se comunican sin exponer el cuerpo recibido ni repetir la petición.
+    // Un error del proveedor, una respuesta inutilizable o una página con error se informan con su propio código,
+    // sin repetir la petición.
     #[Test]
     #[DataProvider('invalidResponses')]
     public function rejects_invalid_responses(string $body, int $status, string $errorCode, string $detail): void
@@ -70,63 +70,15 @@ class FirecrawlHelperTest extends TestCase
 
     public static function invalidResponses(): array
     {
+        $pageWithError = '{"success":true,"data":{"markdown":"","metadata":{"statusCode":404},"images":[],"links":[]}}';
+
         return [
-            ['provider-error-body', 429, 'firecrawl_request_failed', '429: provider-error-body'],
-            ['{"error":"Rate limit"}', 500, 'firecrawl_request_failed', '500: Rate limit'],
-            ['not-json', 200, 'firecrawl_response_invalid', 'not-json'],
-            ['{"success":false,"error":"Blocked page"}', 200, 'firecrawl_response_invalid', 'Blocked page'],
-            ['{"success":true,"data":{"markdown":42}}', 200, 'firecrawl_response_invalid', 'data.markdown'],
+            'provider error' => ['{"error":"Rate limit"}', 500, 'firecrawl_request_failed', '500: Rate limit'],
+            'blocked page' => [
+                '{"success":false,"error":"Blocked page"}', 200, 'firecrawl_response_invalid', 'Blocked page',
+            ],
+            'page with error status' => [$pageWithError, 200, 'firecrawl_page_failed', '404'],
         ];
-    }
-
-
-    // La ausencia de credenciales impide enviar solicitudes al proveedor.
-    #[Test]
-    public function rejects_missing_credentials(): void
-    {
-        Http::fake();
-        config(['services.firecrawl.api_key' => null]);
-
-        try {
-            resolve(FirecrawlHelper::class)->scrapeWebsite('https://example.com');
-            $this->fail('Se esperaba un error de configuración.');
-        } catch (ApiException $exception) {
-            $this->assertSame('firecrawl_not_configured', $exception->errorCode);
-        }
-
-        Http::assertNothingSent();
-    }
-
-
-    // Solo se admiten URLs HTTP o HTTPS antes de realizar la llamada externa.
-    #[Test]
-    public function rejects_invalid_urls(): void
-    {
-        Http::fake();
-
-        try {
-            resolve(FirecrawlHelper::class)->scrapeWebsite('file:///etc/passwd');
-            $this->fail('Se esperaba un error de validación.');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('url', $exception->errors());
-        }
-
-        Http::assertNothingSent();
-    }
-
-
-    // Un fallo de conexión se traduce a un error seguro de la integración.
-    #[Test]
-    public function handles_connection_failures(): void
-    {
-        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::failedConnection()]);
-
-        try {
-            resolve(FirecrawlHelper::class)->scrapeWebsite('https://example.com');
-            $this->fail('Se esperaba un error de conexión.');
-        } catch (ApiException $exception) {
-            $this->assertSame('firecrawl_unavailable', $exception->errorCode);
-        }
     }
 
 }

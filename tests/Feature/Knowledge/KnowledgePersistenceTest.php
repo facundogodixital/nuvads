@@ -54,9 +54,6 @@ class KnowledgePersistenceTest extends TestCase
         $this->assertSame($brand->client_id, $persistedRecord->client_id);
         $this->assertTrue($persistedRecord->brand->is($brand));
         $this->assertTrue($persistedRecord->client->is($brand->client));
-        $this->assertNotNull($persistedRecord->created_at);
-        $this->assertNotNull($persistedRecord->updated_at);
-        $this->assertNull($persistedRecord->deleted_at);
 
         $changes['brand_id'] = $otherBrand->id;
         $changes['client_id'] = $otherBrand->client_id;
@@ -98,10 +95,10 @@ class KnowledgePersistenceTest extends TestCase
     }
 
 
-    // Una marca no puede modificar registros de otra, aunque pertenezcan al mismo cliente.
+    // Una marca no puede modificar ni borrar registros de otra, aunque pertenezcan al mismo cliente.
     #[Test]
     #[DataProvider('knowledgeDomains')]
-    public function refuses_foreign_updates(string $serviceClass, array $attributes, array $changes): void
+    public function refuses_foreign_updates_and_deletes(string $serviceClass, array $attributes, array $changes): void
     {
         $brand = $this->createBrand();
         $siblingBrand = resolve(BrandService::class)->create($brand->client, ['name' => 'Segunda marca']);
@@ -109,29 +106,17 @@ class KnowledgePersistenceTest extends TestCase
         $record = $service->create($siblingBrand, $attributes);
         $originalAttributes = $record->fresh()->getAttributes();
 
-        $this->expectException(ModelNotFoundException::class);
         try {
             $service->update($brand, $record->id, $changes);
-        } finally {
+            $this->fail('La actualización ajena debía fallar.');
+        } catch (ModelNotFoundException) {
             $this->assertSame($originalAttributes, $record->fresh()->getAttributes());
         }
-    }
 
-
-    // Un intento de borrar un registro de otro cliente falla y conserva el registro activo.
-    #[Test]
-    #[DataProvider('knowledgeDomains')]
-    public function refuses_foreign_deletes(string $serviceClass, array $attributes, array $changes): void
-    {
-        $brand = $this->createBrand();
-        $otherBrand = $this->createBrand();
-        $service = resolve($serviceClass);
-        $record = $service->create($otherBrand, $attributes);
-
-        $this->expectException(ModelNotFoundException::class);
         try {
             $service->delete($brand, $record->id);
-        } finally {
+            $this->fail('El borrado ajeno debía fallar.');
+        } catch (ModelNotFoundException) {
             $this->assertNull($record->fresh()->deleted_at);
         }
     }

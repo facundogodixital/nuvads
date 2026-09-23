@@ -83,10 +83,10 @@ class BrandSourcesTest extends TestCase
     }
 
 
-    // Entradas inválidas se rechazan antes de guardar y no alteran enlaces ya persistidos.
+    // Los esquemas no web y los enlaces de Instagram que no son un perfil se rechazan sin alterar lo guardado.
     #[Test]
     #[DataProvider('invalidSources')]
-    public function rejects_invalid_sources(string $field, mixed $value): void
+    public function rejects_invalid_sources(string $field, string $value): void
     {
         $user = UserFactory::new()->owner()->create();
         $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
@@ -104,23 +104,10 @@ class BrandSourcesTest extends TestCase
     public static function invalidSources(): array
     {
         return [
-            ['website_url', 'javascript:alert(1)'],
-            ['google_maps_url', 'not a url'],
-            ['website_url', 'https://example.com/'.str_repeat('x', 2048)],
-            ['instagram_username', ['invalid']],
-            ['instagram_username', 'https://evil.example/mi.marca'],
-            ['instagram_username', 'https://instagram.com/p/abc123/'],
-            ['instagram_username', '@@mi.marca'],
+            'script scheme' => ['website_url', 'javascript:alert(1)'],
+            'foreign host' => ['instagram_username', 'https://evil.example/mi.marca'],
+            'post link' => ['instagram_username', 'https://instagram.com/p/abc123/'],
         ];
-    }
-
-
-    // Los enlaces privados de cada marca requieren autenticación para leerlos y modificarlos.
-    #[Test]
-    public function requires_authentication(): void
-    {
-        $this->getJson('/api/brand')->assertUnauthorized();
-        $this->patchJson('/api/brand', ['website_url' => null])->assertUnauthorized();
     }
 
 }
