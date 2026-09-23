@@ -19,7 +19,7 @@ return new class() extends Migration
             $table->string('instagram_username', 255)->nullable();
             $table->string('website_url', 2048)->nullable();
 
-            $table->json('brand_logo')->nullable();
+            $table->json('brand_logos')->nullable();
             $table->json('brand_colors')->nullable();
 
             $table->text('brand_offer_description')->nullable();

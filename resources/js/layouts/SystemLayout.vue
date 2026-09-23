@@ -98,7 +98,8 @@
         </div>
       </aside>
 
-      <main class="min-w-0 flex-1 overflow-y-auto p-6 sm:p-8">
+      <!-- relative: los elementos absolutos de las páginas (sr-only, popovers) quedan dentro del área con scroll. -->
+      <main class="relative min-w-0 flex-1 overflow-y-auto p-6 sm:p-8">
         <slot />
       </main>
     </div>

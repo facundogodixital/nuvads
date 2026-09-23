@@ -65,7 +65,7 @@ class WebsiteResearchTest extends TestCase
         resolve(BrandService::class)->update($this->brand, ['website_url' => 'https://changed.example']);
 
         $this->postJson('/api/research-runs', ['type' => 'website'])
-            ->assertConflict()->assertJsonPath('code', 'research_already_running');
+            ->assertUnprocessable()->assertJsonValidationErrors('type');
 
         $this->getJson("/api/research-runs/{$researchRunId}")->assertOk()
             ->assertJsonPath('data.input.url', 'https://example.com');
@@ -82,7 +82,7 @@ class WebsiteResearchTest extends TestCase
         $colors = ['primary' => '#339D33', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null];
         $analysis = $this->analysis([
             'brand_offer_description' => 'Jardinería',
-            'brand_logo' => ['https://example.com/logo.png'],
+            'brand_logos' => ['https://example.com/logo.png'],
             'brand_colors' => $colors,
         ]);
         Http::fake([
@@ -101,7 +101,7 @@ class WebsiteResearchTest extends TestCase
         $this->assertSame('Jardinería', $this->brand->fresh()->brand_offer_description);
         // MySQL guarda las claves del JSON en otro orden; se compara el contenido.
         $this->assertEquals($colors, $this->brand->fresh()->brand_colors);
-        $this->assertSame(['https://example.com/logo.png'], $this->brand->fresh()->brand_logo);
+        $this->assertSame(['https://example.com/logo.png'], $this->brand->fresh()->brand_logos);
         $this->assertDatabaseCount('knowledge_sources', 1);
         $this->assertDatabaseCount('knowledge_insights', 1);
         Http::assertSentCount(2);
@@ -216,7 +216,7 @@ class WebsiteResearchTest extends TestCase
     public function stores_null_for_empty_json_values(): void
     {
         $analysis = $this->analysis([
-            'brand_logo' => [],
+            'brand_logos' => [],
             'brand_colors' => [
                 'primary' => null, 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
             ],
@@ -232,7 +232,7 @@ class WebsiteResearchTest extends TestCase
 
         $brand = $this->brand->fresh();
         $this->assertSame('completed', $researchRun->fresh()->status);
-        $this->assertNull($brand->brand_logo);
+        $this->assertNull($brand->brand_logos);
         $this->assertNull($brand->brand_colors);
         $this->assertNull($brand->brand_fonts);
     }
@@ -266,7 +266,7 @@ class WebsiteResearchTest extends TestCase
     public static function jsonValuesOutsideTheFixedShape(): array
     {
         return [
-            'logo as text' => [['brand_logo' => 'https://example.com/logo.png']],
+            'logo as text' => [['brand_logos' => 'https://example.com/logo.png']],
             'colors as list' => [['brand_colors' => [['hex' => '#339D33', 'role' => 'primary']]]],
             'colors missing keys' => [['brand_colors' => ['primary' => '#339D33']]],
             'colors with unknown key' => [['brand_colors' => [
@@ -473,7 +473,7 @@ class WebsiteResearchTest extends TestCase
             'brand_customers_faq_description' => null,
             'brand_communication_topics_description' => null,
             'brand_content_opportunities_description' => null,
-            'brand_logo' => [],
+            'brand_logos' => [],
             'brand_colors' => null,
             'brand_fonts' => null,
         ];

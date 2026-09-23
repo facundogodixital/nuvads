@@ -193,6 +193,8 @@ El layout organiza las áreas compartidas de la pantalla; cada componente organi
 
 Crear componentes cuando representen una pieza con sentido o eviten una repetición real. Mantener una organización sencilla, sin subdivisiones anticipadas.
 
+Todo lo que define una página vive en su archivo .vue: estructura, textos y datos de configuración incluidos. Está totalmente prohibido sacarlos a un archivo aparte, como un `brandSections.js` con las secciones y campos de la página: no hay motivo más que sumar carga cognitiva.
+
 ## 5. Organización de estilos y temas
 
 Decisión: usar Tailwind CSS 4 con la integración de Vite `@tailwindcss/vite`. La configuración del proyecto vive en CSS mediante `@theme`, sin `tailwind.config.js`.

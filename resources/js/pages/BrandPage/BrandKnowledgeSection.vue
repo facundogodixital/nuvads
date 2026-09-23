@@ -45,7 +45,7 @@
       v-if="isEditing"
       ref="editor"
       class="space-y-4"
-      @submit.prevent="applyChanges"
+      @submit.prevent="save"
       @keydown.esc.prevent="cancelEditing"
     >
       <div
@@ -62,6 +62,7 @@
           v-model="draft[field.key]"
           :type="field.type"
           :placeholder="field.hint"
+          :aria-invalid="Boolean(fieldErrors[field.key])"
           class="block w-full rounded-sm border border-border bg-surface-raised px-3.5 py-2.5 text-sm leading-6 text-text placeholder:text-text-muted"
           :autocomplete="field.key === 'name' ? 'organization' : 'off'"
         >
@@ -69,26 +70,39 @@
           v-else
           :id="`${section.id}-${field.key}`"
           v-model="draft[field.key]"
-          rows="3"
+          rows="4"
           :placeholder="field.hint"
+          :aria-invalid="Boolean(fieldErrors[field.key])"
           class="block w-full rounded-sm border border-border bg-surface-raised px-3.5 py-2.5 text-sm leading-6 text-text placeholder:text-text-muted resize-y"
         />
+        <p
+          v-if="fieldErrors[field.key]"
+          class="mt-1 text-xs text-danger"
+        >
+          {{ fieldErrors[field.key] }}
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-3 pt-1">
         <button
           type="submit"
-          class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-surface-selected border border-border bg-surface-selected"
+          :disabled="isSaving"
+          class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-sm border border-border bg-surface-selected px-3 py-2 text-sm enabled:cursor-pointer enabled:hover:bg-surface disabled:cursor-not-allowed disabled:text-text-muted"
         >
-          Aplicar cambios
+          {{ isSaving ? 'Guardando…' : 'Guardar' }}
         </button>
         <button
           type="button"
-          class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-2 text-sm hover:bg-surface-selected"
+          :disabled="isSaving"
+          class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-sm border border-border px-3 py-2 text-sm enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
           @click="cancelEditing"
         >
           Cancelar
         </button>
-        <span class="text-xs text-text-muted">Solo en esta vista previa.</span>
+        <span
+          v-if="saveError"
+          role="alert"
+          class="text-xs text-danger"
+        >{{ saveError }}</span>
       </div>
     </form>
 
@@ -105,14 +119,10 @@
           {{ field.label }}
         </dt>
         <dd
-          v-if="values[field.key]"
+          v-if="readValue(field)"
           class="whitespace-pre-wrap break-words text-sm leading-6"
         >
-          {{ values[field.key] }}
-          <span
-            v-if="editedFields.includes(field.key)"
-            class="mt-1 block text-xs text-text-muted"
-          >Aportado por ti · vista previa</span>
+          {{ readValue(field) }}
         </dd>
         <dd
           v-else
@@ -134,23 +144,36 @@
 
 <script setup>
 import { ref, nextTick } from 'vue';
+import BrandService from '@/services/BrandService';
 
 const props = defineProps({
   section: { type: Object, required: true },
-  values: { type: Object, required: true },
+  brand: { type: Object, required: true },
 });
 
-const emit = defineEmits(['update']);
+const emit = defineEmits(['saved']);
 
 const draft = ref({});
 const editor = ref(null);
+const isSaving = ref(false);
+const saveError = ref('');
 const isEditing = ref(false);
 const editButton = ref(null);
+const fieldErrors = ref({});
 const announcement = ref('');
-const editedFields = ref([]);
+
+// Los campos con group, como las tipografías, viven dentro de un JSON de la marca.
+function readValue(field) {
+  const source = field.group ? props.brand[field.group] ?? {} : props.brand;
+  return source[field.key] ?? '';
+}
 
 async function startEditing() {
-  draft.value = { ...props.values };
+  for (const field of props.section.fields) {
+    draft.value[field.key] = readValue(field);
+  }
+  fieldErrors.value = {};
+  saveError.value = '';
   isEditing.value = true;
 
   await nextTick();
@@ -164,22 +187,44 @@ async function cancelEditing() {
   editButton.value?.focus();
 }
 
-async function applyChanges() {
-  const updatedValues = {};
+async function save() {
+  const attributes = {};
   for (const field of props.section.fields) {
-    updatedValues[field.key] = (draft.value[field.key] ?? '').trim();
-
-    const fieldHasChanged = updatedValues[field.key] !== (props.values[field.key] ?? '');
-    const fieldHasNotBeenEdited = !editedFields.value.includes(field.key);
-
-    if (fieldHasChanged && fieldHasNotBeenEdited) {
-      editedFields.value.push(field.key);
+    const value = draft.value[field.key].trim() || null;
+    if (field.group) {
+      attributes[field.group] = { ...attributes[field.group], [field.key]: value };
+    } else {
+      attributes[field.key] = value;
     }
   }
 
-  emit('update', updatedValues);
-  announcement.value = 'Cambios aplicados en la vista previa. No se guardan al salir.';
+  isSaving.value = true;
+  saveError.value = '';
+  fieldErrors.value = {};
 
-  await cancelEditing();
+  try {
+    const brand = await BrandService.update(attributes);
+
+    emit('saved', brand);
+    announcement.value = 'Cambios guardados.';
+    await cancelEditing();
+  } catch (error) {
+    saveError.value = error.message;
+    fieldErrors.value = readFieldErrors(error.errors ?? {});
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+// La API informa los errores por columna, como brand_fonts.heading; acá se guardan por clave del campo.
+function readFieldErrors(errors) {
+  const fieldErrors = {};
+  for (const field of props.section.fields) {
+    const errorKey = field.group ? `${field.group}.${field.key}` : field.key;
+    if (errors[errorKey]) {
+      fieldErrors[field.key] = errors[errorKey][0];
+    }
+  }
+  return fieldErrors;
 }
 </script>

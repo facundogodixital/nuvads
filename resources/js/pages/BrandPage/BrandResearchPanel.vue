@@ -34,7 +34,7 @@
     </header>
 
     <form
-      class="p-5"
+      class="flex-1 p-5"
       @submit.prevent="saveSource"
     >
       <label
@@ -74,11 +74,12 @@
       </div>
       <button
         type="button"
-        disabled
-        :aria-describedby="`${source.id}-availability`"
-        class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-sm border border-border bg-surface-selected px-3 text-sm font-medium text-text-muted disabled:cursor-not-allowed"
+        :disabled="!canAnalyze"
+        :aria-describedby="`${source.id}-analysis-feedback`"
+        class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-sm border border-border bg-surface-selected px-3 text-sm font-medium text-text-muted enabled:cursor-pointer enabled:border-accent enabled:bg-accent enabled:text-text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed"
+        @click="startAnalysis"
       >
-        Analizar {{ source.title }}
+        {{ analyzeButtonLabel }}
         <svg
           class="h-4 w-4"
           viewBox="0 0 20 20"
@@ -93,54 +94,17 @@
         /></svg>
       </button>
       <p
-        :id="`${source.id}-availability`"
-        class="mt-2 text-xs text-text-muted"
+        :id="`${source.id}-analysis-feedback`"
+        role="status"
+        class="mt-2 text-xs"
+        :class="analysisError ? 'text-danger' : 'text-text-muted'"
       >
-        Análisis pendiente de conexión.
+        {{ analysisError || analysisMessage }}
       </p>
     </form>
 
-    <div
-      class="mx-5 flex border-b border-border"
-      role="tablist"
-      :aria-label="`Resultados de ${source.title}`"
-    >
-      <button
-        v-for="tab in resultTabs"
-        :id="`${source.id}-${tab.id}-tab`"
-        :key="tab.id"
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === tab.id"
-        :aria-controls="`${source.id}-results`"
-        :tabindex="activeTab === tab.id ? 0 : -1"
-        class="min-h-11 cursor-pointer border-b px-3 text-sm"
-        :class="activeTab === tab.id ? 'border-text font-medium text-text' : 'border-transparent text-text-muted hover:text-text'"
-        @click="activeTab = tab.id"
-        @keydown.left.prevent="switchTab"
-        @keydown.right.prevent="switchTab"
-        @keydown.home.prevent="selectTab('data')"
-        @keydown.end.prevent="selectTab('insights')"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-    <div
-      :id="`${source.id}-results`"
-      role="tabpanel"
-      :aria-labelledby="`${source.id}-${activeTab}-tab`"
-      tabindex="0"
-      class="flex min-h-44 flex-1 flex-col justify-center px-5 py-6"
-    >
-      <p class="text-sm font-medium">
-        {{ activeTab === 'data' ? source.emptyTitle : 'Todavía no hay conclusiones' }}
-      </p>
-      <p class="mt-2 text-sm leading-6 text-text-muted">
-        {{ activeTab === 'data' ? source.emptyDescription : source.insightDescription }}
-      </p>
-    </div>
     <footer class="flex justify-between gap-3 border-t border-border bg-surface px-5 py-3 text-xs text-text-muted">
-      <span>Sin analizar</span>
+      <span>{{ footerStatus }}</span>
       <span>{{ source.resultLabel }}</span>
     </footer>
   </section>
@@ -148,8 +112,9 @@
 
 
 <script setup>
-import { ref, watch, computed, nextTick } from 'vue';
 import BrandService from '@/services/BrandService';
+import ResearchRunService from '@/services/ResearchRunService';
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   source: { type: Object, required: true },
@@ -157,23 +122,74 @@ const props = defineProps({
   isAvailable: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['saved']);
+const emit = defineEmits(['saved', 'analyzed']);
+
+const POLLING_INTERVAL_MS = 10000;
+const stageLabels = {
+  pending: 'En cola, empezamos enseguida…',
+  scraping: 'Leyendo las páginas de tu sitio…',
+  analyzing: 'Analizando lo que cuenta tu sitio…',
+};
 
 const saveError = ref('');
 const isSaving = ref(false);
 const saveMessage = ref('');
-const activeTab = ref('data');
+const analysisError = ref('');
+const researchStatus = ref(null);
 const sourceUrl = ref(props.savedValue);
-const resultTabs = [
-  { id: 'data', label: props.source.dataLabel },
-  { id: 'insights', label: 'Conclusiones' },
-];
+const isStartingAnalysis = ref(false);
+let pollingTimer = null;
 
 const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
+const activeRun = computed(() => researchStatus.value?.active ?? null);
+const latestRun = computed(() => researchStatus.value?.latest ?? null);
+const canAnalyze = computed(() => {
+  const sourceIsSaved = props.isAvailable && props.savedValue !== '';
+  const analysisIsIdle = activeRun.value === null && !isStartingAnalysis.value;
+  return props.source.isAnalyzable && sourceIsSaved && analysisIsIdle;
+});
+const analyzeButtonLabel = computed(() => {
+  if (activeRun.value) {
+    return 'Analizando…';
+  }
+  if (isStartingAnalysis.value) {
+    return 'Iniciando…';
+  }
+  return latestRun.value ? 'Volver a analizar' : `Analizar ${props.source.title}`;
+});
+const analysisMessage = computed(() => {
+  if (!props.source.isAnalyzable) {
+    return 'Análisis disponible próximamente.';
+  }
+  if (activeRun.value) {
+    return stageLabels[activeRun.value.status];
+  }
+  if (latestRun.value?.status === 'failed') {
+    return latestRun.value.error_message;
+  }
+  return props.savedValue ? 'Leemos tu sitio y completamos la información de tu marca.' : 'Guarda el enlace para poder analizarlo.';
+});
+const footerStatus = computed(() => {
+  const lastCompletedRun = researchStatus.value?.last_completed;
+  if (activeRun.value) {
+    return 'Analizando…';
+  }
+  return lastCompletedRun ? `Analizado el ${formatDate(lastCompletedRun.finished_at)}` : 'Sin analizar';
+});
 
 watch(() => props.savedValue, (value) => {
   sourceUrl.value = value;
 });
+
+onMounted(async () => {
+  if (!props.source.isAnalyzable) {
+    return;
+  }
+  await loadResearchStatus();
+  schedulePolling();
+});
+
+onBeforeUnmount(stopPolling);
 
 function clearFeedback() {
   saveError.value = '';
@@ -194,7 +210,7 @@ async function saveSource() {
     const savedValue = brand[props.source.field] ?? '';
 
     sourceUrl.value = savedValue;
-    emit('saved', savedValue);
+    emit('saved', brand);
     saveMessage.value = savedValue ? 'Guardado.' : 'Enlace eliminado.';
   } catch (error) {
     saveError.value = error.errors?.[props.source.field]?.[0] ?? error.message;
@@ -203,13 +219,60 @@ async function saveSource() {
   }
 }
 
-async function selectTab(tabId) {
-  activeTab.value = tabId;
-  await nextTick();
-  document.getElementById(`${props.source.id}-${tabId}-tab`)?.focus();
+async function loadResearchStatus() {
+  try {
+    researchStatus.value = await ResearchRunService.getWebsiteStatus();
+    analysisError.value = '';
+  } catch (error) {
+    analysisError.value = error.message;
+  }
 }
 
-async function switchTab() {
-  await selectTab(activeTab.value === 'data' ? 'insights' : 'data');
+async function startAnalysis() {
+  if (!canAnalyze.value) {
+    return;
+  }
+
+  analysisError.value = '';
+  isStartingAnalysis.value = true;
+
+  try {
+    await ResearchRunService.create({ type: 'website', overwrite: true });
+    await loadResearchStatus();
+    schedulePolling();
+  } catch (error) {
+    analysisError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+  } finally {
+    isStartingAnalysis.value = false;
+  }
+}
+
+// Mientras hay una ejecución activa se consulta el estado cada diez segundos. Cuando termina bien,
+// la página vuelve a cargar la marca con lo que el análisis completó.
+function schedulePolling() {
+  stopPolling();
+  if (activeRun.value === null) {
+    return;
+  }
+  pollingTimer = setTimeout(pollResearchStatus, POLLING_INTERVAL_MS);
+}
+
+async function pollResearchStatus() {
+  await loadResearchStatus();
+
+  const runHasCompleted = activeRun.value === null && latestRun.value?.status === 'completed';
+  if (runHasCompleted) {
+    emit('analyzed');
+  }
+  schedulePolling();
+}
+
+function stopPolling() {
+  clearTimeout(pollingTimer);
+  pollingTimer = null;
+}
+
+function formatDate(isoDate) {
+  return new Date(isoDate).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 </script>

@@ -208,7 +208,7 @@ class WebsiteResearchService
           como productos, usos, consejos o novedades.
         - brand_content_opportunities_description: ideas de contenido concretas que se desprenden de la
           oferta y el público.
-        - brand_logo: lista de URLs de imágenes que sean el logo de la marca, tomadas de images, branding o
+        - brand_logos: lista de URLs de imágenes que sean el logo de la marca, tomadas de images, branding o
           metadata. Ignorá productos, banners, placeholders y favicon. Lista vacía si no encontrás ninguno.
         - brand_colors: objeto con las claves primary, secondary, accent, background y text. Cada valor es un
           color "#RRGGBB" o null. Tomalos del bloque branding cuando exista.
@@ -239,7 +239,7 @@ class WebsiteResearchService
             'brand_customers_faq_description',
             'brand_communication_topics_description',
             'brand_content_opportunities_description',
-            'brand_logo',
+            'brand_logos',
             'brand_colors',
             'brand_fonts',
         ];
@@ -261,8 +261,8 @@ class WebsiteResearchService
             'brand.brand_customers_faq_description' => $text,
             'brand.brand_communication_topics_description' => $text,
             'brand.brand_content_opportunities_description' => $text,
-            'brand.brand_logo' => ['present', 'nullable', 'array', 'list'],
-            'brand.brand_logo.*' => ['string', 'url:http,https'],
+            'brand.brand_logos' => ['present', 'nullable', 'array', 'list'],
+            'brand.brand_logos.*' => ['string', 'url:http,https'],
             'brand.brand_colors' => [
                 'present', 'nullable', 'array:primary,secondary,accent,background,text',
                 'required_array_keys:primary,secondary,accent,background,text',

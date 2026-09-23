@@ -26,7 +26,7 @@ class ResearchRunService
 
     public function create(Brand $brand, array $attributes): ResearchRun
     {
-        $activeResearchRun = $this->researchRunRepository->findOneActiveForBrand($brand, $attributes['type']);
+        $activeResearchRun = $this->findOneActiveForBrand($brand, $attributes['type']);
         if ($activeResearchRun !== null) {
             throw new ApiException(409, 'research_already_running', 'Ya hay una investigación web en curso.');
         }
@@ -75,6 +75,12 @@ class ResearchRunService
         $researchRun->setRelation('knowledgeSources', $knowledgeSources);
 
         return $researchRun;
+    }
+
+
+    public function findOneActiveForBrand(Brand $brand, string $type): ?ResearchRun
+    {
+        return $this->researchRunRepository->findOneActiveForBrand($brand, $type);
     }
 
 

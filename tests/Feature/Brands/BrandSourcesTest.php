@@ -34,7 +34,6 @@ class BrandSourcesTest extends TestCase
             'brand_id' => $otherBrand->id,
             'client_id' => $otherUser->client_id,
             'brand' => $otherBrand->id,
-            'name' => 'Cambio no autorizado',
         ])->assertOk()->assertJsonPath('data.instagram_username', 'mi.marca');
 
         $this->patchJson('/api/brand', ['website_url' => 'https://example.org'])->assertOk();
@@ -108,6 +107,39 @@ class BrandSourcesTest extends TestCase
             'foreign host' => ['instagram_username', 'https://evil.example/mi.marca'],
             'post link' => ['instagram_username', 'https://instagram.com/p/abc123/'],
         ];
+    }
+
+
+    // Los campos de identidad y conocimiento se guardan con su forma JSON. Un color inválido se rechaza sin
+    // alterar lo guardado.
+    #[Test]
+    public function saves_identity_and_knowledge_fields_and_rejects_invalid_colors(): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
+        $credentials = resolve(UserService::class)->createApiToken($user);
+        $colors = [
+            'primary' => '#339D33', 'secondary' => null, 'accent' => null, 'background' => '#FFFFFF', 'text' => null,
+        ];
+
+        $this->withToken($credentials['token'])->patchJson('/api/brand', [
+            'name' => 'Nuevo nombre',
+            'brand_colors' => $colors,
+            'brand_offer_description' => 'Plantas y macetas',
+            'brand_fonts' => ['heading' => 'Poppins', 'body' => ''],
+            'brand_logos' => ['https://example.com/logo.png'],
+        ])->assertOk()->assertJsonPath('data.name', 'Nuevo nombre');
+
+        $brand->refresh();
+        $this->assertSame('Plantas y macetas', $brand->brand_offer_description);
+        $this->assertSame(['https://example.com/logo.png'], $brand->brand_logos);
+        // MySQL guarda las claves del JSON en otro orden; se compara el contenido.
+        $this->assertEquals(['heading' => 'Poppins', 'body' => null], $brand->brand_fonts);
+        $this->assertEquals($colors, $brand->brand_colors);
+
+        $this->patchJson('/api/brand', ['brand_colors' => [...$colors, 'primary' => 'verde']])
+            ->assertUnprocessable()->assertJsonValidationErrors('brand_colors.primary');
+        $this->assertEquals($colors, $brand->fresh()->brand_colors);
     }
 
 }

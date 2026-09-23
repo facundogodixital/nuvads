@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\ResearchRuns;
 
+use App\Services\ResearchRunService;
 use Illuminate\Validation\Validator;
 use App\Http\Requests\AuthenticatedRequest;
 
@@ -37,6 +38,13 @@ class CreateResearchRunRequest extends AuthenticatedRequest
 
             if ($this->brand->website_url === null) {
                 $validator->errors()->add('website_url', 'Guarda el sitio web de tu marca antes de analizarlo.');
+                return;
+            }
+
+            $type = $this->input('type');
+            $activeResearchRun = resolve(ResearchRunService::class)->findOneActiveForBrand($this->brand, $type);
+            if ($activeResearchRun !== null) {
+                $validator->errors()->add('type', 'Ya hay un análisis del sitio web en curso.');
                 return;
             }
         }];

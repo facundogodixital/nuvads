@@ -4,157 +4,251 @@
     class="scroll-mt-6 rounded-sm border border-border bg-surface-raised p-5 sm:p-6"
     aria-labelledby="visual-identity-heading"
   >
-    <header class="mb-6">
-      <h2
-        id="visual-identity-heading"
-        class="text-lg font-medium"
-      >
-        Tu identidad visual
-      </h2>
-      <p class="mt-1 text-sm text-text-muted">
-        Los elementos que hacen reconocible a tu marca.
-      </p>
+    <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2
+          id="visual-identity-heading"
+          class="text-lg font-medium"
+        >
+          Tu identidad visual
+        </h2>
+        <p class="mt-1 text-sm text-text-muted">
+          Los elementos que hacen reconocible a tu marca.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          role="status"
+          class="text-xs"
+          :class="saveError ? 'text-danger' : 'text-text-muted'"
+        >{{ saveError || saveMessage }}</span>
+        <button
+          v-if="hasChanges"
+          type="button"
+          :disabled="isSaving"
+          class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
+          @click="discardChanges"
+        >
+          Descartar
+        </button>
+        <button
+          type="button"
+          :disabled="!hasChanges || isSaving"
+          class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm font-medium enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
+          @click="save"
+        >
+          {{ isSaving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
     </header>
-    <div class="grid gap-8 sm:grid-cols-[144px_minmax(0,1fr)]">
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div>
         <p class="spec-label mb-3">
-          Logo
+          Logos
         </p>
-        <div class="flex h-32 items-center justify-center overflow-hidden rounded-sm border border-dashed border-border bg-surface p-3">
-          <img
-            v-if="logoUrl"
-            :src="logoUrl"
-            alt="Vista previa del logo de tu marca"
-            class="max-h-full max-w-full object-contain"
-          >
-          <svg
-            v-else
-            class="h-9 w-9 text-text-muted"
-            viewBox="0 0 32 32"
-            fill="none"
-            aria-hidden="true"
-          ><rect
-            x="4"
-            y="4"
-            width="24"
-            height="24"
-            rx="3"
-            stroke="currentColor"
-          /><path
-            d="m5 24 7-8 5 5 4-4 6 7M21 11h.01"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          /></svg>
-        </div>
-        <label class="mt-3 flex min-h-11 cursor-pointer items-center justify-center rounded-sm border border-border px-3 text-sm font-medium hover:bg-surface-selected focus-within:outline-2 focus-within:outline-accent">
-          {{ logoUrl ? 'Cambiar logo' : 'Cargar logo' }}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            class="sr-only"
-            @change="previewLogo"
-          >
-        </label>
-        <button
-          v-if="logoUrl"
-          type="button"
-          class="mt-1 min-h-11 w-full cursor-pointer text-xs text-text-muted hover:text-text"
-          @click="removeLogo"
+        <ul
+          v-if="logos.length"
+          class="flex flex-wrap gap-3"
         >
-          Quitar logo
-        </button>
+          <li
+            v-for="(logo, index) in logos"
+            :key="logo"
+            class="w-32"
+          >
+            <button
+              type="button"
+              :aria-label="`Ver logo ${index + 1} en grande`"
+              class="flex h-24 w-full cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-border bg-surface p-2 hover:border-text"
+              @click="brandLogoModalStore.open(logo)"
+            >
+              <img
+                :src="logo"
+                :alt="`Logo ${index + 1} de tu marca`"
+                class="max-h-full max-w-full object-contain"
+              >
+            </button>
+            <div
+              v-if="logoPendingRemoval === index"
+              class="flex min-h-11 items-center justify-center gap-2 text-xs"
+            >
+              <span>¿Estás seguro?</span>
+              <button
+                type="button"
+                class="cursor-pointer font-medium text-danger"
+                @click="removeLogo(index)"
+              >
+                Sí, quitar
+              </button>
+              <button
+                type="button"
+                class="cursor-pointer text-text-muted hover:text-text"
+                @click="logoPendingRemoval = null"
+              >
+                No
+              </button>
+            </div>
+            <button
+              v-else
+              type="button"
+              :aria-label="`Quitar logo ${index + 1}`"
+              class="min-h-11 w-full cursor-pointer text-xs text-text-muted hover:text-text"
+              @click="logoPendingRemoval = index"
+            >
+              Quitar
+            </button>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="text-sm leading-6 text-text-muted"
+        >
+          Cuando analicemos tu sitio, tus logos aparecerán aquí.
+        </p>
       </div>
       <div>
         <p class="spec-label mb-3">
           Paleta de colores
         </p>
-        <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap gap-4">
           <div
-            v-for="(color, index) in colors"
-            :key="index"
-            class="w-20"
+            v-for="role in colorRoles"
+            :key="role.key"
+            class="relative w-28"
+            :data-color-slot="role.key"
           >
-            <input
-              v-model="colors[index]"
-              type="color"
-              :aria-label="`Color de marca ${index + 1}`"
-              class="h-16 w-full cursor-pointer rounded-sm border border-border bg-surface p-1"
-            >
-            <p class="spec-label mt-2 text-center">
-              {{ color }}
-            </p>
             <button
               type="button"
-              :aria-label="`Quitar color ${color}`"
-              class="min-h-11 w-full cursor-pointer text-xs text-text-muted hover:text-text"
-              @click="colors.splice(index, 1)"
+              class="flex h-16 w-full cursor-pointer items-center justify-center rounded-sm border border-border"
+              :class="colors[role.key] ? '' : 'border-dashed bg-surface hover:bg-surface-selected'"
+              :style="{ backgroundColor: colors[role.key] ?? undefined }"
+              :aria-label="`${role.label}: ${colors[role.key] ?? 'sin elegir'}`"
+              :aria-expanded="openColorKey === role.key"
+              @click="toggleColorPicker(role.key)"
             >
-              Quitar
+              <span
+                v-if="!colors[role.key]"
+                class="text-xl text-text-muted"
+                aria-hidden="true"
+              >+</span>
             </button>
+            <p class="spec-label mt-2 text-center">
+              {{ role.label }}
+            </p>
+            <p class="mt-0.5 text-center text-[11px] leading-4 text-text-muted">
+              {{ role.hint }}
+            </p>
+            <BrandColorPicker
+              v-if="openColorKey === role.key"
+              v-model="colors[role.key]"
+              :label="role.label"
+              class="absolute left-0 top-full z-10 mt-2"
+              @close="openColorKey = null"
+            />
           </div>
-          <label class="flex min-h-16 min-w-28 cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-border px-4 text-sm hover:bg-surface-selected focus-within:outline-2 focus-within:outline-accent">
-            <span aria-hidden="true">+</span> Agregar color
-            <input
-              type="color"
-              class="sr-only"
-              aria-label="Elegir un nuevo color de marca"
-              @change="colors.push($event.target.value)"
-            >
-          </label>
         </div>
-        <p
-          v-if="!colors.length"
-          class="mt-3 text-sm leading-6 text-text-muted"
-        >
-          Agrega tus colores o revísalos cuando tengamos el análisis de tu marca.
-        </p>
-        <p class="mt-5 border-t border-border pt-4 text-xs leading-5 text-text-muted">
-          PNG, JPG o WebP para el logo. Los archivos y colores se muestran solo en esta vista previa.
-        </p>
       </div>
     </div>
-    <p
-      v-if="logoError"
-      role="alert"
-      class="mt-4 text-sm text-danger"
-    >
-      {{ logoError }}
-    </p>
   </section>
 </template>
 
 
 <script setup>
-import { ref, onBeforeUnmount } from 'vue';
+import BrandService from '@/services/BrandService';
+import BrandColorPicker from './BrandColorPicker.vue';
+import { useBrandLogoModalStore } from '@/stores/brandLogoModalStore';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 
-const colors = ref([]);
-const logoUrl = ref('');
-const logoError = ref('');
+const props = defineProps({
+  brand: { type: Object, required: true },
+});
 
-onBeforeUnmount(() => URL.revokeObjectURL(logoUrl.value));
+const emit = defineEmits(['saved']);
 
-function previewLogo(event) {
-  const file = event.target.files[0];
-  if (!file) {
-    return;
+const brandLogoModalStore = useBrandLogoModalStore();
+
+// El orden es el de la fila en pantalla; hint es la leyenda debajo de cada casillero.
+const colorRoles = [
+  { key: 'primary', label: 'Principal', hint: 'Logo y títulos' },
+  { key: 'secondary', label: 'Secundario', hint: 'Acompaña al principal' },
+  { key: 'background', label: 'Fondo', hint: 'La hoja donde va todo' },
+  { key: 'text', label: 'Texto', hint: 'Las letras' },
+  { key: 'accent', label: 'Destacados', hint: 'Botones, enlaces y ofertas' },
+];
+
+const logos = ref([]);
+const colors = reactive({});
+const isSaving = ref(false);
+const saveError = ref('');
+const saveMessage = ref('');
+const openColorKey = ref(null);
+const logoPendingRemoval = ref(null);
+
+const savedLogos = computed(() => props.brand.brand_logos ?? []);
+const savedColors = computed(() => props.brand.brand_colors ?? {});
+const hasChanges = computed(() => {
+  const logosHaveChanged = JSON.stringify(logos.value) !== JSON.stringify(savedLogos.value);
+  const colorsHaveChanged = colorRoles.some((role) => (colors[role.key] ?? null) !== (savedColors.value[role.key] ?? null));
+  return logosHaveChanged || colorsHaveChanged;
+});
+
+// Un análisis nuevo puede cambiar logos y colores mientras la sección está a la vista. Se comparan por
+// contenido para no perder cambios sin guardar cuando se guarda otra sección.
+watch(() => JSON.stringify([savedLogos.value, savedColors.value]), loadDraft);
+
+onMounted(() => {
+  loadDraft();
+  document.addEventListener('pointerdown', closePickerOnOutsideClick);
+});
+
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closePickerOnOutsideClick));
+
+function loadDraft() {
+  logos.value = [...savedLogos.value];
+  logoPendingRemoval.value = null;
+  for (const role of colorRoles) {
+    colors[role.key] = savedColors.value[role.key] ?? null;
   }
-
-  const isSupportedImage = ['image/png', 'image/jpeg', 'image/webp'].includes(file.type);
-  if (!isSupportedImage) {
-    logoError.value = 'Selecciona una imagen PNG, JPG o WebP.';
-    return;
-  }
-
-  URL.revokeObjectURL(logoUrl.value);
-  logoUrl.value = URL.createObjectURL(file);
-  logoError.value = '';
-  event.target.value = '';
 }
 
-function removeLogo() {
-  URL.revokeObjectURL(logoUrl.value);
-  logoUrl.value = '';
+function discardChanges() {
+  loadDraft();
+  openColorKey.value = null;
+  saveError.value = '';
+  saveMessage.value = '';
+}
+
+function removeLogo(index) {
+  logos.value.splice(index, 1);
+  logoPendingRemoval.value = null;
+}
+
+function toggleColorPicker(colorKey) {
+  openColorKey.value = openColorKey.value === colorKey ? null : colorKey;
+}
+
+// El selector se cierra al hacer clic fuera de su casillero; el propio botón del casillero lo alterna.
+function closePickerOnOutsideClick(event) {
+  const clickedColorKey = event.target.closest('[data-color-slot]')?.dataset.colorSlot;
+  if (clickedColorKey !== openColorKey.value) {
+    openColorKey.value = null;
+  }
+}
+
+async function save() {
+  openColorKey.value = null;
+  isSaving.value = true;
+  saveError.value = '';
+  saveMessage.value = '';
+
+  try {
+    const brand = await BrandService.update({ brand_logos: logos.value, brand_colors: { ...colors } });
+
+    emit('saved', brand);
+    saveMessage.value = 'Guardado.';
+  } catch (error) {
+    saveError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+  } finally {
+    isSaving.value = false;
+  }
 }
 </script>
