@@ -27,7 +27,11 @@ Común a las tres capas:
 - Ninguna obtiene datos desde `request()`.
 - Ninguna construye respuestas HTTP de la API. Eso corresponde al controller y al handler de errores.
 - Services y helpers se obtienen con `resolve()` dentro del método que los necesita, cerca de su uso. La única inyección por constructor es la del repository propio en su service.
-- Usar el tipo de retorno más simple que represente claramente el resultado: un escalar, un modelo, una colección o un array sencillo. No crear DTOs por defecto ni por el solo hecho de devolver varios campos. Considerarlos cuando se devuelve una estructura propia cuya forma necesita quedar explícita y se utiliza en varios puntos, o cuando un array obliga a recorrer otros métodos para entender su contenido. Si un comentario breve en el punto de uso resuelve esa duda, no hace falta un DTO.
+- Usar el tipo de retorno más simple que represente claramente el resultado: un escalar, un modelo, una colección, un array sencillo o un DTO.
+- Array o DTO, según el tamaño:
+  - Un array de hasta tres claves está bien, con un comentario breve que diga qué trae. El comentario es obligatorio y tiene que quitar carga cognitiva: quien lee entiende el array ahí mismo, sin ir a buscar el método que lo arma. Para eso, un DTO sobra.
+  - Si la estructura tiene más claves, y sobre todo si pasa a otros métodos o clases, va un DTO, para que su forma se lea sin ir a buscarla.
+  - Ni DTO para dos o tres claves, ni array para una estructura grande.
 
 Duración de las instancias:
 - Services, repositories y helpers se registran como scoped por defecto.
