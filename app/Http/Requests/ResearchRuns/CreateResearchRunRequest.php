@@ -15,7 +15,6 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     {
         return [
             'type' => ['required', 'string', 'in:website,instagram,meta_ads'],
-            'overwrite' => ['sometimes', 'boolean'],
         ];
     }
 

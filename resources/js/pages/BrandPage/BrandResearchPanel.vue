@@ -153,11 +153,10 @@ const researchStatusLoaders = {
   instagram: ResearchRunService.getInstagramResearchStatus,
   'meta-ads': ResearchRunService.getMetaAdsResearchStatus,
 };
-// Solo el sitio web pisa la marca; Instagram y los anuncios mezclan lo que encuentran con lo que ya tiene.
-const researchAttributes = {
-  website: { type: 'website', overwrite: true },
-  instagram: { type: 'instagram' },
-  'meta-ads': { type: 'meta_ads' },
+const researchTypes = {
+  website: 'website',
+  instagram: 'instagram',
+  'meta-ads': 'meta_ads',
 };
 
 const saveError = ref('');
@@ -266,7 +265,7 @@ async function startAnalysis() {
   isStartingAnalysis.value = true;
 
   try {
-    await ResearchRunService.create(researchAttributes[props.source.id]);
+    await ResearchRunService.create({ type: researchTypes[props.source.id] });
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {

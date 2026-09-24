@@ -61,8 +61,7 @@ class WebsiteResearchTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.brand_id', $this->brand->id)
-            ->assertJsonPath('data.input.url', 'https://example.com')
-            ->assertJsonPath('data.input.overwrite', true);
+            ->assertJsonPath('data.input.url', 'https://example.com');
         $researchRunId = $response->json('data.id');
         resolve(BrandService::class)->update($this->brand, ['website_url' => 'https://changed.example']);
 
@@ -184,64 +183,45 @@ class WebsiteResearchTest extends TestCase
     }
 
 
-    // Sin overwrite, los valores que la marca ya tiene se conservan, incluso los editados durante el análisis.
+    // El modelo recibe el texto actual de la marca y lo que devuelve mezclado se guarda; lo que vuelve vacío no borra
+    // nada. El nombre y la identidad visual solo completan lo vacío, aunque el usuario los haya cargado durante el
+    // análisis.
     #[Test]
-    public function keeps_existing_brand_values_and_edits_made_during_the_analysis(): void
+    public function merges_text_fields_and_only_fills_empty_name_and_visual_identity(): void
     {
-        resolve(BrandService::class)->update($this->brand, ['brand_tone_of_voice_description' => 'Mi voz']);
+        $userColors = [
+            'primary' => '#111111', 'secondary' => null, 'accent' => null, 'background' => null, 'text' => null,
+        ];
+        resolve(BrandService::class)->update($this->brand, [
+            'brand_colors' => $userColors,
+            'brand_history_description' => 'Mi historia',
+            'brand_tone_of_voice_description' => 'Mi voz',
+        ]);
         $analysis = $this->analysis([
             'name' => 'Otro nombre',
-            'brand_tone_of_voice_description' => 'Voz sugerida',
-            'brand_history_description' => 'Historia sugerida',
-            'brand_offer_description' => '  Jardinería  ',
+            'brand_tone_of_voice_description' => '  Mi voz, con humor  ',
         ]);
+        $branding = $this->firecrawlBranding('https://example.com/logo.png');
         Http::fake([
-            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => function (Request $request) use ($analysis) {
-                // El usuario edita la marca mientras el modelo responde.
-                Brand::query()->whereKey($this->brand->id)->update(['brand_history_description' => 'Mi historia']);
-                $isHomepageReview = array_key_exists('missing_fields', $this->decodeOpenAiInput($request));
-                return Http::response($this->openAiResponse($isHomepageReview ? $this->homepageReview() : $analysis));
+            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada', [], $branding)),
+            'https://api.openai.com/v1/responses' => function () use ($analysis) {
+                // El usuario carga un logo mientras el modelo responde.
+                Brand::query()->whereKey($this->brand->id)->update(['brand_logos' => ['https://example.com/mio.png']]);
+                return Http::response($this->openAiResponse($analysis));
             },
         ]);
-        $researchRun = resolve(ResearchRunService::class)->create($this->brand, [
-            'type' => 'website', 'overwrite' => false,
-        ]);
+        $researchRun = $this->createResearchRun();
 
         (new ResearchWebsiteJob($researchRun->id))->handle();
 
         $brand = $this->brand->fresh();
+        $this->assertSame('Mi voz', $this->recordedOpenAiInputs()[0]['brand']['brand_tone_of_voice_description']);
+        $this->assertSame('Mi voz, con humor', $brand->brand_tone_of_voice_description);
+        $this->assertSame('Mi historia', $brand->brand_history_description);
         $this->assertSame('Mi marca', $brand->name);
-        $this->assertSame('Mi voz', $brand->brand_tone_of_voice_description);
-        $this->assertSame('Mi historia', $brand->brand_history_description);
-        $this->assertSame('Jardinería', $brand->brand_offer_description);
-    }
-
-
-    // Con overwrite el análisis pisa los valores existentes; lo que el modelo devuelve vacío no borra nada.
-    #[Test]
-    public function overwrites_existing_brand_values_when_requested(): void
-    {
-        resolve(BrandService::class)->update($this->brand, [
-            'brand_history_description' => 'Mi historia',
-            'brand_tone_of_voice_description' => 'Mi voz',
-        ]);
-        $analysis = $this->analysis(['name' => 'Otro nombre', 'brand_tone_of_voice_description' => 'Voz sugerida']);
-        Http::fake([
-            'https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('Portada')),
-            'https://api.openai.com/v1/responses' => Http::sequence()
-                ->push($this->openAiResponse($this->homepageReview()))
-                ->push($this->openAiResponse($analysis)),
-        ]);
-        $researchRunId = $this->postJson('/api/research-runs', ['type' => 'website', 'overwrite' => true])
-            ->assertCreated()->assertJsonPath('data.input.overwrite', true)->json('data.id');
-
-        (new ResearchWebsiteJob($researchRunId))->handle();
-
-        $brand = $this->brand->fresh();
-        $this->assertSame('Otro nombre', $brand->name);
-        $this->assertSame('Voz sugerida', $brand->brand_tone_of_voice_description);
-        $this->assertSame('Mi historia', $brand->brand_history_description);
+        $this->assertSame(['https://example.com/mio.png'], $brand->brand_logos);
+        $this->assertEquals($userColors, $brand->brand_colors);
+        $this->assertEquals(['heading' => 'Lora', 'body' => 'Poppins'], $brand->brand_fonts);
     }
 
 

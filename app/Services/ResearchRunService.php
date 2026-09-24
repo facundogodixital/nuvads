@@ -49,8 +49,6 @@ class ResearchRunService
             'website' => [
                 'url' => $brand->website_url,
                 'model' => config('research.website.analysis_model'), // gpt-6-luna
-                // Por defecto el análisis pisa la marca; con overwrite en false solo completa los vacíos.
-                'overwrite' => $attributes['overwrite'] ?? true,
             ],
             'instagram' => [
                 'username' => $brand->instagram_username,
