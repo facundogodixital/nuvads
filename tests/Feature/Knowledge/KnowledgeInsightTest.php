@@ -59,10 +59,10 @@ class KnowledgeInsightTest extends TestCase
     }
 
 
-    // El listado devuelve solo las conclusiones vigentes (activas y corregidas) de los tipos pedidos y de la marca
-    // autenticada.
+    // La pantalla del sitio web recibe el análisis y las conclusiones vigentes (activas y corregidas) de la marca
+    // autenticada, sin las de otros tipos ni de otras marcas.
     #[Test]
-    public function lists_current_insights_of_the_requested_types(): void
+    public function returns_the_current_website_analysis_and_insights(): void
     {
         $user = UserFactory::new()->owner()->create();
         $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
@@ -72,18 +72,17 @@ class KnowledgeInsightTest extends TestCase
         $superseded = $service->create($brand, [
             'type' => 'website_insight', 'body' => 'Corregida', 'status' => 'superseded',
         ]);
-        $summary = $service->create($brand, ['type' => 'website_brand_analysis', 'body' => 'Resumen']);
+        $analysis = $service->create($brand, ['type' => 'website_brand_analysis', 'body' => 'Resumen']);
         $service->create($brand, ['type' => 'website_insight', 'body' => 'Vieja', 'status' => 'outdated']);
         $service->create($brand, ['type' => 'website_insight', 'body' => 'Rechazada', 'status' => 'rejected']);
         $service->create($brand, ['type' => 'strength', 'body' => 'Otro tipo']);
         $service->create($otherBrand, ['type' => 'website_insight', 'body' => 'Otra marca']);
         $credentials = resolve(UserService::class)->createApiToken($user);
-        $query = http_build_query(['types' => ['website_brand_analysis', 'website_insight']]);
 
-        $response = $this->withToken($credentials['token'])->getJson("/api/knowledge-insights?{$query}");
+        $response = $this->withToken($credentials['token'])->getJson('/api/knowledge-insights/website');
 
-        $response->assertOk();
-        $this->assertSame([$active->id, $superseded->id, $summary->id], array_column($response->json('data'), 'id'));
+        $response->assertOk()->assertJsonPath('data.analysis.id', $analysis->id);
+        $this->assertSame([$active->id, $superseded->id], array_column($response->json('data.insights'), 'id'));
     }
 
 

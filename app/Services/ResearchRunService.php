@@ -103,12 +103,22 @@ class ResearchRunService
     }
 
 
-    public function getWebsiteStatus(Brand $brand): array
+    public function getWebsiteResearchStatus(Brand $brand): array
     {
         return [
             'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'website'),
             'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'website'),
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'website'),
+        ];
+    }
+
+
+    public function getInstagramResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'instagram'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'instagram'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'instagram'),
         ];
     }
 

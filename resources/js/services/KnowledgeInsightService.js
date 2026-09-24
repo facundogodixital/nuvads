@@ -1,7 +1,11 @@
 import { APICall } from '@/helpers/APICall';
 
 export default {
-  async list({ types }) {
-    return APICall('/api/knowledge-insights', 'get', { types });
+  async getWebsiteInsights() {
+    return APICall('/api/knowledge-insights/website');
+  },
+
+  async getInstagramInsights() {
+    return APICall('/api/knowledge-insights/instagram');
   },
 };

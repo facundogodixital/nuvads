@@ -13,11 +13,13 @@ Route::post('auth/exchange', [SessionController::class, 'create'])->middleware('
 Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContextMiddleware::class])
     ->group(function (): void {
         Route::post('research-runs', [ResearchRunController::class, 'create']);
-        Route::get('research-runs/website/status', [ResearchRunController::class, 'getWebsiteStatus']);
+        Route::get('research-runs/website/status', [ResearchRunController::class, 'getWebsiteResearchStatus']);
+        Route::get('research-runs/instagram/status', [ResearchRunController::class, 'getInstagramResearchStatus']);
         Route::get('research-runs/{researchRunId}', [ResearchRunController::class, 'find'])
             ->whereNumber('researchRunId');
 
-        Route::get('knowledge-insights', [KnowledgeInsightController::class, 'list']);
+        Route::get('knowledge-insights/website', [KnowledgeInsightController::class, 'getWebsiteInsights']);
+        Route::get('knowledge-insights/instagram', [KnowledgeInsightController::class, 'getInstagramInsights']);
 
         Route::get('brand', [BrandController::class, 'find']);
         Route::patch('brand', [BrandController::class, 'update']);

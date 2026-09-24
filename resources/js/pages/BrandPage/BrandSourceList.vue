@@ -78,12 +78,23 @@ const groups = computed(() => [
 
 onMounted(loadAnalyzedSources);
 
-// Por ahora solo el sitio web tiene análisis real; si falla la consulta, queda como Por completar.
+// Por ahora solo el sitio web e Instagram tienen análisis real; si falla la consulta, quedan como Por completar.
 async function loadAnalyzedSources() {
   try {
-    const websiteStatus = await ResearchRunService.getWebsiteStatus();
+    const [websiteStatus, instagramStatus] = await Promise.all([
+      ResearchRunService.getWebsiteResearchStatus(),
+      ResearchRunService.getInstagramResearchStatus(),
+    ]);
     const websiteWasAnalyzed = Boolean(websiteStatus.last_completed);
-    analyzedSourceIds.value = websiteWasAnalyzed ? ['website'] : [];
+    const instagramWasAnalyzed = Boolean(instagramStatus.last_completed);
+
+    analyzedSourceIds.value = [];
+    if (websiteWasAnalyzed) {
+      analyzedSourceIds.value.push('website');
+    }
+    if (instagramWasAnalyzed) {
+      analyzedSourceIds.value.push('instagram');
+    }
   } catch {
     analyzedSourceIds.value = [];
   }

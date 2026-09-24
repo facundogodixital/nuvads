@@ -9,7 +9,6 @@ use App\Services\UserService;
 use Illuminate\Support\Sleep;
 use App\Services\BrandService;
 use App\Exceptions\ApiException;
-use App\Models\KnowledgeInsight;
 use Database\Factories\UserFactory;
 use Illuminate\Http\Client\Request;
 use App\Services\ResearchRunService;
@@ -72,7 +71,8 @@ class InstagramResearchTest extends TestCase
     // Espera a que Apify termine, transcribe cada posteo con todas sus imágenes y los guarda como fuentes, aunque el
     // modelo devuelva más entradas que imágenes; un posteo que falla se saltea. El análisis final recibe el texto
     // actual de la marca: lo mezclado se guarda y lo que vuelve vacío no borra nada. Las métricas ignoran los likes
-    // ocultos y los fijados no cuentan para la frecuencia.
+    // ocultos y los fijados no cuentan para la frecuencia. La pantalla de Instagram lee el estado, el análisis con sus
+    // métricas, las conclusiones y los posteos leídos.
     #[Test]
     public function analyzes_the_posts_and_merges_the_brand_fields(): void
     {
@@ -116,12 +116,15 @@ class InstagramResearchTest extends TestCase
         $this->assertSame('Cercano y con humor.', $brand->brand_tone_of_voice_description);
         $this->assertSame('Fotos reales.', $brand->brand_visual_style_description);
 
-        $instagramAnalysis = KnowledgeInsight::query()->where('type', 'instagram_analysis')->sole();
-        $metrics = $instagramAnalysis->payload['metrics'];
+        $this->getJson('/api/research-runs/instagram/status')->assertOk()
+            ->assertJsonPath('data.last_completed.id', $researchRun->id);
+        $instagramInsights = $this->getJson('/api/knowledge-insights/instagram')->assertOk()->json('data');
+        $metrics = $instagramInsights['analysis']['payload']['metrics'];
         $this->assertEquals(2, $metrics['posts_per_week']);
         $this->assertNull($metrics['formats']['image']['average_likes']);
         $this->assertSame(120, $metrics['formats']['carousel']['average_likes']);
-        $this->assertSame(2, KnowledgeInsight::query()->where('type', 'instagram_insight')->count());
+        $this->assertCount(2, $instagramInsights['insights']);
+        $this->assertSame($researchRun->knowledge_source_ids, array_column($instagramInsights['posts'], 'id'));
     }
 
 

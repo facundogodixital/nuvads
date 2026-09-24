@@ -7,9 +7,11 @@
       ← Todas las fuentes
     </RouterLink>
 
-    <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <!-- En escritorio el panel acompaña el scroll, porque lo aprendido puede ser largo. -->
       <BrandResearchPanel
         v-if="source.field"
+        class="lg:sticky lg:top-0"
         :source="source"
         :saved-value="brand[source.field] ?? ''"
         :is-available="true"
@@ -47,12 +49,12 @@
             Lo que aprendimos
           </h2>
           <span
-            v-if="!isWebsite"
+            v-if="!source.isAnalyzable"
             class="rounded-sm border border-border px-2 py-1 text-xs text-text-muted"
           >Vista de ejemplo</span>
         </header>
 
-        <template v-if="isWebsite">
+        <template v-if="source.isAnalyzable">
           <p
             v-if="isLoadingInsights"
             role="status"
@@ -68,60 +70,74 @@
             {{ insightsError }}
           </p>
           <p
-            v-else-if="!websiteSummary"
+            v-else-if="!analysis"
             class="rounded-sm border border-dashed border-border p-6 text-center text-sm text-text-muted"
           >
-            Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.
+            {{ emptyAnalysisMessage }}
           </p>
           <template v-else>
-            <p class="text-sm leading-6">
-              {{ getInsightText(websiteSummary) }}
+            <p class="rounded-sm bg-accent-soft p-4 leading-7">
+              {{ getInsightText(analysis) }}
             </p>
-            <ul
-              v-if="websiteInsights.length"
-              class="mt-5 space-y-3"
+
+            <section
+              v-if="insights.length"
+              class="mt-8"
+              aria-labelledby="source-insights-heading"
             >
-              <li
-                v-for="insight in websiteInsights"
-                :key="insight.id"
-                class="rounded-sm bg-surface p-3 text-sm leading-6"
+              <h3
+                id="source-insights-heading"
+                class="spec-label mb-3"
               >
-                {{ getInsightText(insight) }}
-              </li>
-            </ul>
+                Conclusiones
+              </h3>
+              <ul class="divide-y divide-border border-y border-border">
+                <li
+                  v-for="insight in insights"
+                  :key="insight.id"
+                  class="py-3 text-sm leading-6"
+                >
+                  {{ getInsightText(insight) }}
+                </li>
+              </ul>
+            </section>
+
+            <BrandInstagramAnalysis
+              v-if="isInstagram"
+              :analysis="analysis"
+              :posts="posts"
+            />
           </template>
         </template>
 
-        <dl
-          v-else-if="exampleAnalysis.metrics.length"
-          class="mb-5 grid gap-3 sm:grid-cols-3"
-        >
-          <div
-            v-for="metric in exampleAnalysis.metrics"
-            :key="metric.label"
-            class="rounded-sm bg-surface p-3"
+        <template v-else>
+          <dl
+            v-if="exampleAnalysis.metrics.length"
+            class="mb-5 grid gap-3 sm:grid-cols-3"
           >
-            <dt class="text-xs text-text-muted">
-              {{ metric.label }}
-            </dt>
-            <dd class="mt-1 text-lg font-medium">
-              {{ metric.value }}
-            </dd>
-          </div>
-        </dl>
-
-        <ul
-          v-if="!isWebsite"
-          class="space-y-3"
-        >
-          <li
-            v-for="finding in exampleAnalysis.findings"
-            :key="finding"
-            class="rounded-sm bg-surface p-3 text-sm leading-6"
-          >
-            {{ finding }}
-          </li>
-        </ul>
+            <div
+              v-for="metric in exampleAnalysis.metrics"
+              :key="metric.label"
+              class="rounded-sm bg-surface p-3"
+            >
+              <dt class="text-xs text-text-muted">
+                {{ metric.label }}
+              </dt>
+              <dd class="mt-1 text-lg font-medium">
+                {{ metric.value }}
+              </dd>
+            </div>
+          </dl>
+          <ul class="space-y-3">
+            <li
+              v-for="finding in exampleAnalysis.findings"
+              :key="finding"
+              class="rounded-sm bg-surface p-3 text-sm leading-6"
+            >
+              {{ finding }}
+            </li>
+          </ul>
+        </template>
       </section>
     </div>
   </div>
@@ -132,6 +148,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import BrandResearchPanel from './BrandResearchPanel.vue';
+import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
 import KnowledgeInsightService from '@/services/KnowledgeInsightService';
 
 const props = defineProps({
@@ -141,31 +158,14 @@ const props = defineProps({
 
 const emit = defineEmits(['saved', 'analyzed']);
 
+const posts = ref([]);
 const insights = ref([]);
+const analysis = ref(null);
 const insightsError = ref('');
 const isLoadingInsights = ref(false);
 
-// Datos de ejemplo para ver la estructura mientras se implementa el análisis real de cada fuente.
+// Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
 const exampleAnalyses = {
-  'website': {
-    metrics: [],
-    findings: [
-      'El análisis del sitio completa tu perfil de marca: oferta, historia y diferenciales.',
-      'Lo que encontramos lo puedes revisar y editar en la pestaña Perfil de marca.',
-    ],
-  },
-  'instagram': {
-    metrics: [
-      { label: 'Posteos analizados', value: '48' },
-      { label: 'Formato que mejor rinde', value: 'Carrusel' },
-      { label: 'Frecuencia', value: '2 por semana' },
-    ],
-    findings: [
-      'Tono cercano, con humor suave y mucho uso de preguntas.',
-      'Los posteos de antes y después tienen el doble de interacción que el resto.',
-      'Nunca mostraste precios ni promociones.',
-    ],
-  },
   'ads': {
     metrics: [
       { label: 'Anuncios activos', value: '3' },
@@ -218,14 +218,14 @@ const exampleAnalyses = {
   },
 };
 
-const isWebsite = computed(() => props.source.id === 'website');
+const isInstagram = computed(() => props.source.id === 'instagram');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
-// Hay un solo análisis vigente por marca; su texto es el resumen.
-const websiteSummary = computed(() => insights.value.find((insight) => insight.type === 'website_brand_analysis'));
-const websiteInsights = computed(() => insights.value.filter((insight) => insight.type === 'website_insight'));
+const emptyAnalysisMessage = computed(() => (isInstagram.value
+  ? 'Cuando analicemos tu perfil, acá vas a ver lo que aprendimos de tus posteos.'
+  : 'Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.'));
 
 onMounted(() => {
-  if (isWebsite.value) {
+  if (props.source.isAnalyzable) {
     loadInsights();
   }
 });
@@ -235,7 +235,13 @@ async function loadInsights() {
   isLoadingInsights.value = true;
 
   try {
-    insights.value = await KnowledgeInsightService.list({ types: ['website_brand_analysis', 'website_insight'] });
+    const sourceInsights = isInstagram.value
+      ? await KnowledgeInsightService.getInstagramInsights()
+      : await KnowledgeInsightService.getWebsiteInsights();
+    analysis.value = sourceInsights.analysis;
+    insights.value = sourceInsights.insights;
+    // Solo Instagram trae los posteos que leyó.
+    posts.value = sourceInsights.posts ?? [];
   } catch (error) {
     insightsError.value = error.message;
   } finally {
@@ -245,7 +251,7 @@ async function loadInsights() {
 
 function handleAnalyzed() {
   emit('analyzed');
-  if (isWebsite.value) {
+  if (props.source.isAnalyzable) {
     loadInsights();
   }
 }

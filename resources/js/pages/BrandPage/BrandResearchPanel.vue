@@ -125,10 +125,22 @@ const props = defineProps({
 const emit = defineEmits(['saved', 'analyzed']);
 
 const POLLING_INTERVAL_MS = 10000;
+// Textos de cada fuente que se puede analizar: la etapa de la ejecución activa y qué hace el análisis.
 const stageLabels = {
-  pending: 'En cola, empezamos enseguida…',
-  scraping: 'Leyendo las páginas de tu sitio…',
-  analyzing: 'Analizando lo que cuenta tu sitio…',
+  website: {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Leyendo las páginas de tu sitio…',
+    analyzing: 'Analizando lo que cuenta tu sitio…',
+  },
+  instagram: {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Leyendo tus últimos posteos…',
+    analyzing: 'Analizando lo que muestran tus posteos…',
+  },
+};
+const analysisHints = {
+  website: 'Leemos tu sitio y completamos la información de tu marca.',
+  instagram: 'Leemos tus últimos posteos y completamos la información de tu marca. Puede tardar unos minutos.',
 };
 
 const saveError = ref('');
@@ -140,6 +152,7 @@ const sourceUrl = ref(props.savedValue);
 const isStartingAnalysis = ref(false);
 let pollingTimer = null;
 
+const isInstagram = computed(() => props.source.id === 'instagram');
 const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
 const activeRun = computed(() => researchStatus.value?.active ?? null);
 const latestRun = computed(() => researchStatus.value?.latest ?? null);
@@ -162,12 +175,12 @@ const analysisMessage = computed(() => {
     return 'Análisis disponible próximamente.';
   }
   if (activeRun.value) {
-    return stageLabels[activeRun.value.status];
+    return stageLabels[props.source.id][activeRun.value.status];
   }
   if (latestRun.value?.status === 'failed') {
     return latestRun.value.error_message;
   }
-  return props.savedValue ? 'Leemos tu sitio y completamos la información de tu marca.' : 'Guarda el enlace para poder analizarlo.';
+  return props.savedValue ? analysisHints[props.source.id] : 'Guarda el enlace para poder analizarlo.';
 });
 const footerStatus = computed(() => {
   const lastCompletedRun = researchStatus.value?.last_completed;
@@ -221,7 +234,9 @@ async function saveSource() {
 
 async function loadResearchStatus() {
   try {
-    researchStatus.value = await ResearchRunService.getWebsiteStatus();
+    researchStatus.value = isInstagram.value
+      ? await ResearchRunService.getInstagramResearchStatus()
+      : await ResearchRunService.getWebsiteResearchStatus();
     analysisError.value = '';
   } catch (error) {
     analysisError.value = error.message;
@@ -237,7 +252,9 @@ async function startAnalysis() {
   isStartingAnalysis.value = true;
 
   try {
-    await ResearchRunService.create({ type: 'website', overwrite: true });
+    // Solo el sitio web pisa la marca; Instagram mezcla lo que encuentra con lo que ya tiene.
+    const researchAttributes = isInstagram.value ? { type: 'instagram' } : { type: 'website', overwrite: true };
+    await ResearchRunService.create(researchAttributes);
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {

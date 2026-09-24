@@ -258,14 +258,14 @@ Endpoints autenticados:
   el job. `overwrite` es `true` por defecto; con `false` el análisis solo completa los campos vacíos.
 - `GET /api/research-runs/{id}`: devuelve la ejecución con fuentes e insights.
 - `GET /api/research-runs/website/status`: devuelve `active`, `latest` y `last_completed`.
-- `GET /api/knowledge-insights?types[]=website_brand_analysis&types[]=website_insight`: devuelve
-  las conclusiones vigentes de la marca (`active` y `superseded`) de los tipos pedidos.
+- `GET /api/knowledge-insights/website`: devuelve lo que muestra la pantalla del sitio: `analysis`, el
+  insight `website_brand_analysis` vigente o `null`, e `insights`, los `website_insight` vigentes
+  (`active` y `superseded`).
 
 Se admite una ejecución web activa por marca. `research_runs` conserva la URL y el
 modelo en `input`, y pasa por los estados `pending`, `scraping`, `analyzing`,
 `completed` y `failed`. Si el job falla, la ejecución queda en `failed` y se repite
 creando otra; cada ejecución guarda sus propias fuentes.
-El frontend todavía no está conectado a estos endpoints.
 
 La tabla se crea con la migración `2026_09_21_000002_create_research_runs_table.php`.
 Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` las usa la
@@ -318,7 +318,11 @@ devuelve vacío no borra nada. Deja un insight `instagram_analysis`, con el resu
 `body` y las métricas y la respuesta del modelo en `payload`, y hasta siete de tipo
 `instagram_insight`. Las conclusiones activas anteriores pasan a `outdated`.
 
-Se pide con `POST /api/research-runs`, body `{"type":"instagram"}`. Requiere
+Se pide con `POST /api/research-runs`, body `{"type":"instagram"}`. La pantalla usa
+`GET /api/research-runs/instagram/status`, que devuelve `active`, `latest` y `last_completed`, y
+`GET /api/knowledge-insights/instagram`, que devuelve `analysis`, el `instagram_analysis` vigente o
+`null`; `insights`, los `instagram_insight` vigentes; y `posts`, las fuentes `instagram_post` que leyó
+ese análisis. Requiere
 `instagram_username` en la marca, `APIFY_API_KEY` y `OPENAI_API_KEY`. El job corre en
 `research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos
 60 segundos. Los logs van a `storage/logs/ResearchInstagramJobInfo.log` y

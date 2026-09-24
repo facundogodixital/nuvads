@@ -4,19 +4,26 @@ namespace App\Http\Controllers\API;
 
 use Illuminate\Http\JsonResponse;
 use App\Services\KnowledgeInsightService;
-use App\Http\Requests\KnowledgeInsights\ListKnowledgeInsightsRequest;
+use App\Http\Requests\AuthenticatedRequest;
 
 
 class KnowledgeInsightController extends ApiController
 {
 
 
-    public function list(ListKnowledgeInsightsRequest $request): JsonResponse
+    public function getWebsiteInsights(AuthenticatedRequest $request): JsonResponse
     {
-        $types = $request->validated('types');
-        $knowledgeInsights = resolve(KnowledgeInsightService::class)->findCurrentByTypes($request->brand, $types);
+        $websiteInsights = resolve(KnowledgeInsightService::class)->getWebsiteInsights($request->brand);
 
-        return $this->respond($knowledgeInsights);
+        return $this->respond($websiteInsights);
+    }
+
+
+    public function getInstagramInsights(AuthenticatedRequest $request): JsonResponse
+    {
+        $instagramInsights = resolve(KnowledgeInsightService::class)->getInstagramInsights($request->brand);
+
+        return $this->respond($instagramInsights);
     }
 
 }

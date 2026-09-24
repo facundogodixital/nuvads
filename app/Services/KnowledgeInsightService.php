@@ -63,6 +63,35 @@ class KnowledgeInsightService
     }
 
 
+    // Lo que muestra la pantalla del sitio web: analysis, el análisis vigente con el resumen o null, e insights, las
+    // conclusiones vigentes.
+    public function getWebsiteInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, ['website_brand_analysis', 'website_insight']);
+
+        return [
+            'analysis' => $knowledgeInsights->firstWhere('type', 'website_brand_analysis'),
+            'insights' => $knowledgeInsights->where('type', 'website_insight')->values(),
+        ];
+    }
+
+
+    // Lo que muestra la pantalla de Instagram: analysis, el análisis vigente con el resumen y las métricas en su
+    // payload o null; insights, las conclusiones vigentes; y posts, los posteos que leyó ese análisis.
+    public function getInstagramInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, ['instagram_analysis', 'instagram_insight']);
+        $analysis = $knowledgeInsights->firstWhere('type', 'instagram_analysis');
+        $postIds = $analysis?->knowledge_source_ids ?? [];
+
+        return [
+            'analysis' => $analysis,
+            'insights' => $knowledgeInsights->where('type', 'instagram_insight')->values(),
+            'posts' => resolve(KnowledgeSourceService::class)->findByIds($brand, $postIds),
+        ];
+    }
+
+
     // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
     public function outdateActiveByType(Brand $brand, string $type): int
     {

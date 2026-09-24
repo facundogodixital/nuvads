@@ -5,7 +5,11 @@ export default {
     return APICall('/api/research-runs', 'post', attributes);
   },
 
-  async getWebsiteStatus() {
+  async getWebsiteResearchStatus() {
     return APICall('/api/research-runs/website/status');
+  },
+
+  async getInstagramResearchStatus() {
+    return APICall('/api/research-runs/instagram/status');
   },
 };

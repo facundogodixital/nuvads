@@ -29,9 +29,17 @@ class ResearchRunController extends ApiController
     }
 
 
-    public function getWebsiteStatus(AuthenticatedRequest $request): JsonResponse
+    public function getWebsiteResearchStatus(AuthenticatedRequest $request): JsonResponse
     {
-        $status = resolve(ResearchRunService::class)->getWebsiteStatus($request->brand);
+        $status = resolve(ResearchRunService::class)->getWebsiteResearchStatus($request->brand);
+
+        return $this->respond($status);
+    }
+
+
+    public function getInstagramResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getInstagramResearchStatus($request->brand);
 
         return $this->respond($status);
     }

@@ -105,6 +105,7 @@
         </p>
       </template>
       <BrandLogoModal />
+      <BrandInstagramMediaModal />
     </div>
   </SystemLayout>
 </template>
@@ -121,6 +122,7 @@ import SystemLayout from '@/layouts/SystemLayout.vue';
 import { useSessionStore } from '@/stores/sessionStore';
 import BrandVisualIdentity from './BrandVisualIdentity.vue';
 import BrandKnowledgeSection from './BrandKnowledgeSection.vue';
+import BrandInstagramMediaModal from './BrandInstagramMediaModal.vue';
 
 const props = defineProps({
   view: { type: String, required: true },
@@ -193,7 +195,7 @@ const researchSources = [
   },
   {
     id: 'instagram', group: 'links', field: 'instagram_username', title: 'Instagram', description: 'Tus posteos y lo que mejor funciona',
-    label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca', isAnalyzable: false,
+    label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca', isAnalyzable: true,
     resultLabel: 'Contenido y estilo',
     icon: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4ZM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM17.5 6.5h.01',
   },
