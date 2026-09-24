@@ -252,3 +252,8 @@ Referencia del mecanismo: [colores que referencian otras variables en Tailwind](
 - Usar puntos de corte compartidos. Los ajustes a los breakpoints de Tailwind se definen en `variables.css` mediante `@theme`.
 - Resolver los cambios simples de distribución con los breakpoints (utilidades responsive o media queries), sin separar componentes.
 - Cuando el diseño requiera estructuras sustancialmente distintas y se evalúe que conviene separar componentes por tamaño de pantalla, consultarlo con el usuario antes de hacerlo. Los componentes separados comparten su lógica y estado. Evitar árboles llenos de bloques alternativos ocultos y la duplicación de pantallas completas.
+
+## 7. Storage del navegador
+
+- Solo `helpers/authStorage.js` (login y token) y `helpers/preferencesStorage.js` (lo que el navegador recuerda, como el tema o la marca elegida) usan `localStorage` y `sessionStorage`. ESLint lo exige.
+- Cada clave se declara como constante arriba de su helper: esas constantes son la lista de todo lo que se guarda.

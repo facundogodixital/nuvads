@@ -246,139 +246,34 @@ make lint-php
 Configuración, convenciones y ciclo de la base de datos:
 [skill testing-backend](.claude/skills/testing-backend/SKILL.md).
 
-## Investigación web de marca
+## Investigaciones
 
-`ResearchWebsiteJob` es el único job del recorrido. Llama a `WebsiteResearchService`,
-que hace todo el trabajo en un solo método: lee la portada con Firecrawl, la analiza
-con OpenAI (`gpt-6-luna`, configurado en `config/research.php` y conservado en cada
-ejecución), lee hasta dos páginas más del mismo sitio elegidas por el modelo, vuelve
-a analizar todo junto y completa la marca. Máximo: tres páginas por investigación.
+La app investiga tres fuentes de cada marca: su sitio web (Firecrawl), su Instagram y sus
+anuncios de Meta (Apify). Cada una se analiza con OpenAI y completa el perfil de la marca sin
+borrar nada. Cómo funcionan está en [docs/research-runs.md](docs/research-runs.md), y lo que
+guardan (fuentes, conclusiones y campos de la marca) en
+[docs/knowledge-model.md](docs/knowledge-model.md).
 
-Por defecto el análisis pisa los campos de `brands` que ya tienen valor, salvo los que
-el modelo devuelva vacíos. Con `overwrite` en `false` se completan únicamente los campos
-vacíos y los valores existentes se conservan. Las deducciones quedan listadas en
-`inferred_fields`. Los JSON tienen forma fija: `brand_logo` es una lista de URLs,
-`brand_colors` un objeto con `primary`, `secondary`, `accent`, `background` y `text`,
-y `brand_fonts` un objeto con `heading` y `body`. Esta etapa no descarga archivos.
+Requieren `OPENAI_API_KEY`, más `FIRECRAWL_API_KEY` para el sitio web y `APIFY_API_KEY` para
+Instagram y los anuncios. El modelo y los límites (posteos y anuncios por investigación) se
+configuran en `config/research.php`.
 
-Endpoints autenticados:
-
-- `POST /api/research-runs`, body `{"type":"website","overwrite":true}`: crea la ejecución y encola
-  el job. `overwrite` es `true` por defecto; con `false` el análisis solo completa los campos vacíos.
-- `GET /api/research-runs/{id}`: devuelve la ejecución con fuentes e insights.
-- `GET /api/research-runs/website/status`: devuelve `active`, `latest` y `last_completed`.
-- `GET /api/knowledge-insights/website`: devuelve lo que muestra la pantalla del sitio: `analysis`, el
-  insight `website_brand_analysis` vigente o `null`, e `insights`, los `website_insight` vigentes
-  (`active` y `superseded`).
-
-Se admite una ejecución web activa por marca. `research_runs` conserva la URL y el
-modelo en `input`, y pasa por los estados `pending`, `scraping`, `analyzing`,
-`completed` y `failed`. Si el job falla, la ejecución queda en `failed` y se repite
-creando otra; cada ejecución guarda sus propias fuentes.
-
-La tabla se crea con la migración `2026_09_21_000002_create_research_runs_table.php`.
-Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` las usan las
-investigaciones de Instagram y de anuncios de Meta.
-
-Requiere `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. Cada fuente conserva el JSON original
-de Firecrawl en `payload.raw_json`. Los colores, las fuentes y el logo salen de Firecrawl;
-el modelo completa solo los que falten. Cada investigación deja un insight de tipo
-`website_brand_analysis`, con el resumen en `body` y la respuesta validada del modelo en
-`payload`, y hasta siete de tipo `website_insight`, uno por conclusión. Las conclusiones
-activas de investigaciones anteriores pasan a `outdated`.
-
-Se mantiene `QUEUE_CONNECTION=database` en la misma base de la aplicación: la ejecución
-y su job se guardan en la misma transacción. El job tiene un intento y un timeout de
-600 segundos; el `retry_after` de la conexión es 900 para que ninguna entrega se repita
-mientras el job corre. Worker, que procesa `research_queue` y `default`:
+Los jobs corren en `research_queue`, con `QUEUE_CONNECTION=database` en la misma base de la
+aplicación: la ejecución y su job se guardan en la misma transacción. El `retry_after` de la
+conexión es 900 segundos, por encima del timeout de cada job, para que ninguna entrega se
+repita mientras el job corre. Worker, que procesa `research_queue` y `default` (después de
+cambiar el código hay que reiniciarlo):
 
 ```bash
 make queues
 ```
 
-Los logs del job van a `storage/logs/ResearchWebsiteJobInfo.log` y
-`storage/logs/ResearchWebsiteJobErrors.log`, con un UUID de correlación por job.
-El service informa cada etapa terminada mediante el closure que recibe en
-`research()`; el job la escribe en su log con el mismo UUID. El log incluye el
-pedido completo de cada consulta a OpenAI (instrucciones y páginas, con el markdown
-sin URLs ni imágenes) y la respuesta completa del modelo.
+Cada job escribe dos logs con su nombre, con un UUID de correlación por ejecución:
+`storage/logs/<Job>Info.log`, con cada etapa, los pedidos a OpenAI y sus respuestas, y
+`storage/logs/<Job>Errors.log`, con los errores. Por ejemplo,
+`ResearchMetaAdsJobInfo.log` y `ResearchMetaAdsJobErrors.log`.
 
 Los tests simulan todas las llamadas externas; ejecutarlos no consume créditos.
-
-## Investigación de Instagram
-
-`ResearchInstagramJob` llama a `InstagramResearchService`, que hace todo el trabajo en
-`research()`: arranca el actor `apify~instagram-post-scraper` con el `instagram_username`
-de la marca, consulta la ejecución cada 10 segundos hasta que termina y lee los últimos
-posteos, tantos como indique `instagram.posts_limit` en `config/research.php`. Cada posteo pasa por OpenAI (`gpt-6-luna`) con todas
-sus imágenes; el modelo devuelve, por cada una, el texto que aparece (`transcription`) y
-qué muestra (`description`). El posteo se guarda como fuente `instagram_post`, con `url`,
-`caption`, las imágenes enviadas en `image_urls`, lo que devolvió el modelo en `images` y
-el ítem completo de Apify en `raw`. Los reels se analizan solo con su portada. Un posteo
-que falla se saltea y queda registrado, con el error completo, en los logs Info y Errors;
-solo si fallan todos, falla la investigación.
-
-Con los posteos y las métricas calculadas en PHP (posteos por semana sin contar los
-fijados, y promedios de likes y comentarios por formato), un análisis final mezcla con su
-texto actual cinco campos de la marca: `brand_tone_of_voice_description`,
-`brand_visual_style_description`, `brand_communication_topics_description`,
-`brand_customers_description` y `brand_customers_needs_description`. Lo que el modelo
-devuelve vacío no borra nada. Deja un insight `instagram_analysis`, con el resumen en
-`body` y las métricas y la respuesta del modelo en `payload`, y hasta siete de tipo
-`instagram_insight`. Las conclusiones activas anteriores pasan a `outdated`.
-
-Se pide con `POST /api/research-runs`, body `{"type":"instagram"}`. La pantalla usa
-`GET /api/research-runs/instagram/status`, que devuelve `active`, `latest` y `last_completed`, y
-`GET /api/knowledge-insights/instagram`, que devuelve `analysis`, el `instagram_analysis` vigente o
-`null`; `insights`, los `instagram_insight` vigentes; y `posts`, las fuentes `instagram_post` que leyó
-ese análisis. Requiere
-`instagram_username` en la marca, `APIFY_API_KEY` y `OPENAI_API_KEY`. El job corre en
-`research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos
-60 segundos. Los logs van a `storage/logs/ResearchInstagramJobInfo.log` y
-`storage/logs/ResearchInstagramJobErrors.log`.
-
-## Investigación de anuncios de Meta
-
-`ResearchMetaAdsJob` llama a `MetaAdsResearchService`, que hace todo el trabajo en `research()`:
-arranca el actor `apify~facebook-ads-scraper` con el `meta_ads_url` de la marca (la página de
-Facebook, guardada como `https://www.facebook.com/<nombre>`), con
-`sorting: "relevancy_monthly_grouped"` (Most recent en el actor) para traer primero los más
-nuevos, consulta la ejecución cada 10 segundos hasta que termina y lee tantos anuncios como
-indique `meta_ads.ads_limit` en `config/research.php`. Meta solo conserva los
-anuncios inactivos cuando son políticos o se publicaron en la Unión Europea; en LATAM llegan casi
-siempre los activos.
-
-Cada anuncio pasa por OpenAI (`gpt-6-luna`) con sus imágenes: las tarjetas de un carrusel o de un
-anuncio dinámico, las imágenes y la portada de cada video. El anuncio se guarda como fuente
-`meta_ad`, con `url` (su enlace en la Biblioteca de anuncios), `copy`, `media` (cada imagen o video
-con `type`, `image_url` y `video_url`), lo que devolvió el modelo en `images`, `days_running` y el
-ítem completo de Apify en `raw`. Los videos se analizan solo con su portada. Un anuncio que falla se
-saltea y queda registrado, con el error completo, en los logs Info y Errors; solo si fallan todos,
-falla la investigación.
-
-Con los anuncios y las métricas calculadas en PHP (cantidad, días del que más lleva corriendo,
-cantidad y promedio de días por formato, y anuncios por plataforma), un análisis final mezcla con
-su texto actual ocho campos de la marca: `brand_offer_description`,
-`brand_differentiators_description`, `brand_customers_description`,
-`brand_customers_needs_description`, `brand_visual_style_description`,
-`brand_tone_of_voice_description`, `brand_communication_topics_description` y
-`brand_content_opportunities_description`. Lo que el modelo devuelve vacío no borra nada. Deja un
-insight `meta_ads_analysis`, con el resumen en `body` y las métricas y la respuesta del modelo en
-`payload`, y hasta siete de tipo `meta_ads_insight`. Las conclusiones activas anteriores pasan a
-`outdated`.
-
-Si la página no tiene anuncios, Apify devuelve un solo ítem con los datos de la página, sin
-`adArchiveID`. No es un error: la investigación termina en `completed`, sin consultar al modelo ni
-tocar la marca, y deja un `meta_ads_analysis` que lo dice, con `ads_count` en 0.
-
-Se pide con `POST /api/research-runs`, body `{"type":"meta_ads"}`. La pantalla usa
-`GET /api/research-runs/meta-ads/status`, que devuelve `active`, `latest` y `last_completed`, y
-`GET /api/knowledge-insights/meta-ads`, que devuelve `analysis`, el `meta_ads_analysis` vigente o
-`null`; `insights`, los `meta_ads_insight` vigentes; y `ads`, las fuentes `meta_ad` que leyó ese
-análisis. Requiere `meta_ads_url` en la marca, `APIFY_API_KEY` y `OPENAI_API_KEY`. El job corre en
-`research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos 60
-segundos. Los logs van a `storage/logs/ResearchMetaAdsJobInfo.log` y
-`storage/logs/ResearchMetaAdsJobErrors.log`.
 
 ## Datos locales
 
