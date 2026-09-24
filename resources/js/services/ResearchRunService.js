@@ -16,4 +16,8 @@ export default {
   async getMetaAdsResearchStatus() {
     return APICall('/api/research-runs/meta-ads/status');
   },
+
+  async getGoogleReviewsResearchStatus() {
+    return APICall('/api/research-runs/google-reviews/status');
+  },
 };

@@ -16,7 +16,6 @@ class ResearchRunController extends ApiController
     {
         $attributes = $request->validated();
         $researchRun = resolve(ResearchRunService::class)->create($request->brand, $attributes);
-
         return $this->respond($researchRun, 201);
     }
 
@@ -24,7 +23,6 @@ class ResearchRunController extends ApiController
     public function find(AuthenticatedRequest $request, int $researchRunId): JsonResponse
     {
         $researchRun = resolve(ResearchRunService::class)->findForBrand($request->brand, $researchRunId);
-
         return $this->respond($researchRun);
     }
 
@@ -32,7 +30,6 @@ class ResearchRunController extends ApiController
     public function getWebsiteResearchStatus(AuthenticatedRequest $request): JsonResponse
     {
         $status = resolve(ResearchRunService::class)->getWebsiteResearchStatus($request->brand);
-
         return $this->respond($status);
     }
 
@@ -40,7 +37,6 @@ class ResearchRunController extends ApiController
     public function getInstagramResearchStatus(AuthenticatedRequest $request): JsonResponse
     {
         $status = resolve(ResearchRunService::class)->getInstagramResearchStatus($request->brand);
-
         return $this->respond($status);
     }
 
@@ -48,7 +44,13 @@ class ResearchRunController extends ApiController
     public function getMetaAdsResearchStatus(AuthenticatedRequest $request): JsonResponse
     {
         $status = resolve(ResearchRunService::class)->getMetaAdsResearchStatus($request->brand);
+        return $this->respond($status);
+    }
 
+
+    public function getGoogleReviewsResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getGoogleReviewsResearchStatus($request->brand);
         return $this->respond($status);
     }
 

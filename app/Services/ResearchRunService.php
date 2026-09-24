@@ -44,6 +44,12 @@ class ResearchRunService
                 422, 'meta_ads_url_missing', 'Guarda el enlace de tu página de Facebook antes de analizarla.',
             );
         }
+        $isGoogleMapsUrlMissing = $type === 'google_reviews' && $brand->google_maps_url === null;
+        if ($isGoogleMapsUrlMissing) {
+            throw new ApiException(
+                422, 'google_maps_url_missing', 'Guarda el enlace de tu negocio en Google Maps antes de analizarlo.',
+            );
+        }
 
         $input = match ($type) {
             'website' => [
@@ -59,6 +65,11 @@ class ResearchRunService
                 'url' => $brand->meta_ads_url,
                 'model' => config('research.meta_ads.analysis_model'), // gpt-6-luna
                 'ads_limit' => config('research.meta_ads.ads_limit'),
+            ],
+            'google_reviews' => [
+                'url' => $brand->google_maps_url,
+                'model' => config('research.google_reviews.analysis_model'), // gpt-6-luna
+                'reviews_limit' => config('research.google_reviews.reviews_limit'),
             ],
         };
 
@@ -76,6 +87,7 @@ class ResearchRunService
                 'website' => $researchDispatcherService->dispatchResearchWebsiteJob($researchRun->id),
                 'instagram' => $researchDispatcherService->dispatchResearchInstagramJob($researchRun->id),
                 'meta_ads' => $researchDispatcherService->dispatchResearchMetaAdsJob($researchRun->id),
+                'google_reviews' => $researchDispatcherService->dispatchResearchGoogleReviewsJob($researchRun->id),
             };
             DB::commit();
         } catch (Throwable $exception) {
@@ -137,6 +149,16 @@ class ResearchRunService
             'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'meta_ads'),
             'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'meta_ads'),
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'meta_ads'),
+        ];
+    }
+
+
+    public function getGoogleReviewsResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'google_reviews'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'google_reviews'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'google_reviews'),
         ];
     }
 

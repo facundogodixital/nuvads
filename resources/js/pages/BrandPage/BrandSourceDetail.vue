@@ -80,8 +80,9 @@
               {{ getInsightText(analysis) }}
             </p>
 
+            <!-- Las reseñas de Google muestran sus conclusiones junto a las reseñas que las respaldan. -->
             <section
-              v-if="insights.length"
+              v-if="insights.length && !isGoogleMaps"
               class="mt-8"
               aria-labelledby="source-insights-heading"
             >
@@ -112,6 +113,16 @@
               v-if="isMetaAds && ads.length"
               :analysis="analysis"
               :ads="ads"
+            />
+            <!-- Sin reseñas, el resumen ya lo dice. -->
+            <BrandGoogleReviewsAnalysis
+              v-if="isGoogleMaps && metricsInsight?.payload.reviews_count"
+              :analysis="analysis"
+              :metrics-insight="metricsInsight"
+              :pains="pains"
+              :strengths="strengths"
+              :insights="insights"
+              :reviews="reviews"
             />
           </template>
         </template>
@@ -156,6 +167,7 @@ import { RouterLink } from 'vue-router';
 import BrandResearchPanel from './BrandResearchPanel.vue';
 import BrandMetaAdsAnalysis from './BrandMetaAdsAnalysis.vue';
 import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
+import BrandGoogleReviewsAnalysis from './BrandGoogleReviewsAnalysis.vue';
 import KnowledgeInsightService from '@/services/KnowledgeInsightService';
 
 const props = defineProps({
@@ -166,26 +178,18 @@ const props = defineProps({
 const emit = defineEmits(['saved', 'analyzed']);
 
 const ads = ref([]);
+const pains = ref([]);
 const posts = ref([]);
+const reviews = ref([]);
 const insights = ref([]);
+const strengths = ref([]);
+const metricsInsight = ref(null);
 const analysis = ref(null);
 const insightsError = ref('');
 const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
 const exampleAnalyses = {
-  'google-maps': {
-    metrics: [
-      { label: 'Calificación', value: '4,7' },
-      { label: 'Reseñas', value: '212' },
-      { label: 'Últimos 90 días', value: '31 reseñas' },
-    ],
-    findings: [
-      'Lo más valorado: la atención y la rapidez.',
-      '"Me resolvieron el pedido en el día" aparece de distintas formas en 18 reseñas.',
-      'La queja más repetida: cuesta estacionar cerca.',
-    ],
-  },
   'whatsapp': {
     metrics: [
       { label: 'Chats analizados', value: '2' },
@@ -219,15 +223,18 @@ const emptyAnalysisMessages = {
   website: 'Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.',
   instagram: 'Cuando analicemos tu perfil, acá vas a ver lo que aprendimos de tus posteos.',
   'meta-ads': 'Cuando analicemos tu página, acá vas a ver lo que aprendimos de tus anuncios.',
+  'google-maps': 'Cuando analicemos tus reseñas, acá vas a ver lo que dicen tus clientes.',
 };
 const insightsLoaders = {
   website: KnowledgeInsightService.getWebsiteInsights,
   instagram: KnowledgeInsightService.getInstagramInsights,
   'meta-ads': KnowledgeInsightService.getMetaAdsInsights,
+  'google-maps': KnowledgeInsightService.getGoogleReviewsInsights,
 };
 
 const isInstagram = computed(() => props.source.id === 'instagram');
 const isMetaAds = computed(() => props.source.id === 'meta-ads');
+const isGoogleMaps = computed(() => props.source.id === 'google-maps');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
 const emptyAnalysisMessage = computed(() => emptyAnalysisMessages[props.source.id]);
 
@@ -245,9 +252,14 @@ async function loadInsights() {
     const sourceInsights = await insightsLoaders[props.source.id]();
     analysis.value = sourceInsights.analysis;
     insights.value = sourceInsights.insights;
-    // Instagram trae los posteos que leyó, y los anuncios de Meta, los anuncios.
+    // Instagram trae los posteos que leyó; los anuncios de Meta, los anuncios; y las reseñas de Google, sus métricas,
+    // quejas, fortalezas y las reseñas destacadas.
     posts.value = sourceInsights.posts ?? [];
     ads.value = sourceInsights.ads ?? [];
+    pains.value = sourceInsights.pains ?? [];
+    reviews.value = sourceInsights.reviews ?? [];
+    strengths.value = sourceInsights.strengths ?? [];
+    metricsInsight.value = sourceInsights.metrics ?? null;
   } catch (error) {
     insightsError.value = error.message;
   } finally {

@@ -209,7 +209,7 @@ const researchSources = [
   },
   {
     id: 'google-maps', group: 'links', field: 'google_maps_url', title: 'Google Maps', description: 'La voz de tus clientes en sus reseñas',
-    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…', isAnalyzable: false,
+    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…', isAnalyzable: true,
     resultLabel: 'Reseñas y reputación',
     icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   },

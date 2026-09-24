@@ -5,6 +5,7 @@ namespace App\Services\Dispatchers;
 use App\Jobs\Research\MetaAds\ResearchMetaAdsJob;
 use App\Jobs\Research\Website\ResearchWebsiteJob;
 use App\Jobs\Research\Instagram\ResearchInstagramJob;
+use App\Jobs\Research\GoogleReviews\ResearchGoogleReviewsJob;
 
 
 class ResearchDispatcherService
@@ -26,6 +27,12 @@ class ResearchDispatcherService
     public function dispatchResearchMetaAdsJob(int $researchRunId): void
     {
         ResearchMetaAdsJob::dispatch($researchRunId)->onQueue('research_queue');
+    }
+
+
+    public function dispatchResearchGoogleReviewsJob(int $researchRunId): void
+    {
+        ResearchGoogleReviewsJob::dispatch($researchRunId)->onQueue('research_queue');
     }
 
 }

@@ -10,7 +10,7 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
 ## Tablas
 
 - `knowledge_sources`: material original ingresado al sistema. Cada página web leída, posteo de
-  Instagram o anuncio de Meta es una fuente.
+  Instagram, anuncio de Meta o reseña de Google es una fuente.
 - `knowledge_insights`: conclusiones; nivel 1 derivado de una o más fuentes y nivel 2 derivado de
   conclusiones de nivel 1.
 
@@ -38,9 +38,15 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
   `media` (cada imagen o video, con `type`, `image_url`, que en los videos es la portada, y
   `video_url`), `images` como en Instagram, `days_running` al momento del análisis y el ítem
   completo de Apify en `raw`.
+- `google_review`: una reseña de Google Maps. `title` es el comienzo del texto, o "5 estrellas, sin texto",
+  y `source_ref` el enlace a la reseña. `payload` guarda `url`, `text` (null si solo tiene estrellas),
+  `stars`, `published_at`, `likes_count`, `owner_response` (`text` y `date`, o null), `author` (`name`,
+  `is_local_guide` y `reviews_count`), `detailed_rating` (puntaje por aspecto, como comida o servicio) y
+  `context` (datos como el tipo de servicio o el precio por persona); los dos últimos en null cuando la
+  reseña no los tiene. No guarda el ítem de Apify. A diferencia de las otras fuentes, una investigación
+  nueva reemplaza las reseñas anteriores de la marca: las borra al terminar bien.
 
-El esquema prevé además `audio`, `google_review`, `whatsapp_export`, `image` y `adjustment`, todavía
-sin uso.
+El esquema prevé además `audio`, `whatsapp_export`, `image` y `adjustment`, todavía sin uso.
 
 Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días: el análisis las usa
 en el momento, y cuando ya no cargan la pantalla muestra el ícono del formato o un aviso.
@@ -81,8 +87,8 @@ tipo pasan a `outdated`. Las `superseded` y las `rejected` no se tocan.
 
 ### Tipos de conclusión
 
-Cada investigación deja un análisis y de 0 a 7 conclusiones, todos de nivel 1 y apuntando a las fuentes
-que leyó.
+Las investigaciones del sitio web, de Instagram y de anuncios dejan un análisis y de 0 a 7 conclusiones,
+todos de nivel 1 y apuntando a las fuentes que leyó. La de reseñas de Google deja más tipos; ver abajo.
 
 - `website_brand_analysis`: una fila por investigación del sitio web. `body` es un resumen de la marca y
   `payload` guarda la respuesta completa del análisis (`brand`, `inferred_fields`, `summary` e
@@ -100,6 +106,31 @@ que leyó.
   tensiones o huecos, y hechos útiles para comunicar, siempre con evidencia en las fuentes. `payload`
   queda en `null`.
 
+Las reseñas de Google dejan cinco tipos, todos de nivel 1:
+
+- `google_reviews_metrics`: una fila por investigación con las métricas, que calcula PHP: `model` queda
+  en null y `body` es un texto fijo. `payload` guarda `google_total_score` y `google_reviews_count` (lo
+  que muestra la ficha), `reviews_count`, `with_text_count`, `average_stars`, `stars_distribution`,
+  `reviews_per_month` (los últimos 12 meses), `owner_response_rate`, `median_owner_response_days`,
+  `detailed_rating_averages`, `oldest_review_at`, `newest_review_at` y `time_ranges`: hasta cuatro
+  tramos de tiempo, del más viejo al más nuevo, con la misma cantidad de reseñas con texto cada uno.
+  Cada tramo trae `from`, `to`, `reviews_count` y `average_stars`.
+- `google_reviews_brand_analysis`: una fila por investigación. `body` es un resumen de lo que dicen los
+  clientes y `payload` guarda los campos mezclados en `brand`, `summary` y los datos de apoyo en
+  `facts` (datos prácticos), `profiles` (quiénes van), `products` y `staff` (personas del equipo), cada
+  uno como lista de temas con `topic`, `knowledge_source_ids` y `mentions_count`.
+- `google_reviews_pain` y `google_reviews_strength`: una fila por queja o por elogio. `body` es el tema y
+  `knowledge_source_ids`, las reseñas que lo mencionan. `payload` guarda `highlight_ids` (hasta tres
+  reseñas para mostrar como referencia), `mentions_count`, `mentions_share` (qué parte de las reseñas
+  con texto lo menciona), `range_shares` (qué parte de las reseñas de cada tramo lo menciona, en el orden
+  de `time_ranges`), `last_mentioned_at` y `trend`: `resolved` (ya no aparece en el último tramo),
+  `emerging` (aparece solo ahí) u `ongoing`. Con un solo tramo, `trend` queda en null.
+- `google_reviews_insight`: de 0 a 12 conclusiones que cruzan datos. Apuntan a las reseñas de los temas
+  en que se apoyan, o a todas si salen solo de las métricas, y `payload` guarda sus `highlight_ids`.
+
+Todas las filas de una corrida de reseñas apuntan a las reseñas de esa corrida. Cuando una corrida nueva
+las reemplaza, las filas anteriores quedan apuntando a reseñas borradas.
+
 ## Campos de la marca
 
 Las investigaciones completan el perfil de la marca sin borrar nada:
@@ -115,23 +146,23 @@ Las investigaciones completan el perfil de la marca sin borrar nada:
 
 Qué campos toca cada investigación:
 
-| Campo | Sitio web | Instagram | Anuncios de Meta |
-| --- | --- | --- | --- |
-| `name` | Si está vacío | | |
-| `brand_offer_description` | Mezcla | | Mezcla |
-| `brand_differentiators_description` | Mezcla | | Mezcla |
-| `brand_history_description` | Mezcla | | |
-| `brand_customers_description` | Mezcla | Mezcla | Mezcla |
-| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla |
-| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla |
-| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla |
-| `brand_customers_valued_aspects_description` | Mezcla | | |
-| `brand_customers_faq_description` | Mezcla | | |
-| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla |
-| `brand_content_opportunities_description` | Mezcla | | Mezcla |
-| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | |
+| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google |
+| --- | --- | --- | --- | --- |
+| `name` | Si está vacío | | | |
+| `brand_offer_description` | Mezcla | | Mezcla | Mezcla |
+| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla |
+| `brand_history_description` | Mezcla | | | |
+| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | |
+| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla |
+| `brand_customers_faq_description` | Mezcla | | | Mezcla |
+| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | |
+| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla |
+| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | |
 
-Las pantallas de Instagram y de anuncios muestran qué campos del perfil actualizó su último análisis:
+Las pantallas de Instagram, de anuncios y de reseñas muestran qué campos del perfil actualizó su último análisis:
 los que el modelo devolvió con texto en `payload.brand`.
 
 ## Pendiente

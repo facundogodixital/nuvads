@@ -69,7 +69,12 @@ class ApifyHelper
     }
 
 
-    /** @param list<string> $urls */
+    /**
+     * Trae las reseñas más nuevas primero. es-419 deja en castellano las claves de reviewContext y
+     * reviewDetailedRating; personalData suma el nombre del autor y el enlace a cada reseña (reviewUrl).
+     *
+     * @param  list<string>  $urls
+     */
     public function startGoogleMapsReviewsScraper(array $urls, ?int $maxReviews = null): ApifyRunDto
     {
         Validator::make(compact('urls', 'maxReviews'), [
@@ -78,7 +83,12 @@ class ApifyHelper
             'maxReviews' => ['nullable', 'integer', 'min:1'],
         ])->validate();
 
-        $input = ['startUrls' => []];
+        $input = [
+            'startUrls' => [],
+            'language' => 'es-419',
+            'personalData' => true,
+            'reviewsSort' => 'newest',
+        ];
         foreach ($urls as $url) {
             $input['startUrls'][] = ['url' => $url];
         }

@@ -88,6 +88,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchGoogleReviewsJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchGoogleReviewsJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchGoogleReviewsJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchGoogleReviewsJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

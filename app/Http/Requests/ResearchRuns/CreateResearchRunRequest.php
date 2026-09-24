@@ -14,7 +14,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:website,instagram,meta_ads'],
+            'type' => ['required', 'string', 'in:website,instagram,meta_ads,google_reviews'],
         ];
     }
 
@@ -55,6 +55,13 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                 );
                 return;
             }
+            $isGoogleMapsUrlMissing = $type === 'google_reviews' && $this->brand->google_maps_url === null;
+            if ($isGoogleMapsUrlMissing) {
+                $validator->errors()->add(
+                    'google_maps_url', 'Guarda el enlace de tu negocio en Google Maps antes de analizarlo.',
+                );
+                return;
+            }
 
             $activeResearchRun = resolve(ResearchRunService::class)->findOneActiveForBrand($this->brand, $type);
             if ($activeResearchRun !== null) {
@@ -62,6 +69,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                     'website' => 'Ya hay un análisis del sitio web en curso.',
                     'instagram' => 'Ya hay un análisis de Instagram en curso.',
                     'meta_ads' => 'Ya hay un análisis de tus anuncios en curso.',
+                    'google_reviews' => 'Ya hay un análisis de tus reseñas de Google en curso.',
                 ];
                 $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;

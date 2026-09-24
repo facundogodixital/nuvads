@@ -12,4 +12,8 @@ export default {
   async getMetaAdsInsights() {
     return APICall('/api/knowledge-insights/meta-ads');
   },
+
+  async getGoogleReviewsInsights() {
+    return APICall('/api/knowledge-insights/google-reviews');
+  },
 };

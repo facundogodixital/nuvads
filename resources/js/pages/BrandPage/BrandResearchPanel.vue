@@ -142,21 +142,29 @@ const stageLabels = {
     scraping: 'Buscando tus anuncios en Meta…',
     analyzing: 'Analizando lo que muestran tus anuncios…',
   },
+  'google-maps': {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Leyendo las reseñas de tu negocio en Google…',
+    analyzing: 'Analizando lo que dicen tus clientes…',
+  },
 };
 const analysisHints = {
   website: 'Leemos tu sitio y completamos la información de tu marca.',
   instagram: 'Leemos tus últimos posteos y completamos la información de tu marca. Puede tardar unos minutos.',
   'meta-ads': 'Leemos tus anuncios de Instagram y Facebook y completamos la información de tu marca. Puede tardar unos minutos.',
+  'google-maps': 'Leemos hasta mil reseñas de tu negocio en Google y completamos la información de tu marca. Puede tardar unos minutos.',
 };
 const researchStatusLoaders = {
   website: ResearchRunService.getWebsiteResearchStatus,
   instagram: ResearchRunService.getInstagramResearchStatus,
   'meta-ads': ResearchRunService.getMetaAdsResearchStatus,
+  'google-maps': ResearchRunService.getGoogleReviewsResearchStatus,
 };
 const researchTypes = {
   website: 'website',
   instagram: 'instagram',
   'meta-ads': 'meta_ads',
+  'google-maps': 'google_reviews',
 };
 
 const saveError = ref('');

@@ -75,4 +75,15 @@ class KnowledgeSourceRepository
             ->orderBy('id')->get();
     }
 
+
+    public function deleteByTypeExceptIds(Brand $brand, string $type, array $keptKnowledgeSourceIds): int
+    {
+        return KnowledgeSource::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->where('type', $type)
+            ->whereNotIn('id', $keptKnowledgeSourceIds)
+            ->delete();
+    }
+
 }

@@ -55,4 +55,11 @@ class KnowledgeSourceService
         return $this->knowledgeSourceRepository->findByIds($brand, $knowledgeSourceIds);
     }
 
+
+    // Borra las fuentes de un tipo de la marca, salvo las indicadas. Devuelve cuántas borró.
+    public function deleteByTypeExceptIds(Brand $brand, string $type, array $keptKnowledgeSourceIds): int
+    {
+        return $this->knowledgeSourceRepository->deleteByTypeExceptIds($brand, $type, $keptKnowledgeSourceIds);
+    }
+
 }

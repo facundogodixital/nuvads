@@ -25,7 +25,6 @@ class KnowledgeInsightService
     public function create(Brand $brand, array $attributes): KnowledgeInsight
     {
         $this->checkReferencesBelongToBrand($brand, $attributes);
-
         return $this->knowledgeInsightRepository->create($brand, $attributes);
     }
 
@@ -33,7 +32,6 @@ class KnowledgeInsightService
     public function update(Brand $brand, int $knowledgeInsightId, array $attributes): KnowledgeInsight
     {
         $this->checkReferencesBelongToBrand($brand, $attributes);
-
         return $this->knowledgeInsightRepository->update($brand, $knowledgeInsightId, $attributes);
     }
 
@@ -102,8 +100,40 @@ class KnowledgeInsightService
 
         return [
             'analysis' => $analysis,
-            'insights' => $knowledgeInsights->where('type', 'meta_ads_insight')->values(),
             'ads' => resolve(KnowledgeSourceService::class)->findByIds($brand, $adIds),
+            'insights' => $knowledgeInsights->where('type', 'meta_ads_insight')->values(),
+        ];
+    }
+
+
+    // Lo que muestra la pantalla de las reseñas de Google: metrics y analysis, las métricas y el análisis vigentes o
+    // null; pains, strengths e insights, los dolores, las fortalezas y las conclusiones vigentes; y reviews, solo las
+    // reseñas destacadas de esas filas (highlight_ids en su payload).
+    public function getGoogleReviewsInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, [
+            'google_reviews_pain',
+            'google_reviews_metrics',
+            'google_reviews_insight',
+            'google_reviews_strength',
+            'google_reviews_brand_analysis',
+        ]);
+        $pains = $knowledgeInsights->where('type', 'google_reviews_pain')->values();
+        $insights = $knowledgeInsights->where('type', 'google_reviews_insight')->values();
+        $strengths = $knowledgeInsights->where('type', 'google_reviews_strength')->values();
+        $highlightedKnowledgeSourceIds = $pains->concat($strengths)->concat($insights)
+            ->flatMap(fn (KnowledgeInsight $knowledgeInsight): array => $knowledgeInsight->payload['highlight_ids'])
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'pains' => $pains,
+            'insights' => $insights,
+            'strengths' => $strengths,
+            'metrics' => $knowledgeInsights->firstWhere('type', 'google_reviews_metrics'),
+            'analysis' => $knowledgeInsights->firstWhere('type', 'google_reviews_brand_analysis'),
+            'reviews' => resolve(KnowledgeSourceService::class)->findByIds($brand, $highlightedKnowledgeSourceIds),
         ];
     }
 

@@ -16,4 +16,9 @@ return [
         'analysis_model' => 'gpt-6-luna',
     ],
 
+    'google_reviews' => [
+        'reviews_limit' => 1000,
+        'analysis_model' => 'gpt-6-luna',
+    ],
+
 ];
