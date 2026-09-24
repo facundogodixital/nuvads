@@ -17,6 +17,7 @@ return new class() extends Migration
             $table->string('name');
             $table->string('google_maps_url', 2048)->nullable();
             $table->string('instagram_username', 255)->nullable();
+            $table->string('meta_ads_url', 2048)->nullable();
             $table->string('website_url', 2048)->nullable();
 
             $table->json('brand_logos')->nullable();

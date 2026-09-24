@@ -16,13 +16,19 @@ class ApifyHelper
     public const int DEFAULT_WEBSITE_MAX_PAGES = 10;
 
 
-    /** @param list<string> $urls */
-    public function startFacebookAdsScraper(array $urls, ?int $resultsLimit = null): ApifyRunDto
+    /**
+     * Sin sorting, el actor devuelve los anuncios en el orden de la Biblioteca de anuncios; relevancy_monthly_grouped
+     * trae primero los más nuevos y total_impressions, los de más impresiones.
+     *
+     * @param  list<string>  $urls
+     */
+    public function startMetaAdsScraper(array $urls, ?int $resultsLimit = null, ?string $sorting = null): ApifyRunDto
     {
-        Validator::make(compact('urls', 'resultsLimit'), [
+        Validator::make(compact('urls', 'resultsLimit', 'sorting'), [
             'urls' => ['required', 'array', 'list', 'min:1'],
             'urls.*' => ['required', 'string', 'url:http,https'],
             'resultsLimit' => ['nullable', 'integer', 'min:1'],
+            'sorting' => ['nullable', 'string', 'in:relevancy_monthly_grouped,total_impressions'],
         ])->validate();
 
         $input = ['startUrls' => []];
@@ -32,6 +38,10 @@ class ApifyHelper
         $hasResultsLimit = $resultsLimit !== null;
         if ($hasResultsLimit) {
             $input['resultsLimit'] = $resultsLimit;
+        }
+        $hasSorting = $sorting !== null;
+        if ($hasSorting) {
+            $input['sorting'] = $sorting;
         }
 
         $response = $this->sendRequest('POST', 'actors/apify~facebook-ads-scraper/runs', $input);

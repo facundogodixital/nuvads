@@ -8,4 +8,8 @@ export default {
   async getInstagramInsights() {
     return APICall('/api/knowledge-insights/instagram');
   },
+
+  async getMetaAdsInsights() {
+    return APICall('/api/knowledge-insights/meta-ads');
+  },
 };

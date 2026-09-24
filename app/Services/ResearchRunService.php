@@ -26,18 +26,23 @@ class ResearchRunService
     public function create(Brand $brand, array $attributes): ResearchRun
     {
         $type = $attributes['type'];
-        $isWebsiteResearch = $type === 'website';
         $activeResearchRun = $this->findOneActiveForBrand($brand, $type);
         if ($activeResearchRun !== null) {
             throw new ApiException(409, 'research_already_running', 'Ya hay una investigación en curso.');
         }
-        $isWebsiteMissing = $isWebsiteResearch && $brand->website_url === null;
+        $isWebsiteMissing = $type === 'website' && $brand->website_url === null;
         if ($isWebsiteMissing) {
             throw new ApiException(422, 'website_missing', 'Guarda el sitio web antes de analizarlo.');
         }
         $isInstagramMissing = $type === 'instagram' && $brand->instagram_username === null;
         if ($isInstagramMissing) {
             throw new ApiException(422, 'instagram_missing', 'Guarda el usuario de Instagram antes de analizarlo.');
+        }
+        $isMetaAdsUrlMissing = $type === 'meta_ads' && $brand->meta_ads_url === null;
+        if ($isMetaAdsUrlMissing) {
+            throw new ApiException(
+                422, 'meta_ads_url_missing', 'Guarda el enlace de tu página de Facebook antes de analizarla.',
+            );
         }
 
         $input = match ($type) {
@@ -52,6 +57,11 @@ class ResearchRunService
                 'model' => config('research.instagram.analysis_model'), // gpt-6-luna
                 'posts_limit' => config('research.instagram.posts_limit'),
             ],
+            'meta_ads' => [
+                'url' => $brand->meta_ads_url,
+                'model' => config('research.meta_ads.analysis_model'), // gpt-6-luna
+                'ads_limit' => config('research.meta_ads.ads_limit'),
+            ],
         };
 
         DB::beginTransaction();
@@ -64,11 +74,11 @@ class ResearchRunService
             ]);
             // La queue database comparte la transacción: la ejecución y su job se guardan juntos.
             $researchDispatcherService = resolve(ResearchDispatcherService::class);
-            if ($isWebsiteResearch) {
-                $researchDispatcherService->dispatchResearchWebsiteJob($researchRun->id);
-            } else {
-                $researchDispatcherService->dispatchResearchInstagramJob($researchRun->id);
-            }
+            match ($type) {
+                'website' => $researchDispatcherService->dispatchResearchWebsiteJob($researchRun->id),
+                'instagram' => $researchDispatcherService->dispatchResearchInstagramJob($researchRun->id),
+                'meta_ads' => $researchDispatcherService->dispatchResearchMetaAdsJob($researchRun->id),
+            };
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();
@@ -119,6 +129,16 @@ class ResearchRunService
             'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'instagram'),
             'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'instagram'),
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'instagram'),
+        ];
+    }
+
+
+    public function getMetaAdsResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'meta_ads'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'meta_ads'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'meta_ads'),
         ];
     }
 

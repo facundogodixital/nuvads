@@ -22,7 +22,7 @@ return new class() extends Migration
                 'whatsapp_export',
                 'instagram_post',
                 'web_page',
-                'ad',
+                'meta_ad',
                 'image',
                 'adjustment',
             ]);

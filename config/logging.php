@@ -76,6 +76,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchMetaAdsJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchMetaAdsJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchMetaAdsJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchMetaAdsJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

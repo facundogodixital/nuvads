@@ -106,6 +106,7 @@
       </template>
       <BrandLogoModal />
       <BrandInstagramMediaModal />
+      <BrandMetaAdsMediaModal />
     </div>
   </SystemLayout>
 </template>
@@ -122,6 +123,7 @@ import SystemLayout from '@/layouts/SystemLayout.vue';
 import { useSessionStore } from '@/stores/sessionStore';
 import BrandVisualIdentity from './BrandVisualIdentity.vue';
 import BrandKnowledgeSection from './BrandKnowledgeSection.vue';
+import BrandMetaAdsMediaModal from './BrandMetaAdsMediaModal.vue';
 import BrandInstagramMediaModal from './BrandInstagramMediaModal.vue';
 
 const props = defineProps({
@@ -200,7 +202,9 @@ const researchSources = [
     icon: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4ZM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM17.5 6.5h.01',
   },
   {
-    id: 'ads', group: 'links', field: null, title: 'Publicidades', description: 'Los anuncios que corres en redes',
+    id: 'meta-ads', group: 'links', field: 'meta_ads_url', title: 'Anuncios de Instagram y Facebook', description: 'Los anuncios que corres en redes',
+    label: 'Enlace de tu página de Facebook', inputType: 'url', placeholder: 'https://www.facebook.com/tumarca', isAnalyzable: true,
+    resultLabel: 'Ofertas y anuncios',
     icon: 'M4 10v4h3l6 4V6L7 10H4ZM17 9a4 4 0 0 1 0 6',
   },
   {

@@ -17,14 +17,14 @@ Volver a investigar crea otra fila. Las anteriores quedan como historial.
 | --- | --- |
 | `id` | Identificador de la fila. |
 | `client_id`, `brand_id` | Cliente y marca investigados. |
-| `type` | Qué se investiga: `website` o `instagram`. A futuro, otras fuentes como Google Maps. |
+| `type` | Qué se investiga: `website`, `instagram` o `meta_ads`. A futuro, otras fuentes como Google Maps. |
 | `status` | Etapa actual. Ver "Estados". |
 | `input` | Entrada con la que se hizo la investigación, congelada al crearla: por ejemplo la URL del sitio o el usuario de Instagram y la cantidad de posteos, y el modelo de IA. Cambiar después la marca o la configuración no altera investigaciones anteriores. |
 | `knowledge_source_ids` | IDs de las fuentes usadas, por ejemplo `[41, 42, 43]`. No hay tabla puente ni claves foráneas; al leerlas se filtran por marca. |
 | `started_at` | Cuándo empezó a trabajarse. |
 | `finished_at` | Cuándo terminó, bien o mal. |
 | `error_message` | Motivo del fallo, apto para mostrar al usuario. El detalle técnico va a los logs. |
-| `external_run_id`, `external_dataset_id`, `last_checked_at` | Para proveedores asincrónicos, a los que hay que consultar hasta que terminen. Instagram guarda la ejecución y el dataset de Apify, y la hora de la última consulta. |
+| `external_run_id`, `external_dataset_id`, `last_checked_at` | Para proveedores asincrónicos, a los que hay que consultar hasta que terminen. Instagram y los anuncios de Meta guardan la ejecución y el dataset de Apify, y la hora de la última consulta. |
 | `created_at`, `updated_at`, `deleted_at` | Timestamps y borrado lógico. |
 
 Índice compuesto sobre `brand_id`, `type` y `status`, para encontrar rápido la
@@ -43,8 +43,8 @@ investigación activa por marca y tipo.
 
 ## Relación con el resto del conocimiento
 
-- Fuentes: `knowledge_source_ids` lista el material usado; cada página leída o posteo
-  de Instagram es una fuente. Cada investigación guarda sus propias fuentes.
+- Fuentes: `knowledge_source_ids` lista el material usado; cada página leída, posteo
+  de Instagram o anuncio de Meta es una fuente. Cada investigación guarda sus propias fuentes.
 - Conclusiones: `knowledge_insights.research_run_id` apunta a la investigación que las generó.
 - Una investigación fallida puede haber dejado fuentes y conclusiones guardadas;
   siguen siendo válidas.

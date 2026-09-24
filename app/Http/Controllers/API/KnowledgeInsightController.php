@@ -26,4 +26,12 @@ class KnowledgeInsightController extends ApiController
         return $this->respond($instagramInsights);
     }
 
+
+    public function getMetaAdsInsights(AuthenticatedRequest $request): JsonResponse
+    {
+        $metaAdsInsights = resolve(KnowledgeInsightService::class)->getMetaAdsInsights($request->brand);
+
+        return $this->respond($metaAdsInsights);
+    }
+
 }

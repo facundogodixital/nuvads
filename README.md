@@ -268,8 +268,8 @@ modelo en `input`, y pasa por los estados `pending`, `scraping`, `analyzing`,
 creando otra; cada ejecución guarda sus propias fuentes.
 
 La tabla se crea con la migración `2026_09_21_000002_create_research_runs_table.php`.
-Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` las usa la
-investigación de Instagram.
+Las columnas `external_run_id`, `external_dataset_id` y `last_checked_at` las usan las
+investigaciones de Instagram y de anuncios de Meta.
 
 Requiere `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. Cada fuente conserva el JSON original
 de Firecrawl en `payload.raw_json`. Los colores, las fuentes y el logo salen de Firecrawl;
@@ -327,6 +327,49 @@ ese análisis. Requiere
 `research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos
 60 segundos. Los logs van a `storage/logs/ResearchInstagramJobInfo.log` y
 `storage/logs/ResearchInstagramJobErrors.log`.
+
+## Investigación de anuncios de Meta
+
+`ResearchMetaAdsJob` llama a `MetaAdsResearchService`, que hace todo el trabajo en `research()`:
+arranca el actor `apify~facebook-ads-scraper` con el `meta_ads_url` de la marca (la página de
+Facebook, guardada como `https://www.facebook.com/<nombre>`), con
+`sorting: "relevancy_monthly_grouped"` (Most recent en el actor) para traer primero los más
+nuevos, consulta la ejecución cada 10 segundos hasta que termina y lee tantos anuncios como
+indique `meta_ads.ads_limit` en `config/research.php`. Meta solo conserva los
+anuncios inactivos cuando son políticos o se publicaron en la Unión Europea; en LATAM llegan casi
+siempre los activos.
+
+Cada anuncio pasa por OpenAI (`gpt-6-luna`) con sus imágenes: las tarjetas de un carrusel o de un
+anuncio dinámico, las imágenes y la portada de cada video. El anuncio se guarda como fuente
+`meta_ad`, con `url` (su enlace en la Biblioteca de anuncios), `copy`, `media` (cada imagen o video
+con `type`, `image_url` y `video_url`), lo que devolvió el modelo en `images`, `days_running` y el
+ítem completo de Apify en `raw`. Los videos se analizan solo con su portada. Un anuncio que falla se
+saltea y queda registrado, con el error completo, en los logs Info y Errors; solo si fallan todos,
+falla la investigación.
+
+Con los anuncios y las métricas calculadas en PHP (cantidad, días del que más lleva corriendo,
+cantidad y promedio de días por formato, y anuncios por plataforma), un análisis final mezcla con
+su texto actual ocho campos de la marca: `brand_offer_description`,
+`brand_differentiators_description`, `brand_customers_description`,
+`brand_customers_needs_description`, `brand_visual_style_description`,
+`brand_tone_of_voice_description`, `brand_communication_topics_description` y
+`brand_content_opportunities_description`. Lo que el modelo devuelve vacío no borra nada. Deja un
+insight `meta_ads_analysis`, con el resumen en `body` y las métricas y la respuesta del modelo en
+`payload`, y hasta siete de tipo `meta_ads_insight`. Las conclusiones activas anteriores pasan a
+`outdated`.
+
+Si la página no tiene anuncios, Apify devuelve un solo ítem con los datos de la página, sin
+`adArchiveID`. No es un error: la investigación termina en `completed`, sin consultar al modelo ni
+tocar la marca, y deja un `meta_ads_analysis` que lo dice, con `ads_count` en 0.
+
+Se pide con `POST /api/research-runs`, body `{"type":"meta_ads"}`. La pantalla usa
+`GET /api/research-runs/meta-ads/status`, que devuelve `active`, `latest` y `last_completed`, y
+`GET /api/knowledge-insights/meta-ads`, que devuelve `analysis`, el `meta_ads_analysis` vigente o
+`null`; `insights`, los `meta_ads_insight` vigentes; y `ads`, las fuentes `meta_ad` que leyó ese
+análisis. Requiere `meta_ads_url` en la marca, `APIFY_API_KEY` y `OPENAI_API_KEY`. El job corre en
+`research_queue`, con un intento y un timeout igual al `retry_after` de la conexión menos 60
+segundos. Los logs van a `storage/logs/ResearchMetaAdsJobInfo.log` y
+`storage/logs/ResearchMetaAdsJobErrors.log`.
 
 ## Datos locales
 

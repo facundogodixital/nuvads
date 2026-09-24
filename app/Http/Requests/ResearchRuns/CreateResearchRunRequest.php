@@ -14,7 +14,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:website,instagram'],
+            'type' => ['required', 'string', 'in:website,instagram,meta_ads'],
             'overwrite' => ['sometimes', 'boolean'],
         ];
     }
@@ -49,12 +49,20 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                 );
                 return;
             }
+            $isMetaAdsUrlMissing = $type === 'meta_ads' && $this->brand->meta_ads_url === null;
+            if ($isMetaAdsUrlMissing) {
+                $validator->errors()->add(
+                    'meta_ads_url', 'Guarda el enlace de tu página de Facebook antes de analizarla.',
+                );
+                return;
+            }
 
             $activeResearchRun = resolve(ResearchRunService::class)->findOneActiveForBrand($this->brand, $type);
             if ($activeResearchRun !== null) {
                 $activeResearchMessages = [
                     'website' => 'Ya hay un análisis del sitio web en curso.',
                     'instagram' => 'Ya hay un análisis de Instagram en curso.',
+                    'meta_ads' => 'Ya hay un análisis de tus anuncios en curso.',
                 ];
                 $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;

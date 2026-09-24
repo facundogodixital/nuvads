@@ -20,6 +20,7 @@ use App\Repositories\ClientRepository;
 use App\Services\AdministratorService;
 use Illuminate\Support\ServiceProvider;
 use App\Services\KnowledgeSourceService;
+use App\Services\MetaAdsResearchService;
 use App\Services\WebsiteResearchService;
 use App\Services\KnowledgeInsightService;
 use App\Services\InstagramResearchService;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(ResearchRunService::class);
         $this->app->scoped(WebsiteResearchService::class);
         $this->app->scoped(InstagramResearchService::class);
+        $this->app->scoped(MetaAdsResearchService::class);
         $this->app->scoped(ResearchRunRepository::class);
         $this->app->scoped(ResearchDispatcherService::class);
         $this->app->scoped(KnowledgeSourceService::class);

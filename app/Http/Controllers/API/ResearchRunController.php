@@ -44,4 +44,12 @@ class ResearchRunController extends ApiController
         return $this->respond($status);
     }
 
+
+    public function getMetaAdsResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getMetaAdsResearchStatus($request->brand);
+
+        return $this->respond($status);
+    }
+
 }

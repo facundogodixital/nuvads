@@ -92,6 +92,22 @@ class KnowledgeInsightService
     }
 
 
+    // Lo que muestra la pantalla de los anuncios de Meta: analysis, el análisis vigente con el resumen y las métricas
+    // en su payload o null; insights, las conclusiones vigentes; y ads, los anuncios que leyó ese análisis.
+    public function getMetaAdsInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, ['meta_ads_analysis', 'meta_ads_insight']);
+        $analysis = $knowledgeInsights->firstWhere('type', 'meta_ads_analysis');
+        $adIds = $analysis?->knowledge_source_ids ?? [];
+
+        return [
+            'analysis' => $analysis,
+            'insights' => $knowledgeInsights->where('type', 'meta_ads_insight')->values(),
+            'ads' => resolve(KnowledgeSourceService::class)->findByIds($brand, $adIds),
+        ];
+    }
+
+
     // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
     public function outdateActiveByType(Brand $brand, string $type): int
     {

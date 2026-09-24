@@ -12,4 +12,8 @@ export default {
   async getInstagramResearchStatus() {
     return APICall('/api/research-runs/instagram/status');
   },
+
+  async getMetaAdsResearchStatus() {
+    return APICall('/api/research-runs/meta-ads/status');
+  },
 };

@@ -107,6 +107,12 @@
               :analysis="analysis"
               :posts="posts"
             />
+            <!-- Sin anuncios, el resumen ya lo dice y no hay números ni anuncios que mostrar. -->
+            <BrandMetaAdsAnalysis
+              v-if="isMetaAds && ads.length"
+              :analysis="analysis"
+              :ads="ads"
+            />
           </template>
         </template>
 
@@ -148,6 +154,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import BrandResearchPanel from './BrandResearchPanel.vue';
+import BrandMetaAdsAnalysis from './BrandMetaAdsAnalysis.vue';
 import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
 import KnowledgeInsightService from '@/services/KnowledgeInsightService';
 
@@ -158,6 +165,7 @@ const props = defineProps({
 
 const emit = defineEmits(['saved', 'analyzed']);
 
+const ads = ref([]);
 const posts = ref([]);
 const insights = ref([]);
 const analysis = ref(null);
@@ -166,17 +174,6 @@ const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
 const exampleAnalyses = {
-  'ads': {
-    metrics: [
-      { label: 'Anuncios activos', value: '3' },
-      { label: 'El más antiguo', value: '45 días' },
-      { label: 'Formato', value: 'Video corto' },
-    ],
-    findings: [
-      'Tus anuncios se enfocan en envíos gratis.',
-      'El anuncio que más tiempo lleva activo muestra el producto en uso.',
-    ],
-  },
   'google-maps': {
     metrics: [
       { label: 'Calificación', value: '4,7' },
@@ -218,11 +215,21 @@ const exampleAnalyses = {
   },
 };
 
+const emptyAnalysisMessages = {
+  website: 'Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.',
+  instagram: 'Cuando analicemos tu perfil, acá vas a ver lo que aprendimos de tus posteos.',
+  'meta-ads': 'Cuando analicemos tu página, acá vas a ver lo que aprendimos de tus anuncios.',
+};
+const insightsLoaders = {
+  website: KnowledgeInsightService.getWebsiteInsights,
+  instagram: KnowledgeInsightService.getInstagramInsights,
+  'meta-ads': KnowledgeInsightService.getMetaAdsInsights,
+};
+
 const isInstagram = computed(() => props.source.id === 'instagram');
+const isMetaAds = computed(() => props.source.id === 'meta-ads');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
-const emptyAnalysisMessage = computed(() => (isInstagram.value
-  ? 'Cuando analicemos tu perfil, acá vas a ver lo que aprendimos de tus posteos.'
-  : 'Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.'));
+const emptyAnalysisMessage = computed(() => emptyAnalysisMessages[props.source.id]);
 
 onMounted(() => {
   if (props.source.isAnalyzable) {
@@ -235,13 +242,12 @@ async function loadInsights() {
   isLoadingInsights.value = true;
 
   try {
-    const sourceInsights = isInstagram.value
-      ? await KnowledgeInsightService.getInstagramInsights()
-      : await KnowledgeInsightService.getWebsiteInsights();
+    const sourceInsights = await insightsLoaders[props.source.id]();
     analysis.value = sourceInsights.analysis;
     insights.value = sourceInsights.insights;
-    // Solo Instagram trae los posteos que leyó.
+    // Instagram trae los posteos que leyó, y los anuncios de Meta, los anuncios.
     posts.value = sourceInsights.posts ?? [];
+    ads.value = sourceInsights.ads ?? [];
   } catch (error) {
     insightsError.value = error.message;
   } finally {

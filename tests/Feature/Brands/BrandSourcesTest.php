@@ -82,7 +82,33 @@ class BrandSourcesTest extends TestCase
     }
 
 
-    // Los esquemas no web y los enlaces de Instagram que no son un perfil se rechazan sin alterar lo guardado.
+    // Los enlaces de una página de Facebook se guardan siempre como https://www.facebook.com/<nombre>.
+    #[Test]
+    #[DataProvider('facebookPages')]
+    public function normalizes_facebook_page_urls(string $input): void
+    {
+        $user = UserFactory::new()->owner()->create();
+        $brand = resolve(BrandService::class)->create($user->client, ['name' => 'Mi marca']);
+        $credentials = resolve(UserService::class)->createApiToken($user);
+
+        $this->withToken($credentials['token'])->patchJson('/api/brand', ['meta_ads_url' => $input])->assertOk();
+
+        $this->assertSame('https://www.facebook.com/mimarca', $brand->fresh()->meta_ads_url);
+    }
+
+
+    public static function facebookPages(): array
+    {
+        return [
+            ['https://www.facebook.com/mimarca'],
+            ['facebook.com/mimarca/'],
+            ['https://m.facebook.com/mimarca?ref=bookmarks'],
+        ];
+    }
+
+
+    // Los esquemas no web, los enlaces de Instagram que no son un perfil y los de Facebook que no son una página con
+    // nombre se rechazan sin alterar lo guardado.
     #[Test]
     #[DataProvider('invalidSources')]
     public function rejects_invalid_sources(string $field, string $value): void
@@ -97,6 +123,7 @@ class BrandSourcesTest extends TestCase
 
         $this->assertSame('https://example.com', $brand->fresh()->website_url);
         $this->assertNull($brand->fresh()->instagram_username);
+        $this->assertNull($brand->fresh()->meta_ads_url);
     }
 
 
@@ -106,6 +133,8 @@ class BrandSourcesTest extends TestCase
             'script scheme' => ['website_url', 'javascript:alert(1)'],
             'foreign host' => ['instagram_username', 'https://evil.example/mi.marca'],
             'post link' => ['instagram_username', 'https://instagram.com/p/abc123/'],
+            'facebook page without name' => ['meta_ads_url', 'https://www.facebook.com/profile.php?id=123'],
+            'facebook post link' => ['meta_ads_url', 'https://www.facebook.com/mimarca/posts/123'],
         ];
     }
 

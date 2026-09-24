@@ -137,10 +137,27 @@ const stageLabels = {
     scraping: 'Leyendo tus últimos posteos…',
     analyzing: 'Analizando lo que muestran tus posteos…',
   },
+  'meta-ads': {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Buscando tus anuncios en Meta…',
+    analyzing: 'Analizando lo que muestran tus anuncios…',
+  },
 };
 const analysisHints = {
   website: 'Leemos tu sitio y completamos la información de tu marca.',
   instagram: 'Leemos tus últimos posteos y completamos la información de tu marca. Puede tardar unos minutos.',
+  'meta-ads': 'Leemos tus anuncios de Instagram y Facebook y completamos la información de tu marca. Puede tardar unos minutos.',
+};
+const researchStatusLoaders = {
+  website: ResearchRunService.getWebsiteResearchStatus,
+  instagram: ResearchRunService.getInstagramResearchStatus,
+  'meta-ads': ResearchRunService.getMetaAdsResearchStatus,
+};
+// Solo el sitio web pisa la marca; Instagram y los anuncios mezclan lo que encuentran con lo que ya tiene.
+const researchAttributes = {
+  website: { type: 'website', overwrite: true },
+  instagram: { type: 'instagram' },
+  'meta-ads': { type: 'meta_ads' },
 };
 
 const saveError = ref('');
@@ -152,7 +169,6 @@ const sourceUrl = ref(props.savedValue);
 const isStartingAnalysis = ref(false);
 let pollingTimer = null;
 
-const isInstagram = computed(() => props.source.id === 'instagram');
 const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
 const activeRun = computed(() => researchStatus.value?.active ?? null);
 const latestRun = computed(() => researchStatus.value?.latest ?? null);
@@ -234,9 +250,7 @@ async function saveSource() {
 
 async function loadResearchStatus() {
   try {
-    researchStatus.value = isInstagram.value
-      ? await ResearchRunService.getInstagramResearchStatus()
-      : await ResearchRunService.getWebsiteResearchStatus();
+    researchStatus.value = await researchStatusLoaders[props.source.id]();
     analysisError.value = '';
   } catch (error) {
     analysisError.value = error.message;
@@ -252,9 +266,7 @@ async function startAnalysis() {
   isStartingAnalysis.value = true;
 
   try {
-    // Solo el sitio web pisa la marca; Instagram mezcla lo que encuentra con lo que ya tiene.
-    const researchAttributes = isInstagram.value ? { type: 'instagram' } : { type: 'website', overwrite: true };
-    await ResearchRunService.create(researchAttributes);
+    await ResearchRunService.create(researchAttributes[props.source.id]);
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {
