@@ -133,7 +133,8 @@ Se guarda temporalmente en la caché existente, sin una tabla propia.
 - `routes/api.php` contiene `/api/*`. La API devuelve JSON incluso en errores y
   no autentica mediante cookies o sesiones web.
 - `POST /api/auth/exchange`: canjea `code` y `verifier` por `token` y `expires_at`.
-- `GET /api/auth/me`: devuelve el usuario y cliente del Bearer token.
+- `GET /api/auth/me`: devuelve el usuario y cliente del Bearer token, la marca del pedido en `brand` y
+  todas las marcas del cliente en `brands`.
 - `POST /api/auth/logout`: revoca el token utilizado y devuelve JSON.
 - Los tokens son opacos y duran 24 horas. `users.api_token_hash` guarda su SHA-256
   y `users.api_token_expires_at` su vencimiento. Hay un token vigente por usuario:
@@ -153,6 +154,14 @@ Los endpoints protegidos usan, en orden, `AuthenticateAccessTokenMiddleware` y
 `$request->user`, `$request->brand` y `$request->client` como propiedades
 tipadas obtenidas de atributos internos, no del cuerpo ni de la query. Si un
 request redefine `prepareForValidation()`, debe llamar al método padre.
+
+Un cliente puede tener varias marcas. Cada pestaña del frontend manda en el header
+`X-Brand-Id` la marca que está mostrando, y el middleware la usa si es del cliente; sin
+header, o con una marca ajena, usa la primera marca del cliente. La elección se guarda en
+`localStorage` (`current_brand_id`, en `preferencesStorage.js`) y cada pestaña la lee una
+sola vez al cargar, así cambiar de marca en una pestaña no afecta a las demás. Al elegir otra
+marca en el menú lateral, la página se recarga entera. Solo `authStorage.js` y
+`preferencesStorage.js` usan `localStorage` y `sessionStorage`; ESLint lo exige.
 Los controllers pasan explícitamente el usuario o cliente a los services que lo
 necesitan; disponer del contexto no reemplaza el filtrado por cliente en consultas.
 

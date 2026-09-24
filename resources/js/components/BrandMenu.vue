@@ -45,28 +45,32 @@
       class="absolute top-full left-3 z-20 w-48 rounded-sm border border-border bg-surface-raised p-1.5"
     >
       <button
+        v-for="brand in brands"
+        :key="brand.id"
         type="button"
-        aria-current="true"
+        :aria-current="brand.id === currentBrandId ? 'true' : undefined"
         class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 py-2 text-left
           text-sm transition hover:bg-surface-selected"
-        @click="closeMenuAndFocusTrigger"
+        @click="selectBrand(brand.id)"
       >
-        <span class="min-w-0 flex-1 break-words">{{ brandName }}</span>
-        <svg
-          class="h-4 w-4 shrink-0 text-accent"
-          viewBox="0 0 16 16"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="m3 8 3 3 7-7"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-        <span class="sr-only">Marca actual</span>
+        <span class="min-w-0 flex-1 break-words">{{ brand.name }}</span>
+        <template v-if="brand.id === currentBrandId">
+          <svg
+            class="h-4 w-4 shrink-0 text-accent"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="m3 8 3 3 7-7"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="sr-only">Marca actual</span>
+        </template>
       </button>
     </div>
   </div>
@@ -75,6 +79,7 @@
 
 <script setup>
 import { useSessionStore } from '@/stores/sessionStore';
+import { storeBrandId } from '@/helpers/preferencesStorage';
 import { ref, useId, computed, onMounted, onBeforeUnmount } from 'vue';
 
 defineProps({
@@ -88,7 +93,9 @@ const menuIsOpen = ref(false);
 const menuTrigger = ref(null);
 const menuContainer = ref(null);
 
+const brands = computed(() => sessionStore.session?.brands ?? []);
 const brandName = computed(() => sessionStore.session?.brand?.name ?? '');
+const currentBrandId = computed(() => sessionStore.session?.brand?.id ?? null);
 const brandInitial = computed(() => brandName.value.trim().charAt(0).toUpperCase());
 
 onMounted(() => {
@@ -102,6 +109,18 @@ onBeforeUnmount(() => {
 function closeMenuAndFocusTrigger() {
   menuIsOpen.value = false;
   menuTrigger.value?.focus();
+}
+
+// La página se recarga entera para que pantalla, stores y consultas en curso arranquen con la marca nueva.
+function selectBrand(brandId) {
+  const isCurrentBrand = brandId === currentBrandId.value;
+  if (isCurrentBrand) {
+    closeMenuAndFocusTrigger();
+    return;
+  }
+
+  storeBrandId(brandId);
+  window.location.reload();
 }
 
 function closeMenuOnOutsideClick(event) {

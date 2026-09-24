@@ -23,9 +23,11 @@ class SessionController extends ApiController
 
     public function find(AuthenticatedRequest $request): JsonResponse
     {
+        // brands son todas las marcas del cliente, para elegir con cuál trabajar; brand, la de este pedido.
         return $this->respond([
             'user' => $request->user,
             'brand' => $request->brand,
+            'brands' => $request->client->brands->sortBy('id')->values(),
             'client' => $request->client,
         ]);
     }

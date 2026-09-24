@@ -3,6 +3,14 @@ import globals from 'globals';
 import pluginVue from 'eslint-plugin-vue';
 import stylistic from '@stylistic/eslint-plugin';
 
+const fetchRestriction = { name: 'fetch', message: 'Las llamadas HTTP pasan por el helper APICall.' };
+// Todo lo que se guarda en el navegador pasa por authStorage y preferencesStorage, para tenerlo en un solo lugar.
+const storageMessage = 'El storage del navegador se usa solo desde authStorage.js y preferencesStorage.js.';
+const storageRestrictions = [
+  { name: 'localStorage', message: storageMessage },
+  { name: 'sessionStorage', message: storageMessage },
+];
+
 export default [
   {
     ignores: ['vendor/**', 'node_modules/**', 'public/**', 'storage/**'],
@@ -41,10 +49,11 @@ export default [
       'no-restricted-imports': ['error', {
         paths: [{ name: 'axios', message: 'Las llamadas HTTP pasan por el helper APICall.' }],
       }],
-      'no-restricted-globals': ['error', {
-        name: 'fetch',
-        message: 'Las llamadas HTTP pasan por el helper APICall.',
-      }],
+      'no-restricted-globals': ['error', fetchRestriction, ...storageRestrictions],
+      'no-restricted-properties': ['error',
+        { object: 'window', property: 'localStorage', message: storageMessage },
+        { object: 'window', property: 'sessionStorage', message: storageMessage },
+      ],
     },
   },
 
@@ -63,8 +72,17 @@ export default [
     files: ['resources/js/helpers/APICall.js'],
     rules: {
       'no-restricted-imports': 'off',
-      'no-restricted-globals': 'off',
+      'no-restricted-globals': ['error', ...storageRestrictions],
       'no-unused-vars': ['error', { args: 'none' }],
+    },
+  },
+
+  {
+    // Los únicos lugares que leen y escriben el storage del navegador.
+    files: ['resources/js/helpers/authStorage.js', 'resources/js/helpers/preferencesStorage.js'],
+    rules: {
+      'no-restricted-globals': ['error', fetchRestriction],
+      'no-restricted-properties': 'off',
     },
   },
 ];

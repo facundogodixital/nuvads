@@ -20,8 +20,11 @@ class ResolveClientContextMiddleware
             throw new ApiException(403, 'account_disabled', 'El acceso a esta cuenta está deshabilitado.');
         }
 
-        // Por ahora cada cliente opera con una única marca activa.
-        $brand = $user->client->brands->sole();
+        // Cada pestaña del frontend manda en X-Brand-Id la marca que está mostrando. Sin header, o con una marca que
+        // no es del cliente, se usa la primera marca del cliente.
+        $clientBrands = $user->client->brands->sortBy('id');
+        $requestedBrandId = (int) $request->header('X-Brand-Id');
+        $brand = $clientBrands->firstWhere('id', $requestedBrandId) ?? $clientBrands->firstOrFail();
 
         $request->attributes->set('brand', $brand);
         $request->attributes->set('client', $user->client);

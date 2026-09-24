@@ -1,6 +1,7 @@
 import axios from 'axios';
 import APIError from '@/classes/APIError';
 
+import { getStoredBrandId } from '@/helpers/preferencesStorage';
 import { getAuthToken, redirectToLogin } from '@/helpers/authStorage';
 
 const METHODS_WITH_BODY = ['post', 'put', 'patch'];
@@ -9,11 +10,15 @@ const http = axios.create({
   headers: { Accept: 'application/json' },
 });
 
-// Si hay token guardado se envía como Bearer. Si no hay, no se envía nada.
+// Si hay token guardado se envía como Bearer, y si hay marca elegida, en X-Brand-Id. Si no hay, no se envían.
 http.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const brandId = getStoredBrandId();
+  if (brandId) {
+    config.headers['X-Brand-Id'] = brandId;
   }
   return config;
 });
