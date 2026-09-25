@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Brand;
 use App\Models\KnowledgeSource;
 use App\Models\KnowledgeInsight;
+use App\DTO\GoogleReviewsInsightsDto;
 use Illuminate\Database\Eloquent\Collection;
+use App\DTO\WhatsAppConversationsInsightsDto;
 use App\Repositories\KnowledgeInsightRepository;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
@@ -106,10 +108,8 @@ class KnowledgeInsightService
     }
 
 
-    // Lo que muestra la pantalla de las reseñas de Google: metrics y analysis, las métricas y el análisis vigentes o
-    // null; pains, strengths e insights, los dolores, las fortalezas y las conclusiones vigentes; y reviews, solo las
-    // reseñas destacadas de esas filas (highlight_ids en su payload).
-    public function getGoogleReviewsInsights(Brand $brand): array
+    // Lo que muestra la pantalla de las reseñas de Google: las filas vigentes y las reseñas que destacan.
+    public function getGoogleReviewsInsights(Brand $brand): GoogleReviewsInsightsDto
     {
         $knowledgeInsights = $this->findCurrentByTypes($brand, [
             'google_reviews_pain',
@@ -127,21 +127,20 @@ class KnowledgeInsightService
             ->values()
             ->all();
 
-        return [
-            'pains' => $pains,
-            'insights' => $insights,
-            'strengths' => $strengths,
-            'metrics' => $knowledgeInsights->firstWhere('type', 'google_reviews_metrics'),
-            'analysis' => $knowledgeInsights->firstWhere('type', 'google_reviews_brand_analysis'),
-            'reviews' => resolve(KnowledgeSourceService::class)->findByIds($brand, $highlightedKnowledgeSourceIds),
-        ];
+        return new GoogleReviewsInsightsDto(
+            metrics: $knowledgeInsights->firstWhere('type', 'google_reviews_metrics'),
+            analysis: $knowledgeInsights->firstWhere('type', 'google_reviews_brand_analysis'),
+            pains: $pains,
+            strengths: $strengths,
+            insights: $insights,
+            reviews: resolve(KnowledgeSourceService::class)->findByIds($brand, $highlightedKnowledgeSourceIds),
+        );
     }
 
 
-    // Lo que muestra la pantalla de las conversaciones de WhatsApp: metrics y analysis, las métricas y el análisis
-    // vigentes o null; questions, objections e insights, las preguntas, los frenos y las conclusiones vigentes; y
-    // conversations, solo las conversaciones destacadas de esas filas (highlight_ids en su payload).
-    public function getWhatsAppConversationsInsights(Brand $brand): array
+    // Lo que muestra la pantalla de las conversaciones de WhatsApp: las filas vigentes y las conversaciones que
+    // destacan.
+    public function getWhatsAppConversationsInsights(Brand $brand): WhatsAppConversationsInsightsDto
     {
         $knowledgeInsights = $this->findCurrentByTypes($brand, [
             'whatsapp_conversations_metrics',
@@ -159,16 +158,14 @@ class KnowledgeInsightService
             ->values()
             ->all();
 
-        return [
-            'insights' => $insights,
-            'questions' => $questions,
-            'objections' => $objections,
-            'metrics' => $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_metrics'),
-            'analysis' => $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_brand_analysis'),
-            'conversations' => resolve(KnowledgeSourceService::class)->findByIds(
-                $brand, $highlightedKnowledgeSourceIds,
-            ),
-        ];
+        return new WhatsAppConversationsInsightsDto(
+            metrics: $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_metrics'),
+            analysis: $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_brand_analysis'),
+            questions: $questions,
+            objections: $objections,
+            insights: $insights,
+            conversations: resolve(KnowledgeSourceService::class)->findByIds($brand, $highlightedKnowledgeSourceIds),
+        );
     }
 
 
