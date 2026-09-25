@@ -68,4 +68,11 @@ class ResearchRunController extends ApiController
         return $this->respond($status);
     }
 
+
+    public function getUploadedFilesResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getUploadedFilesResearchStatus($request->brand);
+        return $this->respond($status);
+    }
+
 }

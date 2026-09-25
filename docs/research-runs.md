@@ -1,10 +1,10 @@
 # Investigaciones (`research_runs`)
 
 Una investigación lee una fuente de la marca (su sitio web, su Instagram, sus anuncios de Meta, sus
-reseñas de Google, un zip con sus conversaciones de WhatsApp o un audio en el que el usuario cuenta su negocio),
-guarda lo leído como fuentes, saca conclusiones con IA y mezcla lo aprendido con el perfil de la marca. La tabla
-`research_runs` registra cada una: cuándo se pidió, con qué entrada, en qué etapa está, qué fuentes usó y cómo
-terminó.
+reseñas de Google, un zip con sus conversaciones de WhatsApp, un audio en el que el usuario cuenta su negocio o las
+fotos y los documentos que sube), guarda lo leído como fuentes, saca conclusiones con IA y mezcla lo aprendido con el
+perfil de la marca. La tabla `research_runs` registra cada una: cuándo se pidió, con qué entrada, en qué etapa está,
+qué fuentes usó y cómo terminó.
 
 El modelo de fuentes, conclusiones y campos de la marca está en
 [knowledge-model.md](knowledge-model.md).
@@ -23,9 +23,9 @@ Volver a investigar crea otra fila. Las anteriores quedan como historial.
 | --- | --- |
 | `id` | Identificador de la fila. |
 | `client_id`, `brand_id` | Cliente y marca investigados. |
-| `type` | Qué se investiga: `website`, `instagram`, `meta_ads`, `google_reviews`, `whatsapp_conversations` o `audio`. |
+| `type` | Qué se investiga: `website`, `instagram`, `meta_ads`, `google_reviews`, `whatsapp_conversations`, `audio` o `uploaded_files`. |
 | `status` | Etapa actual. Ver "Estados". |
-| `input` | Entrada con la que se hizo la investigación, congelada al crearla, siempre con el modelo de IA en `model`. `website` guarda `url`; `instagram`, `username` y `posts_limit`; `meta_ads`, `url` (la página de Facebook) y `ads_limit`; `google_reviews`, `url` (el enlace de Google Maps) y `reviews_limit`; `whatsapp_conversations`, `zip_path` (el zip subido, que el job borra al leerlo) y `conversations_limit`; `audio`, `audio_path` (el audio grabado, que el job borra al transcribirlo) y `transcription_model`. Cambiar después la marca o la configuración no altera investigaciones anteriores. |
+| `input` | Entrada con la que se hizo la investigación, congelada al crearla, siempre con el modelo de IA en `model`. `website` guarda `url`; `instagram`, `username` y `posts_limit`; `meta_ads`, `url` (la página de Facebook) y `ads_limit`; `google_reviews`, `url` (el enlace de Google Maps) y `reviews_limit`; `whatsapp_conversations`, `zip_path` (el zip subido, que el job borra al leerlo) y `conversations_limit`; `audio`, `audio_path` (el audio grabado, que el job borra al transcribirlo) y `transcription_model`; `uploaded_files`, `uploaded_knowledge_source_ids` (las fuentes de los archivos de la subida, vacía en el nuevo análisis que sigue a un borrado). Cambiar después la marca o la configuración no altera investigaciones anteriores. |
 | `knowledge_source_ids` | IDs de las fuentes usadas, por ejemplo `[41, 42, 43]`. No hay tabla puente ni claves foráneas; al leerlas se filtran por marca. |
 | `started_at` | Cuándo empezó a trabajarse. |
 | `finished_at` | Cuándo terminó, bien o mal. |
@@ -53,9 +53,10 @@ investigación activa por marca y tipo.
 ## Relación con el resto del conocimiento
 
 - Fuentes: `knowledge_source_ids` lista el material usado; cada página leída, posteo
-  de Instagram, anuncio de Meta, reseña de Google, conversación de WhatsApp con un cliente o audio es una
-  fuente. Cada investigación guarda sus propias fuentes. Las reseñas y las conversaciones son la
-  excepción: una investigación que termina bien borra las de las anteriores.
+  de Instagram, anuncio de Meta, reseña de Google, conversación de WhatsApp con un cliente, audio, foto o
+  documento subido es una fuente. Cada investigación guarda sus propias fuentes. Las reseñas y las
+  conversaciones son la excepción: una investigación que termina bien borra las de las anteriores. Las fotos
+  y los documentos, en cambio, se suman: cada análisis usa todos los que tiene la marca.
 - Conclusiones: `knowledge_insights.research_run_id` apunta a la investigación que las generó.
 - Una investigación fallida puede haber dejado fuentes y conclusiones guardadas;
   siguen siendo válidas.
@@ -67,12 +68,12 @@ investigación activa por marca y tipo.
 
 ## Cómo corre una investigación
 
-Las seis investigaciones siguen el mismo recorrido:
+Las siete investigaciones siguen el mismo recorrido:
 
 - Se piden con `POST /api/research-runs`, body `{"type":"<tipo>"}`. La entrada sale de la marca y
   de `config/research.php`; si falta el dato de la fuente en la marca, el pedido se rechaza. Las
-  conversaciones de WhatsApp se piden con un formulario multipart que suma el zip en `zip_file`, y el audio,
-  con el archivo grabado en `audio_file`.
+  conversaciones de WhatsApp se piden con un formulario multipart que suma el zip en `zip_file`; el audio, con el
+  archivo grabado en `audio_file`, y las fotos y los documentos, con los archivos en `files[]`.
 - La ejecución y su job se guardan en la misma transacción: la queue es `database`, en la misma
   base de la aplicación. El job corre en `research_queue`, con un intento.
 - Cada tipo tiene un job y un service: el job carga la ejecución y llama a `research()` del
@@ -82,16 +83,16 @@ Las seis investigaciones siguen el mismo recorrido:
 - Si el job falla, la ejecución queda en `failed` con un mensaje genérico para el usuario, y el
   error completo queda en los logs. Se repite creando otra.
 - Cada investigación deja un análisis (`<tipo>_analysis`, o `website_brand_analysis`) y hasta
-  siete conclusiones (`<tipo>_insight`; el audio, las que tengan respaldo), y las conclusiones activas
-  anteriores del mismo tipo pasan a `outdated`. Las reseñas de Google y las conversaciones de WhatsApp dejan más tipos; ver
-  sus secciones. Mezcla lo aprendido con los campos de la marca, como explica
+  siete conclusiones (`<tipo>_insight`; el audio y las fotos y los documentos, las que tengan respaldo), y las
+  conclusiones activas anteriores del mismo tipo pasan a `outdated`. Las reseñas de Google y las conversaciones de
+  WhatsApp dejan más tipos; ver sus secciones. Mezcla lo aprendido con los campos de la marca, como explica
   [knowledge-model.md](knowledge-model.md#campos-de-la-marca), salvo que el análisis diga que la
   fuente es de otro negocio: entonces no toca la marca.
 - La pantalla de cada fuente usa `GET /api/research-runs/<fuente>/status`, que devuelve `active`,
   `latest` y `last_completed`, y `GET /api/knowledge-insights/<fuente>`, que devuelve `analysis`,
   el análisis vigente o `null`, e `insights`, las conclusiones vigentes (`active` y
   `superseded`). `<fuente>` es `website`, `instagram`, `meta-ads`, `google-reviews`,
-  `whatsapp-conversations` o `audio`.
+  `whatsapp-conversations`, `audio` o `uploaded-files`.
   `GET /api/research-runs/{id}` devuelve una ejecución con sus fuentes y conclusiones.
 - Las consultas a OpenAI (`gpt-6-luna`, configurable en `config/research.php`) piden un JSON y
   lo validan solo en lo que el código lee. El log guarda el pedido completo y la respuesta. La transcripción del
@@ -301,3 +302,37 @@ guardados como fuentes, y lo que sumaron al perfil sigue ahí.
 
 `GET /api/knowledge-insights/audio` devuelve `analysis`, `insights` y `audio`: la fuente con la transcripción que
 leyó el análisis vigente, o null.
+
+## Fotos y documentos (`uploaded_files`)
+
+`ResearchUploadedFilesJob` llama a `UploadedFilesResearchService`. Requiere `OPENAI_API_KEY`. El timeout del job es
+el `retry_after` de la conexión menos 60 segundos. Los formatos son los que lee OpenAI: fotos jpg, png, webp y gif, y
+documentos pdf, doc, docx, odt, rtf, txt, md, csv, xls, xlsx, ppt y pptx. Una subida pesa hasta 20 MB entre todos sus
+archivos: el límite de PHP y de nginx es por pedido, no por archivo.
+
+Las subidas se suman: cada una analiza sus archivos y rehace el análisis general con todos los de la marca. Mientras
+hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla, el request y el service.
+
+1. Al subirlos, cada archivo se guarda en `storage/app/private/uploaded-files/<brand_id>/`, con un nombre aleatorio
+   y su extensión original, y queda como fuente `image` o `document` en `pending`. En la misma transacción se crea
+   la ejecución, con sus IDs en `input.uploaded_knowledge_source_ids`; si falla, se borran los archivos guardados.
+2. Cada archivo nuevo pasa por el modelo en base64: la foto como imagen, que devuelve qué muestra y el texto que
+   tiene, y el documento como archivo, que devuelve qué es y lo que dice sobre el negocio. El log no guarda el
+   base64. Un archivo que falla queda en `failed` y se sigue con los demás; si fallan todos, falla la investigación y
+   el análisis anterior queda como estaba. Si el job se corta antes de llegar a un archivo, ese queda en `pending`:
+   sin un análisis en curso, la pantalla lo muestra como no leído, igual que uno en `failed`.
+3. Un análisis general, solo con texto, recibe lo que se sacó de cada archivo `ready` de la marca y el texto actual
+   de los once campos de texto. Devuelve un resumen, las conclusiones con respaldo y los campos que los archivos
+   cambian.
+4. En una transacción, las filas activas anteriores de los dos tipos pasan a `outdated` y se guardan las nuevas.
+   Después se mezclan los campos de la marca.
+
+Borrar un archivo (`DELETE /api/uploaded-files/{id}`) lo saca con soft delete, borra su archivo del disco y pide un
+nuevo análisis sin archivos nuevos, que la respuesta devuelve. Ese análisis rehace el resumen y las conclusiones con
+los que quedan y no toca la marca: lo que el archivo ya aportó al perfil queda. Si no queda ninguno, las filas
+activas pasan a `outdated` sin consultar al modelo.
+
+`GET /api/knowledge-insights/uploaded-files` devuelve `analysis`, `insights` y `files`: todos los archivos subidos,
+también los pendientes y los que no se pudieron leer, del más nuevo al más viejo. Cada uno trae `url`, un enlace
+firmado que sirve Laravel desde el disco local (`serve` del disco `local`), porque un `<img>` no manda el token de la
+API. Por ahora el enlace no vence; con S3 va a tener que vencer (ver [pendientes.md](pendientes.md)).

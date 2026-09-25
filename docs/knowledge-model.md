@@ -10,8 +10,8 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
 ## Tablas
 
 - `knowledge_sources`: material original ingresado al sistema. Cada página web leída, posteo de
-  Instagram, anuncio de Meta, reseña de Google, conversación de WhatsApp con un cliente o audio que graba el
-  usuario es una fuente.
+  Instagram, anuncio de Meta, reseña de Google, conversación de WhatsApp con un cliente, audio que graba el
+  usuario, foto o documento subido es una fuente.
 - `knowledge_insights`: conclusiones; nivel 1 derivado de una o más fuentes y nivel 2 derivado de
   conclusiones de nivel 1.
 
@@ -24,7 +24,7 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
 | `title` | Título para mostrar: el de la página, o el copy del posteo o del anuncio. |
 | `source_ref` | Referencia al original, por ejemplo la URL. |
 | `payload` | El material leído. Su forma depende del tipo. |
-| `s3_path` | Archivo guardado, para las fuentes que lo tengan. Todavía sin uso. |
+| `s3_path` | Archivo guardado, para las fuentes que lo tengan: hoy, las fotos y los documentos subidos. Por ahora es la ruta en el disco local; la columna ya prevé S3. |
 | `captured_at` | Cuándo se leyó. |
 | `status` | `pending`, `ready` o `failed`. |
 
@@ -57,7 +57,15 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
   comienzo de la transcripción y `payload` guarda `transcript`. El audio se borra apenas se transcribe, así que
   `s3_path` queda en null. Un audio nuevo no borra los anteriores.
 
-El esquema prevé además `image` y `adjustment`, todavía sin uso.
+- `image` y `document`: una foto o un documento que subió el usuario. La extensión decide el tipo: jpg, png,
+  webp y gif son fotos; pdf, doc, docx, odt, rtf, txt, md, csv, xls, xlsx, ppt y pptx, documentos. `title` es el
+  nombre del archivo y `s3_path` dónde quedó guardado, con un nombre aleatorio y su extensión original. `payload`
+  guarda `file_name`, `mime_type` (según la extensión) y `size`, y el análisis suma `description` (qué muestra la
+  foto o qué es el documento) y `transcription` (el texto de la foto, o null) o `content` (lo que dice el documento
+  sobre el negocio, o null). Se crea en `pending` al subirlo y el análisis la deja en `ready` o `failed`. Las
+  subidas se suman: una nueva no reemplaza nada, y el usuario borra los archivos que quiera.
+
+El esquema prevé además `adjustment`, todavía sin uso.
 
 Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días: el análisis las usa
 en el momento, y cuando ya no cargan la pantalla muestra el ícono del formato o un aviso.
@@ -172,6 +180,15 @@ de clientes de su corrida, y cuando una corrida nueva las reemplaza pasa lo mism
   fijo. Apuntan a las conversaciones de los temas en que se apoyan, o a todas si salen solo de las
   métricas, y `payload` guarda sus `highlight_ids`.
 
+Las fotos y los documentos dejan dos tipos, de nivel 1, que apuntan a todos los archivos que entraron en el
+análisis:
+
+- `uploaded_files_analysis`: una fila por investigación. `body` es un resumen de lo que muestran los archivos y
+  `payload` guarda `matches_brand`, `summary` y `brand`, los campos mezclados. Tras un borrado `brand` queda vacío,
+  porque ese análisis no toca la marca.
+- `uploaded_files_insight`: las conclusiones que tienen respaldo en los archivos, sin un número fijo. `payload`
+  queda en `null`.
+
 ## Campos de la marca
 
 Las investigaciones completan el perfil de la marca, y ninguna tiene que correr antes que otra:
@@ -181,8 +198,9 @@ Las investigaciones completan el perfil de la marca, y ninguna tiene que correr 
   venir del usuario o de otra fuente, y reemplaza lo que la fuente muestra mejor o más actualizado.
   No suma un párrafo por fuente ni cuenta de dónde sale cada dato o qué falta. Si la fuente no aporta
   nada, devuelve el texto actual; si el campo está vacío, lo completa solo con evidencia. Lo que el
-  modelo devuelve vacío no borra nada. El audio es la excepción: devuelve null en los campos sobre los que no
-  cuenta nada concreto y nuevo, así que solo reescribe los que menciona.
+  modelo devuelve vacío no borra nada. El audio y las fotos y los documentos son la excepción: devuelven null
+  en los campos sobre los que no dicen nada concreto y nuevo, así que solo reescriben los que cambian ("Si
+  cambia" en la tabla de abajo).
 - Lo que más valoran los clientes sale solo de lo que dicen ellos, en reseñas o testimonios: lo que
   la marca dice de sí misma no va en ese campo. Las preguntas frecuentes van una por línea, con su
   respuesta.
@@ -194,27 +212,30 @@ Las investigaciones completan el perfil de la marca, y ninguna tiene que correr 
   `payload` y la pantalla avisa que no se tocó el perfil.
 - El texto actual se lee justo antes de la consulta final. Si el usuario edita un campo de texto
   mientras el modelo responde, se guarda lo que devuelve el modelo.
+- Las fotos y los documentos pueden hablar de cualquier cosa: el modelo recibe los once campos de texto, pero
+  devuelve solo los que los archivos cambian, y el resto vuelve en null y queda como estaba. Solo mezcla una
+  subida: el análisis que sigue a un borrado no toca la marca.
 
 Qué campos toca cada investigación:
 
-| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp | Audio |
-| --- | --- | --- | --- | --- | --- | --- |
-| `name` | Si está vacío | | | | | |
-| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | | Mezcla |
-| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | | Mezcla |
-| `brand_history_description` | Mezcla | | | | | Mezcla |
-| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | | |
-| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | | |
-| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | | |
-| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla | |
-| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | | |
-| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | | |
+| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp | Audio | Fotos y documentos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `name` | Si está vacío | | | | | | |
+| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia |
+| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia |
+| `brand_history_description` | Mezcla | | | | | Si cambia | Si cambia |
+| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
+| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
+| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia |
+| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | | | Si cambia |
+| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | | | Si cambia |
+| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla | | Si cambia |
+| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia |
+| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
+| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | | | |
 
-Las pantallas de Instagram, de anuncios, de reseñas, de chats de WhatsApp y del audio muestran qué campos del
-perfil actualizó su último análisis: los que el modelo devolvió con texto en `payload.brand`.
+Las pantallas de Instagram, de anuncios, de reseñas, de chats de WhatsApp, del audio y de fotos y documentos
+muestran qué campos del perfil actualizó su último análisis: los que el modelo devolvió con texto en `payload.brand`.
 
 ## Pendiente
 

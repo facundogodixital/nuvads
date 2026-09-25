@@ -31,4 +31,8 @@ return [
         'transcription_model' => 'gpt-transcribe',
     ],
 
+    'uploaded_files' => [
+        'analysis_model' => 'gpt-6-luna',
+    ],
+
 ];

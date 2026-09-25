@@ -4,6 +4,7 @@ namespace App\Http\Requests\ResearchRuns;
 
 use App\Services\ResearchRunService;
 use Illuminate\Validation\Validator;
+use App\Services\UploadedFileService;
 use App\Http\Requests\AuthenticatedRequest;
 
 
@@ -13,13 +14,23 @@ class CreateResearchRunRequest extends AuthenticatedRequest
 
     public function rules(): array
     {
+        $uploadedFileExtensions = [
+            ...UploadedFileService::IMAGE_EXTENSIONS,
+            ...UploadedFileService::DOCUMENT_EXTENSIONS,
+        ];
+
         return [
             'type' => [
-                'required', 'string', 'in:website,instagram,meta_ads,google_reviews,whatsapp_conversations,audio',
+                'required',
+                'string',
+                'in:website,instagram,meta_ads,google_reviews,whatsapp_conversations,audio,uploaded_files',
             ],
             'zip_file' => ['required_if:type,whatsapp_conversations', 'file', 'mimes:zip'],
             // Lo que graba el navegador: webm en Chrome y Firefox, mp4 en Safari.
             'audio_file' => ['required_if:type,audio', 'file', 'mimes:webm,mp4,m4a'],
+            'files' => ['required_if:type,uploaded_files', 'array', 'list'],
+            // La extensión decide si es foto o documento; lo que OpenAI no pueda leer queda marcado al analizarlo.
+            'files.*' => ['file', 'extensions:'.implode(',', $uploadedFileExtensions)],
         ];
     }
 
@@ -37,6 +48,13 @@ class CreateResearchRunRequest extends AuthenticatedRequest
             'audio_file.uploaded' => 'No se pudo subir el audio. Revisa que no pese más de 20 MB.',
             'audio_file.file' => 'No se pudo subir el audio.',
             'audio_file.mimes' => 'No podemos leer el formato de este audio.',
+            'files.required_if' => 'Elige las fotos o los documentos que quieres subir.',
+            'files.array' => 'No se pudieron subir los archivos.',
+            'files.list' => 'No se pudieron subir los archivos.',
+            'files.*.uploaded' => 'No se pudo subir un archivo. Revisa que entre todos no pesen más de 20 MB.',
+            'files.*.file' => 'No se pudo subir un archivo.',
+            'files.*.extensions' => 'Solo se pueden subir fotos (jpg, png, webp o gif) y documentos (pdf, Word, Excel, '
+                .'PowerPoint o texto).',
         ];
     }
 
@@ -85,6 +103,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                     'google_reviews' => 'Ya hay un análisis de tus reseñas de Google en curso.',
                     'whatsapp_conversations' => 'Ya hay un análisis de tus conversaciones de WhatsApp en curso.',
                     'audio' => 'Ya hay un análisis de tu audio en curso.',
+                    'uploaded_files' => 'Espera a que termine el análisis de tus archivos para subir más.',
                 ];
                 $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;

@@ -124,6 +124,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchUploadedFilesJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchUploadedFilesJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchUploadedFilesJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchUploadedFilesJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

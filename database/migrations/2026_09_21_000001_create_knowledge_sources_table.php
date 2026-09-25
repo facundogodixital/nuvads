@@ -24,6 +24,7 @@ return new class() extends Migration
                 'web_page',
                 'meta_ad',
                 'image',
+                'document',
                 'adjustment',
             ]);
             $table->string('title', 255);

@@ -78,12 +78,18 @@ const groups = computed(() => [
 
 onMounted(loadAnalyzedSources);
 
-// Por ahora solo el sitio web, Instagram, los anuncios, las reseñas de Google, los chats de WhatsApp y el audio tienen
-// análisis real; si falla la consulta, quedan como Por completar.
+// Por ahora solo el sitio web, Instagram, los anuncios, las reseñas de Google, los chats de WhatsApp, el audio y las
+// fotos y documentos tienen análisis real; si falla la consulta, quedan como Por completar.
 async function loadAnalyzedSources() {
   try {
     const [
-      websiteStatus, instagramStatus, metaAdsStatus, googleReviewsStatus, whatsAppStatus, audioStatus,
+      websiteStatus,
+      instagramStatus,
+      metaAdsStatus,
+      googleReviewsStatus,
+      whatsAppStatus,
+      audioStatus,
+      uploadedFilesStatus,
     ] = await Promise.all([
       ResearchRunService.getWebsiteResearchStatus(),
       ResearchRunService.getInstagramResearchStatus(),
@@ -91,6 +97,7 @@ async function loadAnalyzedSources() {
       ResearchRunService.getGoogleReviewsResearchStatus(),
       ResearchRunService.getWhatsAppConversationsResearchStatus(),
       ResearchRunService.getAudioResearchStatus(),
+      ResearchRunService.getUploadedFilesResearchStatus(),
     ]);
     const websiteWasAnalyzed = Boolean(websiteStatus.last_completed);
     const instagramWasAnalyzed = Boolean(instagramStatus.last_completed);
@@ -98,6 +105,7 @@ async function loadAnalyzedSources() {
     const googleReviewsWereAnalyzed = Boolean(googleReviewsStatus.last_completed);
     const whatsAppWasAnalyzed = Boolean(whatsAppStatus.last_completed);
     const audioWasAnalyzed = Boolean(audioStatus.last_completed);
+    const uploadedFilesWereAnalyzed = Boolean(uploadedFilesStatus.last_completed);
 
     analyzedSourceIds.value = [];
     if (websiteWasAnalyzed) {
@@ -117,6 +125,9 @@ async function loadAnalyzedSources() {
     }
     if (audioWasAnalyzed) {
       analyzedSourceIds.value.push('audio');
+    }
+    if (uploadedFilesWereAnalyzed) {
+      analyzedSourceIds.value.push('uploaded-files');
     }
   } catch {
     analyzedSourceIds.value = [];

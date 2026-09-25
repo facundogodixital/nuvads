@@ -187,8 +187,9 @@ const brandSections = [
 ];
 
 // Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca; las de inputType file
-// suben un archivo con el pedido de análisis, y la de recording, un audio que se graba en la pantalla. Las que no son
-// analizables todavía no tienen backend y muestran un análisis de ejemplo.
+// suben un archivo con el pedido de análisis, y la de recording, un audio que se graba en la pantalla. Las fotos y los
+// documentos tienen su propio panel, porque se suben de a varios y quedan a la vista. Las que no son analizables
+// todavía no tienen backend y muestran un análisis de ejemplo.
 const researchSources = [
   {
     id: 'website', group: 'links', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
@@ -227,7 +228,9 @@ const researchSources = [
     icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3',
   },
   {
-    id: 'files', group: 'files', field: null, title: 'Fotos y documentos', description: 'Productos, local, menú o catálogo',
+    id: 'uploaded-files', group: 'files', field: null, title: 'Fotos y documentos', description: 'Productos, local, menú o catálogo',
+    label: 'Tus fotos y documentos', isAnalyzable: true,
+    resultLabel: 'Productos y estilo',
     icon: 'M4 5h16v14H4V5ZM4 15l4-4 4 4 3-3 5 5M15 9h.01',
   },
 ];

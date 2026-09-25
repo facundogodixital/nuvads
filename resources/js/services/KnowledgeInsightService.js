@@ -24,4 +24,8 @@ export default {
   async getAudioInsights() {
     return APICall('/api/knowledge-insights/audio');
   },
+
+  async getUploadedFilesInsights() {
+    return APICall('/api/knowledge-insights/uploaded-files');
+  },
 };

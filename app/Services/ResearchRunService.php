@@ -84,10 +84,25 @@ class ResearchRunService
                 'model' => config('research.audio.analysis_model'), // gpt-6-luna
                 'transcription_model' => config('research.audio.transcription_model'), // gpt-transcribe
             ],
+            'uploaded_files' => [
+                'model' => config('research.uploaded_files.analysis_model'), // gpt-6-luna
+                // Se completa en la transacción con las fuentes de los archivos subidos. Queda vacío en el nuevo
+                // análisis que sigue a un borrado.
+                'uploaded_knowledge_source_ids' => [],
+            ],
         };
 
+        // Las fuentes de los archivos subidos, para borrar sus archivos si no se puede crear la ejecución.
+        $uploadedKnowledgeSources = collect();
         DB::beginTransaction();
         try {
+            foreach ($attributes['files'] ?? [] as $uploadedFile) {
+                $uploadedKnowledgeSources->push(resolve(UploadedFileService::class)->create($brand, $uploadedFile));
+            }
+            $hasUploadedFiles = $uploadedKnowledgeSources->isNotEmpty();
+            if ($hasUploadedFiles) {
+                $input['uploaded_knowledge_source_ids'] = $uploadedKnowledgeSources->pluck('id')->all();
+            }
             $researchRun = $this->researchRunRepository->create($brand, [
                 'type' => $type,
                 'input' => $input,
@@ -105,6 +120,7 @@ class ResearchRunService
                     $researchRun->id,
                 ),
                 'audio' => $researchDispatcherService->dispatchResearchAudioJob($researchRun->id),
+                'uploaded_files' => $researchDispatcherService->dispatchResearchUploadedFilesJob($researchRun->id),
             };
             DB::commit();
         } catch (Throwable $exception) {
@@ -115,6 +131,10 @@ class ResearchRunService
             $hasUploadedFile = $uploadedFilePath !== null;
             if ($hasUploadedFile) {
                 Storage::disk('local')->delete($uploadedFilePath);
+            }
+            // Las fuentes de los archivos subidos se deshicieron con la transacción; sus archivos se borran acá.
+            foreach ($uploadedKnowledgeSources as $knowledgeSource) {
+                Storage::disk('local')->delete($knowledgeSource->s3_path);
             }
             throw $exception;
         }
@@ -205,6 +225,16 @@ class ResearchRunService
             'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'audio'),
             'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'audio'),
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'audio'),
+        ];
+    }
+
+
+    public function getUploadedFilesResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'uploaded_files'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'uploaded_files'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'uploaded_files'),
         ];
     }
 

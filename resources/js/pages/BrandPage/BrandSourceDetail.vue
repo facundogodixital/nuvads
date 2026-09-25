@@ -8,9 +8,17 @@
     </RouterLink>
 
     <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <!-- Las fotos y los documentos se suben y se ven acá mismo; el análisis arranca al subirlos. -->
+      <BrandUploadedFilesPanel
+        v-if="isUploadedFiles"
+        :source="source"
+        :files="uploadedFiles"
+        @files-changed="loadInsights"
+        @analyzed="handleAnalyzed"
+      />
       <!-- En escritorio el panel acompaña el scroll, porque lo aprendido puede ser largo. -->
       <BrandResearchPanel
-        v-if="source.isAnalyzable"
+        v-else-if="source.isAnalyzable"
         class="lg:sticky lg:top-0"
         :source="source"
         :saved-value="brand[source.field] ?? ''"
@@ -131,6 +139,11 @@
               :insights="insights"
               :reviews="reviews"
             />
+            <BrandUploadedFilesAnalysis
+              v-if="isUploadedFiles"
+              :analysis="analysis"
+              :files="uploadedFiles"
+            />
             <BrandWhatsAppConversationsAnalysis
               v-if="isWhatsApp && metricsInsight"
               :analysis="analysis"
@@ -189,6 +202,8 @@ import BrandAudioAnalysis from './BrandAudioAnalysis.vue';
 import BrandResearchPanel from './BrandResearchPanel.vue';
 import BrandMetaAdsAnalysis from './BrandMetaAdsAnalysis.vue';
 import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
+import BrandUploadedFilesPanel from './BrandUploadedFilesPanel.vue';
+import BrandUploadedFilesAnalysis from './BrandUploadedFilesAnalysis.vue';
 import BrandGoogleReviewsAnalysis from './BrandGoogleReviewsAnalysis.vue';
 import BrandWhatsAppConversationsAnalysis from './BrandWhatsAppConversationsAnalysis.vue';
 import KnowledgeInsightService from '@/services/KnowledgeInsightService';
@@ -209,6 +224,7 @@ const insights = ref([]);
 const questions = ref([]);
 const strengths = ref([]);
 const objections = ref([]);
+const uploadedFiles = ref([]);
 const conversations = ref([]);
 const metricsInsight = ref(null);
 const analysis = ref(null);
@@ -216,18 +232,7 @@ const insightsError = ref('');
 const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
-const exampleAnalyses = {
-  'files': {
-    metrics: [
-      { label: 'Fotos', value: '24' },
-      { label: 'Documentos', value: '1' },
-    ],
-    findings: [
-      'Tus fotos de producto son sobre fondo claro y con luz natural.',
-      'El catálogo tiene 36 productos en 5 categorías.',
-    ],
-  },
-};
+const exampleAnalyses = {};
 
 const emptyAnalysisMessages = {
   website: 'Cuando analicemos tu sitio, acá vas a ver lo que aprendimos de tu marca.',
@@ -236,6 +241,7 @@ const emptyAnalysisMessages = {
   'google-maps': 'Cuando analicemos tus reseñas, acá vas a ver lo que dicen tus clientes.',
   whatsapp: 'Cuando analicemos tus chats, acá vas a ver lo que te preguntan tus clientes.',
   audio: 'Cuando analicemos tu audio, acá vas a ver lo que aprendimos de tu negocio.',
+  'uploaded-files': 'Cuando analicemos tus fotos y documentos, acá vas a ver lo que aprendimos de ellos.',
 };
 const insightsLoaders = {
   website: KnowledgeInsightService.getWebsiteInsights,
@@ -244,6 +250,7 @@ const insightsLoaders = {
   'google-maps': KnowledgeInsightService.getGoogleReviewsInsights,
   whatsapp: KnowledgeInsightService.getWhatsAppConversationsInsights,
   audio: KnowledgeInsightService.getAudioInsights,
+  'uploaded-files': KnowledgeInsightService.getUploadedFilesInsights,
 };
 
 const isInstagram = computed(() => props.source.id === 'instagram');
@@ -251,6 +258,7 @@ const isMetaAds = computed(() => props.source.id === 'meta-ads');
 const isGoogleMaps = computed(() => props.source.id === 'google-maps');
 const isWhatsApp = computed(() => props.source.id === 'whatsapp');
 const isAudio = computed(() => props.source.id === 'audio');
+const isUploadedFiles = computed(() => props.source.id === 'uploaded-files');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
 const emptyAnalysisMessage = computed(() => emptyAnalysisMessages[props.source.id]);
 
@@ -270,7 +278,7 @@ async function loadInsights() {
     insights.value = sourceInsights.insights;
     // Instagram trae los posteos que leyó; los anuncios de Meta, los anuncios; las reseñas de Google, sus métricas,
     // quejas, fortalezas y las reseñas destacadas; los chats de WhatsApp, sus métricas, preguntas, frenos y las
-    // conversaciones destacadas; y el audio, su transcripción.
+    // conversaciones destacadas; el audio, su transcripción; y las fotos y los documentos, todos los archivos subidos.
     posts.value = sourceInsights.posts ?? [];
     ads.value = sourceInsights.ads ?? [];
     pains.value = sourceInsights.pains ?? [];
@@ -281,6 +289,7 @@ async function loadInsights() {
     objections.value = sourceInsights.objections ?? [];
     conversations.value = sourceInsights.conversations ?? [];
     audio.value = sourceInsights.audio ?? null;
+    uploadedFiles.value = sourceInsights.files ?? [];
   } catch (error) {
     insightsError.value = error.message;
   } finally {
