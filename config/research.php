@@ -26,4 +26,9 @@ return [
         'analysis_model' => 'gpt-6-luna',
     ],
 
+    'audio' => [
+        'analysis_model' => 'gpt-6-luna',
+        'transcription_model' => 'gpt-transcribe',
+    ],
+
 ];

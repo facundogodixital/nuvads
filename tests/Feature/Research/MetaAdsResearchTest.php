@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
+use App\Services\KnowledgeInsightService;
 use App\Jobs\Research\MetaAds\ResearchMetaAdsJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -125,11 +126,14 @@ class MetaAdsResearchTest extends TestCase
     }
 
 
-    // Una página sin anuncios no es un error: la investigación termina bien y deja un análisis que lo dice, sin
-    // consultar al modelo ni tocar la marca.
+    // Sin anuncios no hay nada para analizar: la investigación termina vacía con un mensaje que lo dice, sin consultar
+    // al modelo, y el análisis de los anuncios anteriores sigue vigente, por si la página dejó de publicitar.
     #[Test]
-    public function completes_with_a_no_ads_analysis_when_the_page_has_no_ads(): void
+    public function ends_empty_without_replacing_the_previous_analysis_when_the_page_has_no_ads(): void
     {
+        $previousAnalysis = resolve(KnowledgeInsightService::class)->create($this->brand, [
+            'type' => 'meta_ads_analysis', 'body' => 'Análisis anterior.', 'status' => 'active', 'level' => 1,
+        ]);
         $pageWithoutAds = [[
             'inputUrl' => 'https://www.facebook.com/mimarca',
             'pageInfo' => ['page' => ['name' => 'Mi marca', 'id' => '1']],
@@ -146,14 +150,11 @@ class MetaAdsResearchTest extends TestCase
 
         (new ResearchMetaAdsJob($researchRun->id))->handle();
 
-        $this->assertSame('completed', $researchRun->fresh()->status);
+        $researchRun->refresh();
+        $this->assertSame('empty', $researchRun->status);
+        $this->assertNotNull($researchRun->status_message);
         $this->assertSame([], $this->recordedOpenAiRequests());
-        $this->assertSame('Sustratos.', $this->brand->fresh()->brand_offer_description);
-        $noAdsSummary = 'Esta página no tiene anuncios en la Biblioteca de anuncios de Meta.';
-        $this->getJson('/api/knowledge-insights/meta-ads')->assertOk()
-            ->assertJsonPath('data.analysis.body', $noAdsSummary)
-            ->assertJsonPath('data.analysis.payload.metrics.ads_count', 0)
-            ->assertJsonPath('data.ads', []);
+        $this->assertSame('active', $previousAnalysis->fresh()->status);
     }
 
 

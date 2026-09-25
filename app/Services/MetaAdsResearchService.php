@@ -73,10 +73,15 @@ class MetaAdsResearchService
         $apifyAds = array_values(array_filter(
             $datasetItems, fn (array $datasetItem): bool => isset($datasetItem['adArchiveID']),
         ));
+        // Sin anuncios no hay nada para analizar: la investigación termina vacía y no toca nada. Si la página dejó de
+        // publicitar, el análisis de los anuncios que corrió sigue vigente.
         if ($apifyAds === []) {
-            $this->logStage('No ads found.', ['datasetItems' => $datasetItems]);
-            $this->saveNoAdsAnalysis($researchRun);
-            return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
+            $this->logStage('Nothing to analyze: no ads found.', ['datasetItems' => $datasetItems]);
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'Esta página no tiene anuncios activos en la Biblioteca de anuncios de Meta.',
+            ]);
         }
         $this->logStage('Ads received.', ['ads' => count($apifyAds)]);
 
@@ -221,9 +226,8 @@ class MetaAdsResearchService
     }
 
 
-    // Devuelve ads_count; longest_running_days, los días del anuncio que más lleva corriendo (null sin anuncios);
-    // formats, que por cada formato tiene ads y average_days_running; y platforms, la cantidad de anuncios que sale
-    // en cada plataforma.
+    // Devuelve ads_count; longest_running_days, los días del anuncio que más lleva corriendo; formats, que por cada
+    // formato tiene ads y average_days_running; y platforms, la cantidad de anuncios que sale en cada plataforma.
     private function getAdsMetrics(array $apifyAds): array
     {
         $formats = [];
@@ -512,21 +516,6 @@ class MetaAdsResearchService
         $this->logStage('Insights saved.', ['knowledgeInsightIds' => $knowledgeInsights->pluck('id')->all()]);
 
         return $knowledgeInsights;
-    }
-
-
-    // Que la página no tenga anuncios también es algo que se sabe de la marca: queda como su análisis, sin consultar
-    // al modelo ni tocar la marca.
-    private function saveNoAdsAnalysis(ResearchRun $researchRun): Collection
-    {
-        $noAdsAnalysis = new MetaAdsAnalysisDto(
-            matchesBrand: true,
-            mergedBrandFields: [],
-            summary: 'Esta página no tiene anuncios en la Biblioteca de anuncios de Meta.',
-            insights: [],
-        );
-
-        return $this->saveInsights($researchRun, collect(), $noAdsAnalysis, $this->getAdsMetrics([]));
     }
 
 

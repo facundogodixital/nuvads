@@ -47,4 +47,11 @@ class KnowledgeInsightController extends ApiController
         return $this->respond($whatsAppConversationsInsights);
     }
 
+
+    public function getAudioInsights(AuthenticatedRequest $request): JsonResponse
+    {
+        $audioInsights = resolve(KnowledgeInsightService::class)->getAudioInsights($request->brand);
+        return $this->respond($audioInsights);
+    }
+
 }

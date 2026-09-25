@@ -20,4 +20,8 @@ export default {
   async getWhatsAppConversationsInsights() {
     return APICall('/api/knowledge-insights/whatsapp-conversations');
   },
+
+  async getAudioInsights() {
+    return APICall('/api/knowledge-insights/audio');
+  },
 };

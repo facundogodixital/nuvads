@@ -10,7 +10,8 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
 ## Tablas
 
 - `knowledge_sources`: material original ingresado al sistema. Cada página web leída, posteo de
-  Instagram, anuncio de Meta, reseña de Google o conversación de WhatsApp con un cliente es una fuente.
+  Instagram, anuncio de Meta, reseña de Google, conversación de WhatsApp con un cliente o audio que graba el
+  usuario es una fuente.
 - `knowledge_insights`: conclusiones; nivel 1 derivado de una o más fuentes y nivel 2 derivado de
   conclusiones de nivel 1.
 
@@ -52,8 +53,11 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
   `sent_at` (`Y-m-d H:i`, en la hora del teléfono), `is_from_owner` y `text`. Los audios, imágenes y
   demás llegan como marcadores del export, por ejemplo `<nota de voz enviada>`. Como las reseñas, una
   investigación nueva reemplaza las conversaciones anteriores de la marca al terminar bien.
+- `audio`: la transcripción de un audio que el usuario graba en la pantalla contando su negocio. `title` es el
+  comienzo de la transcripción y `payload` guarda `transcript`. El audio se borra apenas se transcribe, así que
+  `s3_path` queda en null. Un audio nuevo no borra los anteriores.
 
-El esquema prevé además `audio`, `image` y `adjustment`, todavía sin uso.
+El esquema prevé además `image` y `adjustment`, todavía sin uso.
 
 Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días: el análisis las usa
 en el momento, y cuando ya no cargan la pantalla muestra el ícono del formato o un aviso.
@@ -95,9 +99,10 @@ tipo pasan a `outdated`. Las `superseded` y las `rejected` no se tocan.
 ### Tipos de conclusión
 
 Las investigaciones del sitio web, de Instagram y de anuncios dejan un análisis y de 0 a 7 conclusiones,
-todos de nivel 1 y apuntando a las fuentes que leyó. Las de reseñas de Google y de conversaciones de
-WhatsApp dejan más tipos; ver abajo. El `payload` de todos los análisis guarda además `matches_brand`: si la
-fuente parece de la marca. Ver "Campos de la marca".
+todos de nivel 1 y apuntando a las fuentes que leyó. La del audio también, pero con las conclusiones que tengan
+respaldo, sin un número fijo. Las de reseñas de Google y de conversaciones de WhatsApp dejan más tipos; ver
+abajo. El `payload` de todos los análisis guarda además `matches_brand`: si la fuente parece de la marca. Ver
+"Campos de la marca".
 
 - `website_brand_analysis`: una fila por investigación del sitio web. `body` es un resumen de la marca y
   `payload` guarda la respuesta completa del análisis (`brand`, `inferred_fields`, `summary` e
@@ -109,9 +114,10 @@ fuente parece de la marca. Ver "Campos de la marca".
 - `meta_ads_analysis`: una fila por investigación de anuncios. `body` es un resumen de su publicidad y
   `payload` guarda la respuesta del análisis y las métricas en `metrics`: `ads_count`,
   `longest_running_days`, por formato `ads` y `average_days_running`, y en `platforms` la cantidad
-  de anuncios por plataforma. Si la página no tiene anuncios, `body` lo dice, `ads_count` es 0 y no
-  apunta a ninguna fuente.
-- `website_insight`, `instagram_insight` y `meta_ads_insight`: una fila por conclusión: patrones,
+  de anuncios por plataforma.
+- `audio_analysis`: una fila por audio. `body` es un resumen de lo que cuenta y `payload` guarda la respuesta del
+  análisis: `brand` trae con texto solo los campos que el audio cambió, y el resto en null.
+- `website_insight`, `instagram_insight`, `meta_ads_insight` y `audio_insight`: una fila por conclusión: patrones,
   tensiones o huecos, y hechos útiles para comunicar, siempre con evidencia en las fuentes. `payload`
   queda en `null`.
 
@@ -175,7 +181,8 @@ Las investigaciones completan el perfil de la marca, y ninguna tiene que correr 
   venir del usuario o de otra fuente, y reemplaza lo que la fuente muestra mejor o más actualizado.
   No suma un párrafo por fuente ni cuenta de dónde sale cada dato o qué falta. Si la fuente no aporta
   nada, devuelve el texto actual; si el campo está vacío, lo completa solo con evidencia. Lo que el
-  modelo devuelve vacío no borra nada.
+  modelo devuelve vacío no borra nada. El audio es la excepción: devuelve null en los campos sobre los que no
+  cuenta nada concreto y nuevo, así que solo reescribe los que menciona.
 - Lo que más valoran los clientes sale solo de lo que dicen ellos, en reseñas o testimonios: lo que
   la marca dice de sí misma no va en ese campo. Las preguntas frecuentes van una por línea, con su
   respuesta.
@@ -190,24 +197,24 @@ Las investigaciones completan el perfil de la marca, y ninguna tiene que correr 
 
 Qué campos toca cada investigación:
 
-| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp |
-| --- | --- | --- | --- | --- | --- |
-| `name` | Si está vacío | | | | |
-| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | |
-| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | |
-| `brand_history_description` | Mezcla | | | | |
-| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | |
-| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | |
-| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | |
-| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla |
-| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | |
-| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla |
-| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | |
+| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp | Audio |
+| --- | --- | --- | --- | --- | --- | --- |
+| `name` | Si está vacío | | | | | |
+| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | | Mezcla |
+| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | | Mezcla |
+| `brand_history_description` | Mezcla | | | | | Mezcla |
+| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | | |
+| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | | |
+| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | | |
+| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla | |
+| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | | |
+| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | | |
 
-Las pantallas de Instagram, de anuncios, de reseñas y de chats de WhatsApp muestran qué campos del perfil actualizó
-su último análisis: los que el modelo devolvió con texto en `payload.brand`.
+Las pantallas de Instagram, de anuncios, de reseñas, de chats de WhatsApp y del audio muestran qué campos del
+perfil actualizó su último análisis: los que el modelo devolvió con texto en `payload.brand`.
 
 ## Pendiente
 

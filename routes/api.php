@@ -23,6 +23,7 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
             'research-runs/whatsapp-conversations/status',
             [ResearchRunController::class, 'getWhatsAppConversationsResearchStatus'],
         );
+        Route::get('research-runs/audio/status', [ResearchRunController::class, 'getAudioResearchStatus']);
         Route::get('research-runs/{researchRunId}', [ResearchRunController::class, 'find'])
             ->whereNumber('researchRunId');
 
@@ -36,6 +37,7 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
             'knowledge-insights/whatsapp-conversations',
             [KnowledgeInsightController::class, 'getWhatsAppConversationsInsights'],
         );
+        Route::get('knowledge-insights/audio', [KnowledgeInsightController::class, 'getAudioInsights']);
 
         Route::get('brand', [BrandController::class, 'find']);
         Route::patch('brand', [BrandController::class, 'update']);

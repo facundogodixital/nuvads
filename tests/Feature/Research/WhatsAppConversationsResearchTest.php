@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Illuminate\Support\Facades\Storage;
 use App\Services\KnowledgeSourceService;
 use GuzzleHttp\Promise\PromiseInterface;
+use App\Services\KnowledgeInsightService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\Research\WhatsAppConversations\ResearchWhatsAppConversationsJob;
 
@@ -132,11 +133,18 @@ class WhatsAppConversationsResearchTest extends TestCase
     }
 
 
-    // Un zip sin conversaciones de clientes no es un error: la investigación termina bien, deja las métricas y un
-    // análisis que lo dice, sin guardar conversaciones, sin análisis final y sin tocar la marca.
+    // Si ninguna conversación es de un cliente, no hay nada para analizar: la investigación termina vacía con un
+    // mensaje que lo dice, sin análisis final, y las conversaciones y el análisis anteriores siguen vigentes.
     #[Test]
-    public function completes_without_saving_conversations_when_none_is_from_a_customer(): void
+    public function ends_empty_without_replacing_anything_when_no_conversation_is_from_a_customer(): void
     {
+        $previousConversation = resolve(KnowledgeSourceService::class)->create($this->brand, [
+            'type' => 'whatsapp_conversation', 'title' => 'Chat anterior', 'status' => 'ready',
+        ]);
+        $previousAnalysis = resolve(KnowledgeInsightService::class)->create($this->brand, [
+            'type' => 'whatsapp_conversations_brand_analysis', 'body' => 'Análisis anterior.', 'status' => 'active',
+            'level' => 1,
+        ]);
         $conversationFiles = ['5491100000000.txt' => $this->conversationFile('5491100000000', 'Mamá', [
             '[2026-01-01 09:00] Mamá: ¿Venís el domingo?',
         ])];
@@ -145,13 +153,12 @@ class WhatsAppConversationsResearchTest extends TestCase
 
         (new ResearchWhatsAppConversationsJob($researchRun->id))->handle();
 
-        $this->assertSame('completed', $researchRun->fresh()->status);
+        $researchRun->refresh();
+        $this->assertSame('empty', $researchRun->status);
+        $this->assertNotNull($researchRun->status_message);
         $this->assertCount(1, $this->recordedOpenAiRequests());
-        $this->assertSame('Carpinteros.', $this->brand->fresh()->brand_customers_description);
-        $this->getJson('/api/knowledge-insights/whatsapp-conversations')->assertOk()
-            ->assertJsonPath('data.analysis.body', 'Ninguna de las conversaciones leídas es de un cliente.')
-            ->assertJsonPath('data.metrics.payload.contact_kinds.personal', 1)
-            ->assertJsonPath('data.conversations', []);
+        $this->assertNotNull(resolve(KnowledgeSourceService::class)->find($this->brand, $previousConversation->id));
+        $this->assertSame('active', $previousAnalysis->fresh()->status);
     }
 
 

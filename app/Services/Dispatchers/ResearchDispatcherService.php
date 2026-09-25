@@ -2,6 +2,7 @@
 
 namespace App\Services\Dispatchers;
 
+use App\Jobs\Research\Audio\ResearchAudioJob;
 use App\Jobs\Research\MetaAds\ResearchMetaAdsJob;
 use App\Jobs\Research\Website\ResearchWebsiteJob;
 use App\Jobs\Research\Instagram\ResearchInstagramJob;
@@ -40,6 +41,12 @@ class ResearchDispatcherService
     public function dispatchResearchWhatsAppConversationsJob(int $researchRunId): void
     {
         ResearchWhatsAppConversationsJob::dispatch($researchRunId)->onQueue('research_queue');
+    }
+
+
+    public function dispatchResearchAudioJob(int $researchRunId): void
+    {
+        ResearchAudioJob::dispatch($researchRunId)->onQueue('research_queue');
     }
 
 }

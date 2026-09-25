@@ -104,6 +104,30 @@ class OpenAIHelperTest extends TestCase
     }
 
 
+    // Sube el audio como archivo, con su nombre para que OpenAI reconozca el formato, junto al modelo elegido, y
+    // devuelve el texto transcripto.
+    #[Test]
+    public function transcribes_audio_with_the_selected_model(): void
+    {
+        Http::fake(['https://api.openai.com/v1/audio/transcriptions' => Http::response(['text' => 'Somos Up!'])]);
+        $audioPath = sys_get_temp_dir().'/openai-helper-test.webm';
+        file_put_contents($audioPath, 'audio');
+
+        $transcript = resolve(OpenAIHelper::class)->transcribeAudio('transcription-model', $audioPath);
+
+        unlink($audioPath);
+        $this->assertSame('Somos Up!', $transcript);
+        Http::assertSent(function (Request $request): bool {
+            $modelPart = collect($request->data())->firstWhere('name', 'model');
+            $this->assertTrue($request->hasHeader('Authorization', 'Bearer test-token'));
+            $this->assertTrue($request->hasFile('file', 'audio', 'openai-helper-test.webm'));
+            $this->assertSame('transcription-model', $modelPart['contents']);
+
+            return true;
+        });
+    }
+
+
     private static function completedResponse(string $text): array
     {
         return [

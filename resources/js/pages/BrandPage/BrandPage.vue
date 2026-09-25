@@ -186,9 +186,9 @@ const brandSections = [
   },
 ];
 
-// Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca, y las de inputType
-// file suben un archivo con el pedido de análisis. Las que no son analizables todavía no tienen backend y muestran un
-// análisis de ejemplo.
+// Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca; las de inputType file
+// suben un archivo con el pedido de análisis, y la de recording, un audio que se graba en la pantalla. Las que no son
+// analizables todavía no tienen backend y muestran un análisis de ejemplo.
 const researchSources = [
   {
     id: 'website', group: 'links', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
@@ -222,6 +222,8 @@ const researchSources = [
   },
   {
     id: 'audio', group: 'files', field: null, title: 'Audio', description: 'Cuéntanos tu negocio en dos minutos',
+    inputType: 'recording', isAnalyzable: true,
+    resultLabel: 'Historia y diferenciales',
     icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3',
   },
   {

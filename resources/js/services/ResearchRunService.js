@@ -12,6 +12,13 @@ export default {
     });
   },
 
+  // El audio se graba en la pantalla y viaja con el pedido.
+  async createAudioResearch(audioFile) {
+    return APIUpload('/api/research-runs', audioFile, { type: 'audio' }, {
+      fileFieldName: 'audio_file',
+    });
+  },
+
   async getWebsiteResearchStatus() {
     return APICall('/api/research-runs/website/status');
   },
@@ -30,5 +37,9 @@ export default {
 
   async getWhatsAppConversationsResearchStatus() {
     return APICall('/api/research-runs/whatsapp-conversations/status');
+  },
+
+  async getAudioResearchStatus() {
+    return APICall('/api/research-runs/audio/status');
   },
 };

@@ -16,7 +16,7 @@ return new class() extends Migration
             $table->foreignId('client_id')->constrained();
             $table->foreignId('brand_id')->constrained();
             $table->string('type', 64);
-            $table->enum('status', ['pending', 'scraping', 'analyzing', 'completed', 'failed']);
+            $table->enum('status', ['pending', 'scraping', 'analyzing', 'completed', 'empty', 'failed']);
             $table->json('input');
             $table->string('external_run_id')->nullable();
             $table->string('external_dataset_id')->nullable();
@@ -24,7 +24,7 @@ return new class() extends Migration
             $table->timestamp('started_at')->nullable();
             $table->timestamp('finished_at')->nullable();
             $table->timestamp('last_checked_at')->nullable();
-            $table->text('error_message')->nullable();
+            $table->text('status_message')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

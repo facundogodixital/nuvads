@@ -18,7 +18,7 @@ class ResearchRun extends Model
     protected $fillable = [
         'client_id', 'brand_id', 'type', 'status', 'input',
         'external_run_id', 'external_dataset_id', 'knowledge_source_ids',
-        'started_at', 'finished_at', 'last_checked_at', 'error_message',
+        'started_at', 'finished_at', 'last_checked_at', 'status_message',
     ];
 
 
@@ -37,7 +37,7 @@ class ResearchRun extends Model
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
             'last_checked_at' => 'datetime',
-            'error_message' => 'string',
+            'status_message' => 'string',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',

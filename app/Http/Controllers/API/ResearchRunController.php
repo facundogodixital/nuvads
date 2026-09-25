@@ -61,4 +61,11 @@ class ResearchRunController extends ApiController
         return $this->respond($status);
     }
 
+
+    public function getAudioResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getAudioResearchStatus($request->brand);
+        return $this->respond($status);
+    }
+
 }

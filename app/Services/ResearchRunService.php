@@ -78,6 +78,12 @@ class ResearchRunService
                 'model' => config('research.whatsapp_conversations.analysis_model'), // gpt-6-luna
                 'conversations_limit' => config('research.whatsapp_conversations.conversations_limit'),
             ],
+            'audio' => [
+                // El audio queda en el disco local hasta que el job lo transcribe y lo borra.
+                'audio_path' => $attributes['audio_file']->store('audios', 'local'),
+                'model' => config('research.audio.analysis_model'), // gpt-6-luna
+                'transcription_model' => config('research.audio.transcription_model'), // gpt-transcribe
+            ],
         };
 
         DB::beginTransaction();
@@ -98,14 +104,17 @@ class ResearchRunService
                 'whatsapp_conversations' => $researchDispatcherService->dispatchResearchWhatsAppConversationsJob(
                     $researchRun->id,
                 ),
+                'audio' => $researchDispatcherService->dispatchResearchAudioJob($researchRun->id),
             };
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();
-            // Sin ejecución, ningún job borraría el zip, que trae también los chats personales.
-            $hasStoredZip = isset($input['zip_path']);
-            if ($hasStoredZip) {
-                Storage::disk('local')->delete($input['zip_path']);
+            // Sin ejecución, ningún job borraría el archivo subido: el zip trae también los chats personales, y el
+            // audio no se guarda.
+            $uploadedFilePath = $input['zip_path'] ?? $input['audio_path'] ?? null;
+            $hasUploadedFile = $uploadedFilePath !== null;
+            if ($hasUploadedFile) {
+                Storage::disk('local')->delete($uploadedFilePath);
             }
             throw $exception;
         }
@@ -190,6 +199,16 @@ class ResearchRunService
     }
 
 
+    public function getAudioResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'audio'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'audio'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'audio'),
+        ];
+    }
+
+
     public function update(ResearchRun $researchRun, array $attributes): ResearchRun
     {
         return $this->researchRunRepository->update($researchRun, $attributes);
@@ -206,7 +225,7 @@ class ResearchRunService
         return $this->researchRunRepository->update($researchRun, [
             'status' => 'failed',
             'finished_at' => now(),
-            'error_message' => $message,
+            'status_message' => $message,
         ]);
     }
 

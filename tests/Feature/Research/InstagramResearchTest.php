@@ -149,7 +149,7 @@ class InstagramResearchTest extends TestCase
 
         $researchRun->refresh();
         $this->assertSame('failed', $researchRun->status);
-        $this->assertSame('No se pudo completar el análisis de Instagram.', $researchRun->error_message);
+        $this->assertSame('No se pudo completar el análisis de Instagram.', $researchRun->status_message);
         $this->assertDatabaseCount('knowledge_sources', 0);
         $this->assertSame([], $this->recordedOpenAiRequests());
     }

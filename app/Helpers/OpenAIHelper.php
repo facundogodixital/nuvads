@@ -56,6 +56,41 @@ class OpenAIHelper
     }
 
 
+    /**
+     * model: ID del modelo de transcripción, como gpt-transcribe. audioPath: ruta local del archivo. OpenAI reconoce
+     * el formato por la extensión: mp3, mp4, m4a, wav o webm, hasta 25 MB. Devuelve el texto, que puede venir vacío
+     * si el audio no tiene voz.
+     */
+    public function transcribeAudio(string $model, string $audioPath): string
+    {
+        $apiKey = config('services.openai.api_key');
+        $hasApiKey = is_string($apiKey) && trim($apiKey) !== '';
+        if (!$hasApiKey) {
+            throw new ApiException(500, 'openai_not_configured', 'OpenAI no está configurado.');
+        }
+
+        // Como en generateContent(), sin reintentos. Un audio largo tarda más en transcribirse que una respuesta
+        // de texto.
+        $response = Http::withToken($apiKey)
+            ->acceptJson()
+            ->withoutRedirecting()
+            ->timeout(300)
+            ->dontTruncateExceptions()
+            ->throw()
+            ->attach('file', file_get_contents($audioPath), basename($audioPath))
+            ->post('https://api.openai.com/v1/audio/transcriptions', ['model' => $model]);
+
+        $text = $response->json('text');
+        if (!is_string($text)) {
+            throw new ApiException(
+                502, 'openai_response_invalid', "OpenAI devolvió una transcripción inválida: {$response->body()}",
+            );
+        }
+
+        return $text;
+    }
+
+
     private function generateContent(
         string $model,
         string $instructions,

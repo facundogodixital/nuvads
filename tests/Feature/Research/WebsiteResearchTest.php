@@ -395,7 +395,7 @@ class WebsiteResearchTest extends TestCase
         $researchRun->refresh();
         $this->assertSame('failed', $researchRun->status);
         $this->assertNotNull($researchRun->finished_at);
-        $this->assertStringNotContainsString('secret-data', $researchRun->error_message);
+        $this->assertStringNotContainsString('secret-data', $researchRun->status_message);
         $this->assertDatabaseCount('knowledge_sources', 0);
         $this->getJson('/api/research-runs/website/status')->assertOk()
             ->assertJsonPath('data.latest.status', 'failed')

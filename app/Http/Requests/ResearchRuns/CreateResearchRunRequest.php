@@ -14,8 +14,12 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:website,instagram,meta_ads,google_reviews,whatsapp_conversations'],
+            'type' => [
+                'required', 'string', 'in:website,instagram,meta_ads,google_reviews,whatsapp_conversations,audio',
+            ],
             'zip_file' => ['required_if:type,whatsapp_conversations', 'file', 'mimes:zip'],
+            // Lo que graba el navegador: webm en Chrome y Firefox, mp4 en Safari.
+            'audio_file' => ['required_if:type,audio', 'file', 'mimes:webm,mp4,m4a'],
         ];
     }
 
@@ -29,6 +33,10 @@ class CreateResearchRunRequest extends AuthenticatedRequest
             'zip_file.uploaded' => 'No se pudo subir el archivo. Revisa que no pese más de 20 MB.',
             'zip_file.file' => 'No se pudo subir el archivo.',
             'zip_file.mimes' => 'El archivo tiene que ser un .zip.',
+            'audio_file.required_if' => 'Graba un audio para analizarlo.',
+            'audio_file.uploaded' => 'No se pudo subir el audio. Revisa que no pese más de 20 MB.',
+            'audio_file.file' => 'No se pudo subir el audio.',
+            'audio_file.mimes' => 'No podemos leer el formato de este audio.',
         ];
     }
 
@@ -76,6 +84,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                     'meta_ads' => 'Ya hay un análisis de tus anuncios en curso.',
                     'google_reviews' => 'Ya hay un análisis de tus reseñas de Google en curso.',
                     'whatsapp_conversations' => 'Ya hay un análisis de tus conversaciones de WhatsApp en curso.',
+                    'audio' => 'Ya hay un análisis de tu audio en curso.',
                 ];
                 $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;

@@ -78,22 +78,26 @@ const groups = computed(() => [
 
 onMounted(loadAnalyzedSources);
 
-// Por ahora solo el sitio web, Instagram, los anuncios, las reseñas de Google y los chats de WhatsApp tienen análisis
-// real; si falla la consulta, quedan como Por completar.
+// Por ahora solo el sitio web, Instagram, los anuncios, las reseñas de Google, los chats de WhatsApp y el audio tienen
+// análisis real; si falla la consulta, quedan como Por completar.
 async function loadAnalyzedSources() {
   try {
-    const [websiteStatus, instagramStatus, metaAdsStatus, googleReviewsStatus, whatsAppStatus] = await Promise.all([
+    const [
+      websiteStatus, instagramStatus, metaAdsStatus, googleReviewsStatus, whatsAppStatus, audioStatus,
+    ] = await Promise.all([
       ResearchRunService.getWebsiteResearchStatus(),
       ResearchRunService.getInstagramResearchStatus(),
       ResearchRunService.getMetaAdsResearchStatus(),
       ResearchRunService.getGoogleReviewsResearchStatus(),
       ResearchRunService.getWhatsAppConversationsResearchStatus(),
+      ResearchRunService.getAudioResearchStatus(),
     ]);
     const websiteWasAnalyzed = Boolean(websiteStatus.last_completed);
     const instagramWasAnalyzed = Boolean(instagramStatus.last_completed);
     const metaAdsWereAnalyzed = Boolean(metaAdsStatus.last_completed);
     const googleReviewsWereAnalyzed = Boolean(googleReviewsStatus.last_completed);
     const whatsAppWasAnalyzed = Boolean(whatsAppStatus.last_completed);
+    const audioWasAnalyzed = Boolean(audioStatus.last_completed);
 
     analyzedSourceIds.value = [];
     if (websiteWasAnalyzed) {
@@ -110,6 +114,9 @@ async function loadAnalyzedSources() {
     }
     if (whatsAppWasAnalyzed) {
       analyzedSourceIds.value.push('whatsapp');
+    }
+    if (audioWasAnalyzed) {
+      analyzedSourceIds.value.push('audio');
     }
   } catch {
     analyzedSourceIds.value = [];

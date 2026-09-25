@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
 use GuzzleHttp\Promise\PromiseInterface;
+use App\Services\KnowledgeInsightService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\Research\GoogleReviews\ResearchGoogleReviewsJob;
 
@@ -132,27 +134,45 @@ class GoogleReviewsResearchTest extends TestCase
     }
 
 
-    // Un lugar sin reseñas no es un error: la investigación termina bien y deja métricas en cero y un análisis que lo
-    // dice, sin consultar al modelo ni tocar la marca.
+    // Sin reseñas, o solo con estrellas, no hay nada para analizar: la investigación termina vacía con un mensaje que
+    // lo dice, sin guardar reseñas ni consultar al modelo, y las reseñas y el análisis anteriores siguen vigentes.
     #[Test]
-    public function completes_with_a_no_reviews_analysis_when_the_place_has_no_reviews(): void
+    #[DataProvider('reviewsWithNothingToAnalyze')]
+    public function ends_empty_when_there_is_nothing_to_analyze(bool $hasStarOnlyReviews): void
     {
+        $previousReview = resolve(KnowledgeSourceService::class)->create($this->brand, [
+            'type' => 'google_review', 'title' => 'Reseña anterior', 'status' => 'ready',
+        ]);
+        $previousAnalysis = resolve(KnowledgeInsightService::class)->create($this->brand, [
+            'type' => 'google_reviews_brand_analysis', 'body' => 'Análisis anterior.', 'status' => 'active',
+            'level' => 1,
+        ]);
+        $apifyReviews = $hasStarOnlyReviews ? $this->apifyReviews(3, null, 5, '2026-08-01') : [];
         Http::fake([
             'https://api.apify.com/v2/actors/*' => Http::response($this->apifyRun('READY')),
             'https://api.apify.com/v2/actor-runs/run1' => Http::response($this->apifyRun('SUCCEEDED')),
-            'https://api.apify.com/v2/datasets/dataset1/items*' => Http::response([]),
+            'https://api.apify.com/v2/datasets/dataset1/items*' => Http::response($apifyReviews),
         ]);
         $researchRun = $this->createResearchRun();
 
         (new ResearchGoogleReviewsJob($researchRun->id))->handle();
 
-        $this->assertSame('completed', $researchRun->fresh()->status);
+        $researchRun->refresh();
+        $knowledgeSourceIds = resolve(KnowledgeSourceService::class)->list($this->brand)->modelKeys();
+        $this->assertSame('empty', $researchRun->status);
+        $this->assertNotNull($researchRun->status_message);
         $this->assertSame([], $this->recordedOpenAiRequests());
-        $this->assertSame('Sustratos.', $this->brand->fresh()->brand_offer_description);
-        $this->getJson('/api/knowledge-insights/google-reviews')->assertOk()
-            ->assertJsonPath('data.analysis.body', 'Este lugar no tiene reseñas en Google.')
-            ->assertJsonPath('data.metrics.payload.reviews_count', 0)
-            ->assertJsonPath('data.reviews', []);
+        $this->assertSame([$previousReview->id], $knowledgeSourceIds);
+        $this->assertSame('active', $previousAnalysis->fresh()->status);
+    }
+
+
+    public static function reviewsWithNothingToAnalyze(): array
+    {
+        return [
+            'no reviews' => [false],
+            'only stars' => [true],
+        ];
     }
 
 

@@ -112,6 +112,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchAudioJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchAudioJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchAudioJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchAudioJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

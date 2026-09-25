@@ -108,19 +108,16 @@ class WhatsAppConversationsResearchService
             'analyzedConversations' => $analyzedConversationsByKey->count(),
         ]);
 
+        // Sin conversaciones de contactos, o sin ninguna de un cliente, no hay nada para analizar: la investigación
+        // termina vacía antes de guardar nada, así las conversaciones y el análisis anteriores siguen vigentes.
         if ($analyzedConversationsByKey->isEmpty()) {
-            $noConversationsMetrics = $this->getConversationsMetrics(count($conversations), collect(), [], collect());
-            $noConversationsAnalysis = new WhatsAppConversationsAnalysisDto(
-                matchesBrand: true,
-                mergedBrandFields: [],
-                summary: 'El archivo no tiene conversaciones con mensajes de contactos.',
-                ownerVoice: null,
-                insights: [],
-            );
-            $this->saveInsightsAndReplacePreviousConversations(
-                $researchRun, collect(), $noConversationsMetrics, $this->getEmptyTopics(), $noConversationsAnalysis,
-            );
-            return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
+            $this->logStage('Nothing to analyze: no conversation has messages from the contact.');
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'El archivo no tiene conversaciones con mensajes de tus contactos. '
+                    .'Revisa que sea el .zip que descargas con la extensión de WhatsApp.',
+            ]);
         }
 
         $researchRun = $researchRunService->update($researchRun, ['status' => 'analyzing']);
@@ -138,17 +135,13 @@ class WhatsAppConversationsResearchService
         $this->logStage('Conversations classified.', ['metrics' => $conversationsMetrics->toArray()]);
 
         if ($customerConversationsByKey->isEmpty()) {
-            $noCustomersAnalysis = new WhatsAppConversationsAnalysisDto(
-                matchesBrand: true,
-                mergedBrandFields: [],
-                summary: 'Ninguna de las conversaciones leídas es de un cliente.',
-                ownerVoice: null,
-                insights: [],
-            );
-            $this->saveInsightsAndReplacePreviousConversations(
-                $researchRun, collect(), $conversationsMetrics, $this->getEmptyTopics(), $noCustomersAnalysis,
-            );
-            return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
+            $this->logStage('Nothing to analyze: no conversation is from a customer.');
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'Ninguna de las conversaciones es de un cliente. '
+                    .'Revisa que hayas exportado los chats del teléfono de tu negocio.',
+            ]);
         }
 
         $knowledgeSourcesByKey = $this->saveCustomerConversations($brand, $customerConversationsByKey);
@@ -938,12 +931,6 @@ class WhatsAppConversationsResearchService
         ]);
 
         return $knowledgeInsights;
-    }
-
-
-    private function getEmptyTopics(): array
-    {
-        return array_fill_keys(self::TOPIC_CATEGORIES, []);
     }
 
 

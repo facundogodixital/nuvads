@@ -38,11 +38,17 @@
       @submit.prevent="saveSource"
     >
       <label
+        v-if="!isRecordingSource"
         :for="`${source.id}-${isFileSource ? 'file' : 'url'}`"
         class="spec-label mb-2 block"
       >{{ source.label }}</label>
-      <!-- Un archivo no se guarda en la marca: viaja con el pedido de análisis. -->
-      <template v-if="isFileSource">
+      <!-- Un audio o un archivo no se guardan en la marca: viajan con el pedido de análisis. -->
+      <BrandAudioRecorder
+        v-if="isRecordingSource"
+        v-model:recorded-audio="recordedAudio"
+        :is-disabled="activeRun !== null || isStartingAnalysis"
+      />
+      <template v-else-if="isFileSource">
         <input
           :id="`${source.id}-file`"
           ref="fileInput"
@@ -131,6 +137,7 @@
 
 <script setup>
 import BrandService from '@/services/BrandService';
+import BrandAudioRecorder from './BrandAudioRecorder.vue';
 import ResearchRunService from '@/services/ResearchRunService';
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 
@@ -172,6 +179,11 @@ const stageLabels = {
     scraping: 'Abriendo el archivo con tus chats…',
     analyzing: 'Leyendo las conversaciones con tus clientes…',
   },
+  audio: {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Transcribiendo tu audio…',
+    analyzing: 'Analizando lo que contaste…',
+  },
 };
 const analysisHints = {
   website: 'Leemos tu sitio y completamos la información de tu marca.',
@@ -179,6 +191,7 @@ const analysisHints = {
   'meta-ads': 'Leemos tus anuncios de Instagram y Facebook y completamos la información de tu marca. Puede tardar unos minutos.',
   'google-maps': 'Leemos hasta mil reseñas de tu negocio en Google y completamos la información de tu marca. Puede tardar unos minutos.',
   whatsapp: 'Leemos tus últimos 500 chats, nos quedamos solo con los de clientes y completamos la información de tu marca. Puede tardar unos minutos.',
+  audio: 'Pasamos tu audio a texto y completamos la información de tu marca. El audio no se guarda.',
 };
 const researchStatusLoaders = {
   website: ResearchRunService.getWebsiteResearchStatus,
@@ -186,6 +199,7 @@ const researchStatusLoaders = {
   'meta-ads': ResearchRunService.getMetaAdsResearchStatus,
   'google-maps': ResearchRunService.getGoogleReviewsResearchStatus,
   whatsapp: ResearchRunService.getWhatsAppConversationsResearchStatus,
+  audio: ResearchRunService.getAudioResearchStatus,
 };
 const researchTypes = {
   website: 'website',
@@ -200,17 +214,22 @@ const saveMessage = ref('');
 const analysisError = ref('');
 const fileInput = ref(null);
 const selectedFile = ref(null);
+const recordedAudio = ref(null);
 const researchStatus = ref(null);
 const sourceUrl = ref(props.savedValue);
 const isStartingAnalysis = ref(false);
 let pollingTimer = null;
 
 const isFileSource = computed(() => props.source.inputType === 'file');
+const isRecordingSource = computed(() => props.source.inputType === 'recording');
 const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
 const activeRun = computed(() => researchStatus.value?.active ?? null);
 const latestRun = computed(() => researchStatus.value?.latest ?? null);
-// Un enlace se analiza una vez guardado en la marca; un archivo, una vez elegido.
+// Un enlace se analiza una vez guardado en la marca; un archivo, una vez elegido, y un audio, una vez grabado.
 const isSourceReady = computed(() => {
+  if (isRecordingSource.value) {
+    return recordedAudio.value !== null;
+  }
   if (isFileSource.value) {
     return selectedFile.value !== null;
   }
@@ -236,8 +255,13 @@ const analysisMessage = computed(() => {
   if (activeRun.value) {
     return stageLabels[props.source.id][activeRun.value.status];
   }
-  if (latestRun.value?.status === 'failed') {
-    return latestRun.value.error_message;
+  // Una corrida que falló o que no encontró nada para analizar cuenta por qué.
+  const latestRunHasStatusMessage = ['failed', 'empty'].includes(latestRun.value?.status);
+  if (latestRunHasStatusMessage) {
+    return latestRun.value.status_message;
+  }
+  if (!isSourceReady.value && isRecordingSource.value) {
+    return 'Graba tu audio para analizarlo.';
   }
   if (!isSourceReady.value) {
     return isFileSource.value ? 'Elige el .zip con tus chats para analizarlo.' : 'Guarda el enlace para poder analizarlo.';
@@ -312,8 +336,11 @@ async function startAnalysis() {
   isStartingAnalysis.value = true;
 
   try {
-    // Por ahora el único archivo que se analiza es el zip de los chats de WhatsApp.
-    if (isFileSource.value) {
+    // El audio grabado y el zip de los chats de WhatsApp viajan con el pedido; los enlaces ya están en la marca.
+    if (isRecordingSource.value) {
+      await ResearchRunService.createAudioResearch(recordedAudio.value);
+      recordedAudio.value = null;
+    } else if (isFileSource.value) {
       await ResearchRunService.createWhatsAppConversationsResearch(selectedFile.value);
       clearSelectedFile();
     } else {

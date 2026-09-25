@@ -18,6 +18,7 @@ use App\Services\ResearchRunService;
 use App\Repositories\BrandRepository;
 use App\Repositories\ClientRepository;
 use App\Services\AdministratorService;
+use App\Services\AudioResearchService;
 use Illuminate\Support\ServiceProvider;
 use App\Services\KnowledgeSourceService;
 use App\Services\MetaAdsResearchService;
@@ -52,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(MetaAdsResearchService::class);
         $this->app->scoped(WhatsAppConversationsZipHelper::class);
         $this->app->scoped(WhatsAppConversationsResearchService::class);
+        $this->app->scoped(AudioResearchService::class);
         $this->app->scoped(ResearchRunRepository::class);
         $this->app->scoped(ResearchDispatcherService::class);
         $this->app->scoped(KnowledgeSourceService::class);

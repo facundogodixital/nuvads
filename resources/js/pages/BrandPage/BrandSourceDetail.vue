@@ -117,15 +117,13 @@
               :analysis="analysis"
               :posts="posts"
             />
-            <!-- Sin anuncios, el resumen ya lo dice y no hay números ni anuncios que mostrar. -->
             <BrandMetaAdsAnalysis
-              v-if="isMetaAds && ads.length"
+              v-if="isMetaAds"
               :analysis="analysis"
               :ads="ads"
             />
-            <!-- Sin reseñas, el resumen ya lo dice. -->
             <BrandGoogleReviewsAnalysis
-              v-if="isGoogleMaps && metricsInsight?.payload.reviews_count"
+              v-if="isGoogleMaps && metricsInsight"
               :analysis="analysis"
               :metrics-insight="metricsInsight"
               :pains="pains"
@@ -133,15 +131,19 @@
               :insights="insights"
               :reviews="reviews"
             />
-            <!-- Sin chats de clientes, el resumen ya lo dice. -->
             <BrandWhatsAppConversationsAnalysis
-              v-if="isWhatsApp && metricsInsight?.payload.contact_kinds.customer"
+              v-if="isWhatsApp && metricsInsight"
               :analysis="analysis"
               :metrics-insight="metricsInsight"
               :questions="questions"
               :objections="objections"
               :insights="insights"
               :conversations="conversations"
+            />
+            <BrandAudioAnalysis
+              v-if="isAudio && audio"
+              :analysis="analysis"
+              :audio="audio"
             />
           </template>
         </template>
@@ -183,6 +185,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
+import BrandAudioAnalysis from './BrandAudioAnalysis.vue';
 import BrandResearchPanel from './BrandResearchPanel.vue';
 import BrandMetaAdsAnalysis from './BrandMetaAdsAnalysis.vue';
 import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
@@ -200,6 +203,7 @@ const emit = defineEmits(['saved', 'analyzed']);
 const ads = ref([]);
 const pains = ref([]);
 const posts = ref([]);
+const audio = ref(null);
 const reviews = ref([]);
 const insights = ref([]);
 const questions = ref([]);
@@ -213,12 +217,6 @@ const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
 const exampleAnalyses = {
-  'audio': {
-    metrics: [],
-    findings: [
-      'Del audio sacamos tu historia, cómo trabajas y lo que te hace distinto.',
-    ],
-  },
   'files': {
     metrics: [
       { label: 'Fotos', value: '24' },
@@ -237,6 +235,7 @@ const emptyAnalysisMessages = {
   'meta-ads': 'Cuando analicemos tu página, acá vas a ver lo que aprendimos de tus anuncios.',
   'google-maps': 'Cuando analicemos tus reseñas, acá vas a ver lo que dicen tus clientes.',
   whatsapp: 'Cuando analicemos tus chats, acá vas a ver lo que te preguntan tus clientes.',
+  audio: 'Cuando analicemos tu audio, acá vas a ver lo que aprendimos de tu negocio.',
 };
 const insightsLoaders = {
   website: KnowledgeInsightService.getWebsiteInsights,
@@ -244,12 +243,14 @@ const insightsLoaders = {
   'meta-ads': KnowledgeInsightService.getMetaAdsInsights,
   'google-maps': KnowledgeInsightService.getGoogleReviewsInsights,
   whatsapp: KnowledgeInsightService.getWhatsAppConversationsInsights,
+  audio: KnowledgeInsightService.getAudioInsights,
 };
 
 const isInstagram = computed(() => props.source.id === 'instagram');
 const isMetaAds = computed(() => props.source.id === 'meta-ads');
 const isGoogleMaps = computed(() => props.source.id === 'google-maps');
 const isWhatsApp = computed(() => props.source.id === 'whatsapp');
+const isAudio = computed(() => props.source.id === 'audio');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
 const emptyAnalysisMessage = computed(() => emptyAnalysisMessages[props.source.id]);
 
@@ -268,8 +269,8 @@ async function loadInsights() {
     analysis.value = sourceInsights.analysis;
     insights.value = sourceInsights.insights;
     // Instagram trae los posteos que leyó; los anuncios de Meta, los anuncios; las reseñas de Google, sus métricas,
-    // quejas, fortalezas y las reseñas destacadas; y los chats de WhatsApp, sus métricas, preguntas, frenos y las
-    // conversaciones destacadas.
+    // quejas, fortalezas y las reseñas destacadas; los chats de WhatsApp, sus métricas, preguntas, frenos y las
+    // conversaciones destacadas; y el audio, su transcripción.
     posts.value = sourceInsights.posts ?? [];
     ads.value = sourceInsights.ads ?? [];
     pains.value = sourceInsights.pains ?? [];
@@ -279,6 +280,7 @@ async function loadInsights() {
     questions.value = sourceInsights.questions ?? [];
     objections.value = sourceInsights.objections ?? [];
     conversations.value = sourceInsights.conversations ?? [];
+    audio.value = sourceInsights.audio ?? null;
   } catch (error) {
     insightsError.value = error.message;
   } finally {

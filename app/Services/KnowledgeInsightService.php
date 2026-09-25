@@ -169,6 +169,22 @@ class KnowledgeInsightService
     }
 
 
+    // Lo que muestra la pantalla del audio: analysis, el análisis vigente con el resumen o null; insights, las
+    // conclusiones vigentes; y audio, la fuente con la transcripción que leyó ese análisis, o null.
+    public function getAudioInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, ['audio_analysis', 'audio_insight']);
+        $analysis = $knowledgeInsights->firstWhere('type', 'audio_analysis');
+        $audioIds = $analysis?->knowledge_source_ids ?? [];
+
+        return [
+            'analysis' => $analysis,
+            'insights' => $knowledgeInsights->where('type', 'audio_insight')->values(),
+            'audio' => resolve(KnowledgeSourceService::class)->findByIds($brand, $audioIds)->first(),
+        ];
+    }
+
+
     // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
     public function outdateActiveByType(Brand $brand, string $type): int
     {

@@ -91,21 +91,28 @@ class GoogleReviewsResearchService
         $googleTotalScore = $datasetItems[0]['totalScore'] ?? null;
         $googleReviewsCount = $datasetItems[0]['reviewsCount'] ?? null;
 
+        // Sin reseñas, o solo con estrellas, no hay nada para analizar: la investigación termina vacía antes de guardar
+        // nada, así las reseñas y el análisis anteriores siguen vigentes.
         if ($apifyReviews === []) {
-            $this->logStage('No reviews found.', ['datasetItems' => $datasetItems]);
-            $noReviewsMetrics = $this->getReviewsMetrics(
-                collect(), collect(), $googleTotalScore, $googleReviewsCount, [],
-            );
-            $noReviewsAnalysis = new GoogleReviewsAnalysisDto(
-                matchesBrand: true,
-                mergedBrandFields: [],
-                summary: 'Este lugar no tiene reseñas en Google.',
-                insights: [],
-            );
-            $this->saveInsightsAndReplacePreviousReviews(
-                $researchRun, collect(), $noReviewsMetrics, $this->getEmptyTopics(), $noReviewsAnalysis,
-            );
-            return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
+            $this->logStage('Nothing to analyze: no reviews found.', ['datasetItems' => $datasetItems]);
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'No encontramos reseñas en ese enlace. '
+                    .'Revisa que sea el de tu negocio en Google Maps.',
+            ]);
+        }
+        $hasReviewsWithText = collect($apifyReviews)->contains(
+            fn (array $apifyReview): bool => trim($apifyReview['text'] ?? '') !== '',
+        );
+        if (!$hasReviewsWithText) {
+            $this->logStage('Nothing to analyze: the reviews have no text.', ['reviews' => count($apifyReviews)]);
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'Las reseñas de tu negocio tienen solo estrellas, sin texto: '
+                    .'no hay nada para analizar.',
+            ]);
         }
 
         $knowledgeSources = $this->saveReviews($brand, $apifyReviews);
@@ -125,19 +132,6 @@ class GoogleReviewsResearchService
             'reviewsWithText' => $knowledgeSourcesWithText->count(),
             'metrics' => $reviewsMetrics->toArray(),
         ]);
-
-        if ($knowledgeSourcesWithText->isEmpty()) {
-            $noTextAnalysis = new GoogleReviewsAnalysisDto(
-                matchesBrand: true,
-                mergedBrandFields: [],
-                summary: 'Las reseñas de este lugar no tienen texto, solo estrellas.',
-                insights: [],
-            );
-            $this->saveInsightsAndReplacePreviousReviews(
-                $researchRun, $knowledgeSources, $reviewsMetrics, $this->getEmptyTopics(), $noTextAnalysis,
-            );
-            return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
-        }
 
         $rankedTopics = $this->getReviewTopics($knowledgeSourcesWithText, $timeRanges, $model);
         // Se relee la marca porque el usuario pudo editarla mientras corrían las llamadas externas.
@@ -1012,12 +1006,6 @@ class GoogleReviewsResearchService
         ]);
 
         return $knowledgeInsights;
-    }
-
-
-    private function getEmptyTopics(): array
-    {
-        return array_fill_keys(self::TOPIC_CATEGORIES, []);
     }
 
 
