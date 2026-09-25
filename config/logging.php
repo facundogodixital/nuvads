@@ -100,6 +100,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchWhatsAppConversationsJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchWhatsAppConversationsJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchWhatsAppConversationsJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchWhatsAppConversationsJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

@@ -14,7 +14,8 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:website,instagram,meta_ads,google_reviews'],
+            'type' => ['required', 'string', 'in:website,instagram,meta_ads,google_reviews,whatsapp_conversations'],
+            'zip_file' => ['required_if:type,whatsapp_conversations', 'file', 'mimes:zip'],
         ];
     }
 
@@ -24,6 +25,10 @@ class CreateResearchRunRequest extends AuthenticatedRequest
         return [
             'type.required' => 'Indica el tipo de investigación.',
             'type.in' => 'El tipo de investigación no es válido.',
+            'zip_file.required_if' => 'Sube el archivo .zip con tus conversaciones de WhatsApp.',
+            'zip_file.uploaded' => 'No se pudo subir el archivo. Revisa que no pese más de 20 MB.',
+            'zip_file.file' => 'No se pudo subir el archivo.',
+            'zip_file.mimes' => 'El archivo tiene que ser un .zip.',
         ];
     }
 
@@ -70,6 +75,7 @@ class CreateResearchRunRequest extends AuthenticatedRequest
                     'instagram' => 'Ya hay un análisis de Instagram en curso.',
                     'meta_ads' => 'Ya hay un análisis de tus anuncios en curso.',
                     'google_reviews' => 'Ya hay un análisis de tus reseñas de Google en curso.',
+                    'whatsapp_conversations' => 'Ya hay un análisis de tus conversaciones de WhatsApp en curso.',
                 ];
                 $validator->errors()->add('type', $activeResearchMessages[$type]);
                 return;

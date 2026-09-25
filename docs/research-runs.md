@@ -1,8 +1,8 @@
 # Investigaciones (`research_runs`)
 
-Una investigación lee una fuente externa de la marca (su sitio web, su Instagram, sus
-anuncios de Meta o sus reseñas de Google), guarda lo leído como fuentes, saca conclusiones con IA y mezcla lo
-aprendido con el perfil de la marca. La tabla `research_runs` registra cada una: cuándo se
+Una investigación lee una fuente de la marca (su sitio web, su Instagram, sus anuncios de Meta, sus
+reseñas de Google o un zip con sus conversaciones de WhatsApp), guarda lo leído como fuentes, saca conclusiones
+con IA y mezcla lo aprendido con el perfil de la marca. La tabla `research_runs` registra cada una: cuándo se
 pidió, con qué entrada, en qué etapa está, qué fuentes usó y cómo terminó.
 
 El modelo de fuentes, conclusiones y campos de la marca está en
@@ -22,9 +22,9 @@ Volver a investigar crea otra fila. Las anteriores quedan como historial.
 | --- | --- |
 | `id` | Identificador de la fila. |
 | `client_id`, `brand_id` | Cliente y marca investigados. |
-| `type` | Qué se investiga: `website`, `instagram`, `meta_ads` o `google_reviews`. |
+| `type` | Qué se investiga: `website`, `instagram`, `meta_ads`, `google_reviews` o `whatsapp_conversations`. |
 | `status` | Etapa actual. Ver "Estados". |
-| `input` | Entrada con la que se hizo la investigación, congelada al crearla, siempre con el modelo de IA en `model`. `website` guarda `url`; `instagram`, `username` y `posts_limit`; `meta_ads`, `url` (la página de Facebook) y `ads_limit`; `google_reviews`, `url` (el enlace de Google Maps) y `reviews_limit`. Cambiar después la marca o la configuración no altera investigaciones anteriores. |
+| `input` | Entrada con la que se hizo la investigación, congelada al crearla, siempre con el modelo de IA en `model`. `website` guarda `url`; `instagram`, `username` y `posts_limit`; `meta_ads`, `url` (la página de Facebook) y `ads_limit`; `google_reviews`, `url` (el enlace de Google Maps) y `reviews_limit`; `whatsapp_conversations`, `zip_path` (el zip subido, que el job borra al leerlo) y `conversations_limit`. Cambiar después la marca o la configuración no altera investigaciones anteriores. |
 | `knowledge_source_ids` | IDs de las fuentes usadas, por ejemplo `[41, 42, 43]`. No hay tabla puente ni claves foráneas; al leerlas se filtran por marca. |
 | `started_at` | Cuándo empezó a trabajarse. |
 | `finished_at` | Cuándo terminó, bien o mal. |
@@ -49,9 +49,9 @@ investigación activa por marca y tipo.
 ## Relación con el resto del conocimiento
 
 - Fuentes: `knowledge_source_ids` lista el material usado; cada página leída, posteo
-  de Instagram, anuncio de Meta o reseña de Google es una fuente. Cada investigación guarda sus
-  propias fuentes. Las reseñas son la excepción: una investigación que termina bien borra las de
-  las anteriores.
+  de Instagram, anuncio de Meta, reseña de Google o conversación de WhatsApp con un cliente es una
+  fuente. Cada investigación guarda sus propias fuentes. Las reseñas y las conversaciones son la
+  excepción: una investigación que termina bien borra las de las anteriores.
 - Conclusiones: `knowledge_insights.research_run_id` apunta a la investigación que las generó.
 - Una investigación fallida puede haber dejado fuentes y conclusiones guardadas;
   siguen siendo válidas.
@@ -63,10 +63,11 @@ investigación activa por marca y tipo.
 
 ## Cómo corre una investigación
 
-Las cuatro investigaciones siguen el mismo recorrido:
+Las cinco investigaciones siguen el mismo recorrido:
 
 - Se piden con `POST /api/research-runs`, body `{"type":"<tipo>"}`. La entrada sale de la marca y
-  de `config/research.php`; si falta el dato de la fuente en la marca, el pedido se rechaza.
+  de `config/research.php`; si falta el dato de la fuente en la marca, el pedido se rechaza. Las
+  conversaciones de WhatsApp se piden con un formulario multipart que suma el zip en `zip_file`.
 - La ejecución y su job se guardan en la misma transacción: la queue es `database`, en la misma
   base de la aplicación. El job corre en `research_queue`, con un intento.
 - Cada tipo tiene un job y un service: el job carga la ejecución y llama a `research()` del
@@ -77,12 +78,15 @@ Las cuatro investigaciones siguen el mismo recorrido:
   error completo queda en los logs. Se repite creando otra.
 - Cada investigación deja un análisis (`<tipo>_analysis`, o `website_brand_analysis`) y hasta
   siete conclusiones (`<tipo>_insight`), y las conclusiones activas anteriores del mismo tipo
-  pasan a `outdated`. Las reseñas de Google dejan más tipos; ver su sección. Mezcla lo aprendido
-  con los campos de la marca sin borrar nada.
+  pasan a `outdated`. Las reseñas de Google y las conversaciones de WhatsApp dejan más tipos; ver
+  sus secciones. Mezcla lo aprendido con los campos de la marca, como explica
+  [knowledge-model.md](knowledge-model.md#campos-de-la-marca), salvo que el análisis diga que la
+  fuente es de otro negocio: entonces no toca la marca.
 - La pantalla de cada fuente usa `GET /api/research-runs/<fuente>/status`, que devuelve `active`,
   `latest` y `last_completed`, y `GET /api/knowledge-insights/<fuente>`, que devuelve `analysis`,
   el análisis vigente o `null`, e `insights`, las conclusiones vigentes (`active` y
-  `superseded`). `<fuente>` es `website`, `instagram`, `meta-ads` o `google-reviews`.
+  `superseded`). `<fuente>` es `website`, `instagram`, `meta-ads`, `google-reviews` o
+  `whatsapp-conversations`.
   `GET /api/research-runs/{id}` devuelve una ejecución con sus fuentes y conclusiones.
 - Las consultas a OpenAI (`gpt-6-luna`, configurable en `config/research.php`) piden un JSON y
   lo validan solo en lo que el código lee. El log guarda el pedido completo y la respuesta.
@@ -200,9 +204,10 @@ Qué cambia cuando una corrida termina bien:
   usuario corrigió (`superseded`) o rechazó (`rejected`) no se tocan.
 - Se borran, con soft delete, las reseñas de corridas anteriores, también las que dejó una corrida
   fallida.
-- Se mezclan ocho campos de la marca: el modelo recibe su texto actual y devuelve lo que ya decía
-  más lo que muestran las reseñas. Un campo que vuelve vacío no borra nada. Qué campos, en
-  [knowledge-model.md](knowledge-model.md#campos-de-la-marca).
+- Se mezclan ocho campos de la marca: el modelo recibe su texto actual y lo reescribe integrando lo
+  que muestran las reseñas. Un campo que vuelve vacío no borra nada. Qué campos, en
+  [knowledge-model.md](knowledge-model.md#campos-de-la-marca). Las cantidades de menciones van en el
+  resumen y las conclusiones; en los campos, solo en las preguntas frecuentes, cuando se puede.
 
 Si la corrida falla, queda en `failed` y sus reseñas quedan guardadas hasta la próxima corrida que
 termine bien. No se invalida ni se borra nada, y la marca no se toca.
@@ -211,3 +216,57 @@ termine bien. No se invalida ni se borra nada, y la marca no se toca.
 `insights` y `reviews`: solo las reseñas destacadas de esas filas. La pantalla muestra esas reseñas
 debajo de cada queja, elogio o conclusión. Ver todas las reseñas de un tema queda pendiente: necesita
 un listado paginado, y el botón "Ver las N reseñas" dice "Resta implementar".
+
+## Conversaciones de WhatsApp (`whatsapp_conversations`)
+
+`ResearchWhatsAppConversationsJob` llama a `WhatsAppConversationsResearchService`. Requiere el zip que
+arma la extensión de WhatsApp y `OPENAI_API_KEY`. El zip pesa hasta 20 MB: ese es el límite de subida
+de PHP (`docker/php/development.ini`) y de nginx (`docker/nginx/default.conf`). El timeout del job es
+el `retry_after` de la conexión menos 60 segundos.
+
+El zip trae un `.txt` por conversación: un encabezado con `# Teléfono` y `# Contacto`, y después un
+mensaje por línea, como `[2026-06-29 13:52] Yo: Hola`. "Yo" es siempre el dueño del teléfono; cualquier
+otro autor es el contacto. Una línea sin fecha sigue el mensaje anterior. `WhatsAppConversationsZipHelper`
+lo lee.
+
+1. Se guarda en `storage/app/private/whatsapp-conversations/`, con nombre aleatorio, y su ruta queda
+   en `input.zip_path`. El job lo lee y lo borra enseguida, también si la lectura falla: trae todos los
+   chats del teléfono, también los personales. Si no se puede crear la ejecución, se borra ahí mismo.
+2. Toma las conversaciones en que el contacto escribió algo, de la más reciente a la más vieja, hasta
+   `whatsapp_conversations.conversations_limit`. Si no hay ninguna, la investigación termina en
+   `completed` sin consultar al modelo ni tocar la marca, con métricas y un análisis que lo dicen.
+3. El modelo lee las conversaciones en tandas de 30, cada una con una clave (`c12`), el contacto y sus
+   mensajes: uno por línea, con quién escribe (`Negocio` o `Contacto`) y la fecha una sola vez por día,
+   sin la hora, porque los tiempos los calcula PHP. En la misma consulta clasifica cada contacto
+   (`customer`, `supplier`, `personal` u `other`) y saca, solo de las conversaciones de clientes, los
+   temas por categoría con las claves que los mencionan: `questions` (preguntas), `objections` (lo que
+   frena la compra), `products`, `purposes` (para qué los quieren), `acquisition` (cómo llegaron) y
+   `customer_phrases` (frases textuales). En las preguntas y los frenos suma `owner_answer`, lo que
+   responde el negocio. PHP descarta las claves que no son de clientes de la tanda y los temas que se
+   quedan sin ninguna. Una tanda que falla se saltea; solo si fallan todas, falla la investigación. El
+   log de cada tanda no guarda el texto de los mensajes, porque trae también chats personales: de cada
+   conversación deja la clave, el contacto y la cantidad de mensajes.
+4. Calcula las métricas en PHP. Si ninguna conversación es de un cliente, termina como en el paso 2.
+5. Guarda como fuentes solo las conversaciones de clientes, y traduce las claves a
+   `knowledge_source_ids`.
+6. Si hubo más de una tanda, el modelo unifica los temas como en las reseñas. De cada grupo queda la
+   respuesta del negocio del tema con más conversaciones. No hay un mínimo de menciones: un tema de
+   una sola conversación también queda.
+7. Un análisis final recibe las métricas, los temas con su clave, los 30 mensajes más recientes del
+   negocio y el texto actual de cuatro campos de la marca. Devuelve los campos mezclados, un resumen,
+   `owner_voice` (cómo les escribe el negocio a sus clientes) y las conclusiones que tengan respaldo,
+   sin un número fijo, cada una con las claves de los temas en que se apoya.
+8. En una transacción, las filas activas anteriores de los cinco tipos pasan a `outdated`, se guardan
+   las nuevas y se borran las conversaciones de corridas anteriores. Después se mezclan los campos de
+   la marca.
+
+El tiempo de respuesta se mide por turno: un turno del cliente empieza cuando abre la conversación o
+escribe después del negocio, y termina con el próximo mensaje del negocio. No se descuentan las horas
+fuera de horario, y los turnos sin respuesta no entran en la mediana. Las fechas son las del teléfono,
+sin zona horaria.
+
+Si la corrida falla, queda en `failed` y el zip ya está borrado: para repetirla, se sube uno nuevo.
+Las conversaciones que alcanzó a guardar quedan hasta la próxima corrida que termine bien.
+
+`GET /api/knowledge-insights/whatsapp-conversations` devuelve `metrics`, `analysis`, `questions`,
+`objections`, `insights` y `conversations`: solo las conversaciones destacadas de esas filas.

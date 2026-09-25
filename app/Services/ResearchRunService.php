@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\ResearchRun;
 use App\Exceptions\ApiException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Repositories\ResearchRunRepository;
 use App\Services\Dispatchers\ResearchDispatcherService;
 
@@ -71,6 +72,12 @@ class ResearchRunService
                 'model' => config('research.google_reviews.analysis_model'), // gpt-6-luna
                 'reviews_limit' => config('research.google_reviews.reviews_limit'),
             ],
+            'whatsapp_conversations' => [
+                // El zip queda en el disco local hasta que el job lo lee y lo borra.
+                'zip_path' => $attributes['zip_file']->store('whatsapp-conversations', 'local'),
+                'model' => config('research.whatsapp_conversations.analysis_model'), // gpt-6-luna
+                'conversations_limit' => config('research.whatsapp_conversations.conversations_limit'),
+            ],
         };
 
         DB::beginTransaction();
@@ -88,10 +95,18 @@ class ResearchRunService
                 'instagram' => $researchDispatcherService->dispatchResearchInstagramJob($researchRun->id),
                 'meta_ads' => $researchDispatcherService->dispatchResearchMetaAdsJob($researchRun->id),
                 'google_reviews' => $researchDispatcherService->dispatchResearchGoogleReviewsJob($researchRun->id),
+                'whatsapp_conversations' => $researchDispatcherService->dispatchResearchWhatsAppConversationsJob(
+                    $researchRun->id,
+                ),
             };
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();
+            // Sin ejecución, ningún job borraría el zip, que trae también los chats personales.
+            $hasStoredZip = isset($input['zip_path']);
+            if ($hasStoredZip) {
+                Storage::disk('local')->delete($input['zip_path']);
+            }
             throw $exception;
         }
 
@@ -159,6 +174,18 @@ class ResearchRunService
             'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'google_reviews'),
             'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'google_reviews'),
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'google_reviews'),
+        ];
+    }
+
+
+    public function getWhatsAppConversationsResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'whatsapp_conversations'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'whatsapp_conversations'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand(
+                $brand, 'whatsapp_conversations',
+            ),
         ];
     }
 

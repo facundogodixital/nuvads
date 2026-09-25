@@ -196,6 +196,7 @@ class GoogleReviewsResearchTest extends TestCase
         }
 
         return Http::response($this->openAiResponse([
+            'matches_brand' => true,
             'brand' => [
                 'brand_offer_description' => null,
                 'brand_customers_description' => null,

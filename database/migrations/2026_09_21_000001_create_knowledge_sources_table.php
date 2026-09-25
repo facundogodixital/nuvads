@@ -19,7 +19,7 @@ return new class() extends Migration
             $table->enum('type', [
                 'audio',
                 'google_review',
-                'whatsapp_export',
+                'whatsapp_conversation',
                 'instagram_post',
                 'web_page',
                 'meta_ad',

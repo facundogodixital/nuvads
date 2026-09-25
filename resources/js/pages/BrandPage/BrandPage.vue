@@ -186,8 +186,9 @@ const brandSections = [
   },
 ];
 
-// Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca;
-// las que no, todavía no tienen backend y muestran un análisis de ejemplo.
+// Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca, y las de inputType
+// file suben un archivo con el pedido de análisis. Las que no son analizables todavía no tienen backend y muestran un
+// análisis de ejemplo.
 const researchSources = [
   {
     id: 'website', group: 'links', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
@@ -214,7 +215,9 @@ const researchSources = [
     icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   },
   {
-    id: 'whatsapp', group: 'files', field: null, title: 'Chats de WhatsApp', description: 'Cómo hablas con tus clientes',
+    id: 'whatsapp', group: 'files', field: null, title: 'Chats de WhatsApp', description: 'Lo que te preguntan tus clientes',
+    label: 'Archivo .zip con tus chats', inputType: 'file', isAnalyzable: true,
+    resultLabel: 'Preguntas y clientes',
     icon: 'M4 20l1.5-4A8 8 0 1 1 8 18.5L4 20Z',
   },
   {

@@ -19,6 +19,10 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
         Route::get(
             'research-runs/google-reviews/status', [ResearchRunController::class, 'getGoogleReviewsResearchStatus'],
         );
+        Route::get(
+            'research-runs/whatsapp-conversations/status',
+            [ResearchRunController::class, 'getWhatsAppConversationsResearchStatus'],
+        );
         Route::get('research-runs/{researchRunId}', [ResearchRunController::class, 'find'])
             ->whereNumber('researchRunId');
 
@@ -27,6 +31,10 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
         Route::get('knowledge-insights/meta-ads', [KnowledgeInsightController::class, 'getMetaAdsInsights']);
         Route::get(
             'knowledge-insights/google-reviews', [KnowledgeInsightController::class, 'getGoogleReviewsInsights'],
+        );
+        Route::get(
+            'knowledge-insights/whatsapp-conversations',
+            [KnowledgeInsightController::class, 'getWhatsAppConversationsInsights'],
         );
 
         Route::get('brand', [BrandController::class, 'find']);

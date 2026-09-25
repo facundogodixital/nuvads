@@ -38,4 +38,13 @@ class KnowledgeInsightController extends ApiController
         return $this->respond($googleReviewsInsights);
     }
 
+
+    public function getWhatsAppConversationsInsights(AuthenticatedRequest $request): JsonResponse
+    {
+        $whatsAppConversationsInsights = resolve(KnowledgeInsightService::class)->getWhatsAppConversationsInsights(
+            $request->brand,
+        );
+        return $this->respond($whatsAppConversationsInsights);
+    }
+
 }

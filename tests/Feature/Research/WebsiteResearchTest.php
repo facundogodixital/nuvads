@@ -535,6 +535,7 @@ class WebsiteResearchTest extends TestCase
         ];
 
         return [
+            'matches_brand' => true,
             'brand' => [...$brand, ...$brandValues],
             'inferred_fields' => [],
             'summary' => 'Vivero online.',

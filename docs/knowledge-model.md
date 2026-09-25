@@ -1,6 +1,6 @@
 # Modelo de conocimiento
 
-Nota de diseño iniciada el 20/09/2026 y actualizada el 24/09/2026. Estos acuerdos no autorizan crear
+Nota de diseño iniciada el 20/09/2026 y actualizada el 25/09/2026. Estos acuerdos no autorizan crear
 tablas, campos ni migraciones nuevas.
 
 Lo que el sistema sabe de una marca vive en tres lugares: las fuentes (el material leído), las
@@ -10,7 +10,7 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
 ## Tablas
 
 - `knowledge_sources`: material original ingresado al sistema. Cada página web leída, posteo de
-  Instagram, anuncio de Meta o reseña de Google es una fuente.
+  Instagram, anuncio de Meta, reseña de Google o conversación de WhatsApp con un cliente es una fuente.
 - `knowledge_insights`: conclusiones; nivel 1 derivado de una o más fuentes y nivel 2 derivado de
   conclusiones de nivel 1.
 
@@ -45,8 +45,15 @@ usuario). Cómo se generan está en [research-runs.md](research-runs.md).
   `context` (datos como el tipo de servicio o el precio por persona); los dos últimos en null cuando la
   reseña no los tiene. No guarda el ítem de Apify. A diferencia de las otras fuentes, una investigación
   nueva reemplaza las reseñas anteriores de la marca: las borra al terminar bien.
+- `whatsapp_conversation`: una conversación de WhatsApp con un cliente, sacada del zip que sube el
+  usuario. Solo se guardan las de clientes: las de proveedores, las personales y el resto se descartan.
+  `title` es el contacto como lo tiene agendado el dueño, o su teléfono, y `source_ref` el enlace
+  `https://wa.me/<teléfono>`. `payload` guarda `phone`, `contact_name` y `messages`: cada mensaje con
+  `sent_at` (`Y-m-d H:i`, en la hora del teléfono), `is_from_owner` y `text`. Los audios, imágenes y
+  demás llegan como marcadores del export, por ejemplo `<nota de voz enviada>`. Como las reseñas, una
+  investigación nueva reemplaza las conversaciones anteriores de la marca al terminar bien.
 
-El esquema prevé además `audio`, `whatsapp_export`, `image` y `adjustment`, todavía sin uso.
+El esquema prevé además `audio`, `image` y `adjustment`, todavía sin uso.
 
 Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días: el análisis las usa
 en el momento, y cuando ya no cargan la pantalla muestra el ícono del formato o un aviso.
@@ -88,7 +95,9 @@ tipo pasan a `outdated`. Las `superseded` y las `rejected` no se tocan.
 ### Tipos de conclusión
 
 Las investigaciones del sitio web, de Instagram y de anuncios dejan un análisis y de 0 a 7 conclusiones,
-todos de nivel 1 y apuntando a las fuentes que leyó. La de reseñas de Google deja más tipos; ver abajo.
+todos de nivel 1 y apuntando a las fuentes que leyó. Las de reseñas de Google y de conversaciones de
+WhatsApp dejan más tipos; ver abajo. El `payload` de todos los análisis guarda además `matches_brand`: si la
+fuente parece de la marca. Ver "Campos de la marca".
 
 - `website_brand_analysis`: una fila por investigación del sitio web. `body` es un resumen de la marca y
   `payload` guarda la respuesta completa del análisis (`brand`, `inferred_fields`, `summary` e
@@ -131,39 +140,74 @@ Las reseñas de Google dejan cinco tipos, todos de nivel 1:
 Todas las filas de una corrida de reseñas apuntan a las reseñas de esa corrida. Cuando una corrida nueva
 las reemplaza, las filas anteriores quedan apuntando a reseñas borradas.
 
+Las conversaciones de WhatsApp también dejan cinco tipos, todos de nivel 1. Apuntan a las conversaciones
+de clientes de su corrida, y cuando una corrida nueva las reemplaza pasa lo mismo que con las reseñas.
+
+- `whatsapp_conversations_metrics`: una fila por investigación con las métricas, que calcula PHP: `model`
+  queda en null y `body` es un texto fijo. `payload` guarda `conversations_count` (las que trajo el zip),
+  `analyzed_conversations_count` (las que se leyeron), `contact_kinds` (cuántas son `customer`,
+  `supplier`, `personal` u `other`) y, solo sobre las conversaciones de clientes,
+  `customer_messages_count`, `customer_messages_by_hour` (24 valores, de 0 a 23),
+  `customer_messages_by_weekday` (7 valores, de lunes a domingo), `median_owner_response_minutes`,
+  `answered_within_5_minutes_share`, `voice_notes_share` (qué parte de los mensajes son audios),
+  `owner_top_emojis` (hasta cinco, de más a menos usado), `oldest_message_at` y `newest_message_at`.
+- `whatsapp_conversations_brand_analysis`: una fila por investigación. `body` es un resumen de lo que
+  muestran las conversaciones y `payload` guarda los campos mezclados en `brand`, `summary`, `owner_voice`
+  (cómo les escribe el negocio a sus clientes, que no se mezcla con la marca) y los datos de apoyo en
+  `products`, `purposes` (para qué compran), `acquisition` (cómo llegaron) y `customer_phrases` (frases
+  textuales de los clientes), cada uno como lista de temas con `topic`, `knowledge_source_ids` y
+  `mentions_count`.
+- `whatsapp_conversations_question` y `whatsapp_conversations_objection`: una fila por pregunta frecuente
+  o por cosa que frena la compra. `body` es el tema y `knowledge_source_ids`, las conversaciones que lo
+  mencionan. `payload` guarda `mentions_count`, `mentions_share` (qué parte de las conversaciones de
+  clientes lo menciona), `owner_answer` (lo que suele responder el negocio, o null) y `highlight_ids`
+  (hasta tres conversaciones, las más recientes, para mostrar como referencia).
+- `whatsapp_conversations_insight`: las conclusiones que cruzan datos y tienen respaldo, sin un número
+  fijo. Apuntan a las conversaciones de los temas en que se apoyan, o a todas si salen solo de las
+  métricas, y `payload` guarda sus `highlight_ids`.
+
 ## Campos de la marca
 
-Las investigaciones completan el perfil de la marca sin borrar nada:
+Las investigaciones completan el perfil de la marca, y ninguna tiene que correr antes que otra:
 
-- Los campos de texto se mezclan: el modelo recibe el texto actual de cada campo, conserva todo lo que
-  dice y suma o precisa lo que muestra la fuente. Si la fuente no aporta nada, devuelve el texto
-  actual; si el campo está vacío, lo completa solo con evidencia. Lo que el modelo devuelve vacío no
-  borra nada.
+- Los campos de texto se mezclan: el modelo recibe el texto actual de cada campo y lo reescribe
+  completo, como un solo texto. Conserva lo que dice aunque la fuente no lo mencione, porque puede
+  venir del usuario o de otra fuente, y reemplaza lo que la fuente muestra mejor o más actualizado.
+  No suma un párrafo por fuente ni cuenta de dónde sale cada dato o qué falta. Si la fuente no aporta
+  nada, devuelve el texto actual; si el campo está vacío, lo completa solo con evidencia. Lo que el
+  modelo devuelve vacío no borra nada.
+- Lo que más valoran los clientes sale solo de lo que dicen ellos, en reseñas o testimonios: lo que
+  la marca dice de sí misma no va en ese campo. Las preguntas frecuentes van una por línea, con su
+  respuesta.
 - El nombre y la identidad visual (logo, colores y fuentes) solo se completan si la marca no los
   tiene, para no pisar lo que eligió el usuario.
+- El análisis final recibe también el nombre de la marca y responde en `matches_brand` si la fuente es de
+  ese negocio. Si la fuente es claramente de otro, por ejemplo con otro nombre o de otro rubro, no se guarda
+  ningún campo de la marca. La investigación termina igual, el análisis guarda `matches_brand` en su
+  `payload` y la pantalla avisa que no se tocó el perfil.
 - El texto actual se lee justo antes de la consulta final. Si el usuario edita un campo de texto
   mientras el modelo responde, se guarda lo que devuelve el modelo.
 
 Qué campos toca cada investigación:
 
-| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google |
-| --- | --- | --- | --- | --- |
-| `name` | Si está vacío | | | |
-| `brand_offer_description` | Mezcla | | Mezcla | Mezcla |
-| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla |
-| `brand_history_description` | Mezcla | | | |
-| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | |
-| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla |
-| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla |
-| `brand_customers_faq_description` | Mezcla | | | Mezcla |
-| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | |
-| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla |
-| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | |
+| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp |
+| --- | --- | --- | --- | --- | --- |
+| `name` | Si está vacío | | | | |
+| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | |
+| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | |
+| `brand_history_description` | Mezcla | | | | |
+| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla |
+| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | |
+| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | |
+| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | |
+| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla |
+| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | |
+| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla |
+| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | |
 
-Las pantallas de Instagram, de anuncios y de reseñas muestran qué campos del perfil actualizó su último análisis:
-los que el modelo devolvió con texto en `payload.brand`.
+Las pantallas de Instagram, de anuncios, de reseñas y de chats de WhatsApp muestran qué campos del perfil actualizó
+su último análisis: los que el modelo devolvió con texto en `payload.brand`.
 
 ## Pendiente
 

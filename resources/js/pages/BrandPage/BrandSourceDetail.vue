@@ -10,7 +10,7 @@
     <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
       <!-- En escritorio el panel acompaña el scroll, porque lo aprendido puede ser largo. -->
       <BrandResearchPanel
-        v-if="source.field"
+        v-if="source.isAnalyzable"
         class="lg:sticky lg:top-0"
         :source="source"
         :saved-value="brand[source.field] ?? ''"
@@ -76,13 +76,22 @@
             {{ emptyAnalysisMessage }}
           </p>
           <template v-else>
+            <!-- El análisis se guardó igual, pero el perfil de la marca no se tocó. -->
+            <p
+              v-if="analysis.payload?.matches_brand === false"
+              role="status"
+              class="mb-4 rounded-sm bg-warning-soft p-4 text-sm leading-6 text-warning"
+            >
+              Esta fuente no parece de {{ brand.name }}, así que no tocamos tu perfil de marca. Revisa que hayas elegido la
+              marca correcta.
+            </p>
             <p class="rounded-sm bg-accent-soft p-4 leading-7">
               {{ getInsightText(analysis) }}
             </p>
 
-            <!-- Las reseñas de Google muestran sus conclusiones junto a las reseñas que las respaldan. -->
+            <!-- Las reseñas de Google y los chats de WhatsApp muestran sus conclusiones junto a lo que las respalda. -->
             <section
-              v-if="insights.length && !isGoogleMaps"
+              v-if="insights.length && !isGoogleMaps && !isWhatsApp"
               class="mt-8"
               aria-labelledby="source-insights-heading"
             >
@@ -123,6 +132,16 @@
               :strengths="strengths"
               :insights="insights"
               :reviews="reviews"
+            />
+            <!-- Sin chats de clientes, el resumen ya lo dice. -->
+            <BrandWhatsAppConversationsAnalysis
+              v-if="isWhatsApp && metricsInsight?.payload.contact_kinds.customer"
+              :analysis="analysis"
+              :metrics-insight="metricsInsight"
+              :questions="questions"
+              :objections="objections"
+              :insights="insights"
+              :conversations="conversations"
             />
           </template>
         </template>
@@ -168,6 +187,7 @@ import BrandResearchPanel from './BrandResearchPanel.vue';
 import BrandMetaAdsAnalysis from './BrandMetaAdsAnalysis.vue';
 import BrandInstagramAnalysis from './BrandInstagramAnalysis.vue';
 import BrandGoogleReviewsAnalysis from './BrandGoogleReviewsAnalysis.vue';
+import BrandWhatsAppConversationsAnalysis from './BrandWhatsAppConversationsAnalysis.vue';
 import KnowledgeInsightService from '@/services/KnowledgeInsightService';
 
 const props = defineProps({
@@ -182,7 +202,10 @@ const pains = ref([]);
 const posts = ref([]);
 const reviews = ref([]);
 const insights = ref([]);
+const questions = ref([]);
 const strengths = ref([]);
+const objections = ref([]);
+const conversations = ref([]);
 const metricsInsight = ref(null);
 const analysis = ref(null);
 const insightsError = ref('');
@@ -190,17 +213,6 @@ const isLoadingInsights = ref(false);
 
 // Datos de ejemplo para ver la estructura de las fuentes que todavía no tienen análisis real.
 const exampleAnalyses = {
-  'whatsapp': {
-    metrics: [
-      { label: 'Chats analizados', value: '2' },
-      { label: 'Mensajes', value: '640' },
-    ],
-    findings: [
-      'Pregunta frecuente: ¿hacen envíos a domicilio?',
-      'Pregunta frecuente: ¿cuánto demora un pedido personalizado?',
-      'Frase tuya que se repite: "te lo dejo listo para el finde".',
-    ],
-  },
   'audio': {
     metrics: [],
     findings: [
@@ -224,17 +236,20 @@ const emptyAnalysisMessages = {
   instagram: 'Cuando analicemos tu perfil, acá vas a ver lo que aprendimos de tus posteos.',
   'meta-ads': 'Cuando analicemos tu página, acá vas a ver lo que aprendimos de tus anuncios.',
   'google-maps': 'Cuando analicemos tus reseñas, acá vas a ver lo que dicen tus clientes.',
+  whatsapp: 'Cuando analicemos tus chats, acá vas a ver lo que te preguntan tus clientes.',
 };
 const insightsLoaders = {
   website: KnowledgeInsightService.getWebsiteInsights,
   instagram: KnowledgeInsightService.getInstagramInsights,
   'meta-ads': KnowledgeInsightService.getMetaAdsInsights,
   'google-maps': KnowledgeInsightService.getGoogleReviewsInsights,
+  whatsapp: KnowledgeInsightService.getWhatsAppConversationsInsights,
 };
 
 const isInstagram = computed(() => props.source.id === 'instagram');
 const isMetaAds = computed(() => props.source.id === 'meta-ads');
 const isGoogleMaps = computed(() => props.source.id === 'google-maps');
+const isWhatsApp = computed(() => props.source.id === 'whatsapp');
 const exampleAnalysis = computed(() => exampleAnalyses[props.source.id]);
 const emptyAnalysisMessage = computed(() => emptyAnalysisMessages[props.source.id]);
 
@@ -252,14 +267,18 @@ async function loadInsights() {
     const sourceInsights = await insightsLoaders[props.source.id]();
     analysis.value = sourceInsights.analysis;
     insights.value = sourceInsights.insights;
-    // Instagram trae los posteos que leyó; los anuncios de Meta, los anuncios; y las reseñas de Google, sus métricas,
-    // quejas, fortalezas y las reseñas destacadas.
+    // Instagram trae los posteos que leyó; los anuncios de Meta, los anuncios; las reseñas de Google, sus métricas,
+    // quejas, fortalezas y las reseñas destacadas; y los chats de WhatsApp, sus métricas, preguntas, frenos y las
+    // conversaciones destacadas.
     posts.value = sourceInsights.posts ?? [];
     ads.value = sourceInsights.ads ?? [];
     pains.value = sourceInsights.pains ?? [];
     reviews.value = sourceInsights.reviews ?? [];
     strengths.value = sourceInsights.strengths ?? [];
     metricsInsight.value = sourceInsights.metrics ?? null;
+    questions.value = sourceInsights.questions ?? [];
+    objections.value = sourceInsights.objections ?? [];
+    conversations.value = sourceInsights.conversations ?? [];
   } catch (error) {
     insightsError.value = error.message;
   } finally {

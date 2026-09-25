@@ -138,6 +138,40 @@ class KnowledgeInsightService
     }
 
 
+    // Lo que muestra la pantalla de las conversaciones de WhatsApp: metrics y analysis, las métricas y el análisis
+    // vigentes o null; questions, objections e insights, las preguntas, los frenos y las conclusiones vigentes; y
+    // conversations, solo las conversaciones destacadas de esas filas (highlight_ids en su payload).
+    public function getWhatsAppConversationsInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, [
+            'whatsapp_conversations_metrics',
+            'whatsapp_conversations_insight',
+            'whatsapp_conversations_question',
+            'whatsapp_conversations_objection',
+            'whatsapp_conversations_brand_analysis',
+        ]);
+        $insights = $knowledgeInsights->where('type', 'whatsapp_conversations_insight')->values();
+        $questions = $knowledgeInsights->where('type', 'whatsapp_conversations_question')->values();
+        $objections = $knowledgeInsights->where('type', 'whatsapp_conversations_objection')->values();
+        $highlightedKnowledgeSourceIds = $questions->concat($objections)->concat($insights)
+            ->flatMap(fn (KnowledgeInsight $knowledgeInsight): array => $knowledgeInsight->payload['highlight_ids'])
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'insights' => $insights,
+            'questions' => $questions,
+            'objections' => $objections,
+            'metrics' => $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_metrics'),
+            'analysis' => $knowledgeInsights->firstWhere('type', 'whatsapp_conversations_brand_analysis'),
+            'conversations' => resolve(KnowledgeSourceService::class)->findByIds(
+                $brand, $highlightedKnowledgeSourceIds,
+            ),
+        ];
+    }
+
+
     // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
     public function outdateActiveByType(Brand $brand, string $type): int
     {

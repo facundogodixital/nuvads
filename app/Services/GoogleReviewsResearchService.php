@@ -97,6 +97,7 @@ class GoogleReviewsResearchService
                 collect(), collect(), $googleTotalScore, $googleReviewsCount, [],
             );
             $noReviewsAnalysis = new GoogleReviewsAnalysisDto(
+                matchesBrand: true,
                 mergedBrandFields: [],
                 summary: 'Este lugar no tiene reseñas en Google.',
                 insights: [],
@@ -127,6 +128,7 @@ class GoogleReviewsResearchService
 
         if ($knowledgeSourcesWithText->isEmpty()) {
             $noTextAnalysis = new GoogleReviewsAnalysisDto(
+                matchesBrand: true,
                 mergedBrandFields: [],
                 summary: 'Las reseñas de este lugar no tienen texto, solo estrellas.',
                 insights: [],
@@ -147,7 +149,12 @@ class GoogleReviewsResearchService
         $this->saveInsightsAndReplacePreviousReviews(
             $researchRun, $knowledgeSources, $reviewsMetrics, $rankedTopics, $reviewsAnalysis,
         );
-        $this->saveMergedBrandFields($brand, $reviewsAnalysis->mergedBrandFields);
+        // Si la fuente es de otro negocio, el perfil de la marca no se toca.
+        if ($reviewsAnalysis->matchesBrand) {
+            $this->saveMergedBrandFields($brand, $reviewsAnalysis->mergedBrandFields);
+        } else {
+            $this->logStage('Brand fields not saved: the source does not match the brand.');
+        }
 
         return $researchRunService->update($researchRun, ['status' => 'completed', 'finished_at' => now()]);
     }
@@ -653,10 +660,12 @@ class GoogleReviewsResearchService
             'metrics' => $reviewsMetrics->toArray(),
             'topics' => $topicsForModel,
             'owner_responses' => $ownerResponses,
+            'brand_name' => $brand->name,
             'brand' => $brand->only(self::MERGED_BRAND_FIELDS),
         ];
 
         $rules = [
+            'matches_brand' => ['required', 'boolean'],
             'brand' => ['required', 'array:'.implode(',', self::MERGED_BRAND_FIELDS)],
             'summary' => ['required', 'string', 'max:16000'],
             'insights' => ['present', 'array', 'list', 'max:'.self::MAX_INSIGHTS],
@@ -701,6 +710,7 @@ class GoogleReviewsResearchService
         }
 
         return new GoogleReviewsAnalysisDto(
+            matchesBrand: $response['matches_brand'],
             mergedBrandFields: $response['brand'],
             summary: $response['summary'],
             insights: $insights,
@@ -823,6 +833,7 @@ class GoogleReviewsResearchService
           ongoing. Si hay un solo tramo, trend viene en null.
         - owner_responses: las respuestas más recientes del dueño a las reseñas, con las estrellas de la reseña que
           responde.
+        - brand_name: el nombre de la marca en Nuvads.
         - brand: el texto actual de ocho campos de la ficha "Mi marca" de Nuvads. Puede estar vacío.
 
         Tenés dos tareas, en español neutro:
@@ -834,17 +845,27 @@ class GoogleReviewsResearchService
         - No inventes datos. Todo lo que agregues tiene que salir de las métricas, los temas o las respuestas del
           dueño.
         - Pesá cada tema por mentions_count y mentions_share: lo que mencionan muchos es un patrón; lo que mencionan
-          pocos, un caso aislado. Cuando nombres un tema, que el texto refleje su peso con los números, por ejemplo
-          "3 de 462 reseñas". Nunca presentes un caso aislado como un problema del negocio.
+          pocos, un caso aislado. Nunca presentes un caso aislado como un problema del negocio.
+        - En summary e insights, cuando nombres un tema, que el texto refleje su peso con los números, por ejemplo
+          "3 de 462 reseñas". Los campos de brand no llevan cantidades, salvo brand_customers_faq_description.
         - Un pain con trend resolved es un problema del pasado: no lo presentes como actual.
         - Para hablar de tiempos, usá las fechas de los tramos, por ejemplo "desde noviembre de 2023", y no frases
           como "últimamente" o "en los últimos meses".
-        - Al mezclar un campo, conservá todo lo que dice su texto actual y sumá o precisá lo que muestran las reseñas,
-          sin borrar nada. Si las reseñas no aportan nada nuevo, devolvé el texto actual tal cual. Si el campo está
-          vacío, completalo solo si hay evidencia; si no la hay, devolvé null.
-        - Los textos van en uno o dos párrafos breves por campo.
+        - Cada campo se reescribe completo, como un solo texto que integra su texto actual con lo que muestran las
+          reseñas, sin sumar párrafos al final. Conservá lo que dice el texto actual aunque las reseñas no lo
+          mencionen, porque puede venir del usuario o de otras fuentes, y reemplazá lo que las reseñas muestran
+          mejor o más actualizado.
+        - Los campos describen la marca, no el análisis: no cuentan qué dice o no dice la fuente, como "el sitio no
+          incluye…" o "las reseñas mencionan…", ni qué información falta. Si el texto actual lo hace, sacalo.
+        - Si las reseñas no aportan nada nuevo a un campo, devolvé el texto actual tal cual, salvo lo que haya que
+          sacar. Si el campo está vacío, completalo solo si hay evidencia; si no la hay, devolvé null.
+        - Los textos van en uno o dos párrafos breves por campo, salvo brand_customers_faq_description.
 
-        Devolvé únicamente un objeto JSON con tres claves: brand, summary e insights.
+        Devolvé únicamente un objeto JSON con cuatro claves: matches_brand, brand, summary e insights.
+
+        matches_brand: false solo si las reseñas son claramente de otro negocio que el de brand_name y brand, por
+        ejemplo con otro nombre o de otro rubro. Si brand está vacío o no alcanza para saberlo, true. Si es
+        false, los campos de brand no se guardan en la ficha: decilo en summary.
 
         brand tiene exactamente estos campos. Cada uno es un string o null:
         - brand_offer_description: qué vende u ofrece, con los productos y servicios que más nombran los clientes.
@@ -854,9 +875,11 @@ class GoogleReviewsResearchService
         - brand_customers_needs_description: qué necesitan o buscan resolver esos clientes, según lo que elogian y los
           pains vigentes. Los pains resolved no entran.
         - brand_customers_valued_aspects_description: qué valoran más los clientes, en orden de importancia según las
-          menciones y con sus palabras.
-        - brand_customers_faq_description: las dudas y los datos prácticos que conviene aclarar, según los facts y las
-          quejas que nacen de expectativas que nadie aclaró.
+          menciones y con sus palabras. Lo que la marca dice de sí misma no va acá, aunque esté en el texto actual.
+        - brand_customers_faq_description: las preguntas que suelen tener los clientes, una por línea, cada una con
+          su respuesta y, en lo posible, cuántas reseñas mencionan el tema, por ejemplo "¿Se puede ir con mascotas?
+          Sí, el local las recibe (lo mencionan 8 reseñas)." Salen de los facts, y solo van las preguntas cuya
+          respuesta está en las reseñas.
         - brand_tone_of_voice_description: cómo le habla la marca a sus clientes en las respuestas del dueño: cercano
           o formal, tuteo o voseo, uso de emojis, largo, y si responde las quejas y cómo. Incluí alguna frase propia
           que se repita. Si no hay respuestas del dueño, devolvé el texto actual tal cual.
@@ -939,6 +962,7 @@ class GoogleReviewsResearchService
                 'type' => 'google_reviews_brand_analysis',
                 'body' => $reviewsAnalysis->summary,
                 'payload' => [
+                    'matches_brand' => $reviewsAnalysis->matchesBrand,
                     'brand' => $reviewsAnalysis->mergedBrandFields,
                     'summary' => $reviewsAnalysis->summary,
                     ...$supportingTopics,

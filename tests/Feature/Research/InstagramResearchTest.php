@@ -258,6 +258,7 @@ class InstagramResearchTest extends TestCase
         ];
 
         return [
+            'matches_brand' => true,
             'brand' => [...$brand, ...$brandValues],
             'summary' => 'Cuenta de jardinería.',
             'insights' => ['Los reels tienen más likes.', 'Nunca muestra precios.'],

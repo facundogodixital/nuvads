@@ -38,40 +38,58 @@
       @submit.prevent="saveSource"
     >
       <label
-        :for="`${source.id}-url`"
+        :for="`${source.id}-${isFileSource ? 'file' : 'url'}`"
         class="spec-label mb-2 block"
       >{{ source.label }}</label>
-      <input
-        :id="`${source.id}-url`"
-        v-model="sourceUrl"
-        :type="source.inputType"
-        :disabled="!isAvailable || isSaving"
-        :aria-invalid="Boolean(saveError)"
-        :aria-describedby="`${source.id}-save-feedback`"
-        :placeholder="source.placeholder"
-        autocomplete="off"
-        autocapitalize="none"
-        :spellcheck="false"
-        class="min-h-11 w-full rounded-sm border border-border bg-surface px-3 text-sm placeholder:text-text-muted"
-        @input="clearFeedback"
-      >
-      <div class="mt-3 flex items-center justify-between gap-3">
-        <span
-          :id="`${source.id}-save-feedback`"
-          role="status"
-          class="text-xs"
-          :class="saveError ? 'text-danger' : 'text-text-muted'"
+      <!-- Un archivo no se guarda en la marca: viaja con el pedido de análisis. -->
+      <template v-if="isFileSource">
+        <input
+          :id="`${source.id}-file`"
+          ref="fileInput"
+          type="file"
+          accept=".zip,application/zip"
+          :disabled="activeRun !== null || isStartingAnalysis"
+          :aria-describedby="`${source.id}-analysis-feedback`"
+          class="block min-h-11 w-full cursor-pointer rounded-sm border border-border bg-surface text-sm text-text-muted file:mr-3 file:min-h-11 file:cursor-pointer file:border-0 file:border-r file:border-border file:bg-surface-selected file:px-3 file:text-sm file:font-medium file:text-text disabled:cursor-not-allowed"
+          @change="selectFile"
         >
-          {{ saveError || saveMessage || (isAvailable ? 'Puedes cambiarlo o quitarlo cuando quieras.' : 'Enlaces no disponibles todavía.') }}
-        </span>
-        <button
-          type="submit"
-          :disabled="!isAvailable || isSaving || !hasChanges"
-          class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm font-medium enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
+        <p class="mt-3 text-xs text-text-muted">
+          El .zip que descargas con la extensión de WhatsApp. Hasta 20 MB.
+        </p>
+      </template>
+      <template v-else>
+        <input
+          :id="`${source.id}-url`"
+          v-model="sourceUrl"
+          :type="source.inputType"
+          :disabled="!isAvailable || isSaving"
+          :aria-invalid="Boolean(saveError)"
+          :aria-describedby="`${source.id}-save-feedback`"
+          :placeholder="source.placeholder"
+          autocomplete="off"
+          autocapitalize="none"
+          :spellcheck="false"
+          class="min-h-11 w-full rounded-sm border border-border bg-surface px-3 text-sm placeholder:text-text-muted"
+          @input="clearFeedback"
         >
-          {{ isSaving ? 'Guardando…' : 'Guardar' }}
-        </button>
-      </div>
+        <div class="mt-3 flex items-center justify-between gap-3">
+          <span
+            :id="`${source.id}-save-feedback`"
+            role="status"
+            class="text-xs"
+            :class="saveError ? 'text-danger' : 'text-text-muted'"
+          >
+            {{ saveError || saveMessage || (isAvailable ? 'Puedes cambiarlo o quitarlo cuando quieras.' : 'Enlaces no disponibles todavía.') }}
+          </span>
+          <button
+            type="submit"
+            :disabled="!isAvailable || isSaving || !hasChanges"
+            class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm font-medium enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
+          >
+            {{ isSaving ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </template>
       <button
         type="button"
         :disabled="!canAnalyze"
@@ -125,6 +143,8 @@ const props = defineProps({
 const emit = defineEmits(['saved', 'analyzed']);
 
 const POLLING_INTERVAL_MS = 10000;
+// El mismo límite de subida que PHP y nginx; un archivo más grande ni se envía.
+const MAX_ZIP_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 // Textos de cada fuente que se puede analizar: la etapa de la ejecución activa y qué hace el análisis.
 const stageLabels = {
   website: {
@@ -147,18 +167,25 @@ const stageLabels = {
     scraping: 'Leyendo las reseñas de tu negocio en Google…',
     analyzing: 'Analizando lo que dicen tus clientes…',
   },
+  whatsapp: {
+    pending: 'En cola, empezamos enseguida…',
+    scraping: 'Abriendo el archivo con tus chats…',
+    analyzing: 'Leyendo las conversaciones con tus clientes…',
+  },
 };
 const analysisHints = {
   website: 'Leemos tu sitio y completamos la información de tu marca.',
   instagram: 'Leemos tus últimos posteos y completamos la información de tu marca. Puede tardar unos minutos.',
   'meta-ads': 'Leemos tus anuncios de Instagram y Facebook y completamos la información de tu marca. Puede tardar unos minutos.',
   'google-maps': 'Leemos hasta mil reseñas de tu negocio en Google y completamos la información de tu marca. Puede tardar unos minutos.',
+  whatsapp: 'Leemos tus últimos 500 chats, nos quedamos solo con los de clientes y completamos la información de tu marca. Puede tardar unos minutos.',
 };
 const researchStatusLoaders = {
   website: ResearchRunService.getWebsiteResearchStatus,
   instagram: ResearchRunService.getInstagramResearchStatus,
   'meta-ads': ResearchRunService.getMetaAdsResearchStatus,
   'google-maps': ResearchRunService.getGoogleReviewsResearchStatus,
+  whatsapp: ResearchRunService.getWhatsAppConversationsResearchStatus,
 };
 const researchTypes = {
   website: 'website',
@@ -171,18 +198,27 @@ const saveError = ref('');
 const isSaving = ref(false);
 const saveMessage = ref('');
 const analysisError = ref('');
+const fileInput = ref(null);
+const selectedFile = ref(null);
 const researchStatus = ref(null);
 const sourceUrl = ref(props.savedValue);
 const isStartingAnalysis = ref(false);
 let pollingTimer = null;
 
+const isFileSource = computed(() => props.source.inputType === 'file');
 const hasChanges = computed(() => sourceUrl.value.trim() !== props.savedValue);
 const activeRun = computed(() => researchStatus.value?.active ?? null);
 const latestRun = computed(() => researchStatus.value?.latest ?? null);
+// Un enlace se analiza una vez guardado en la marca; un archivo, una vez elegido.
+const isSourceReady = computed(() => {
+  if (isFileSource.value) {
+    return selectedFile.value !== null;
+  }
+  return props.isAvailable && props.savedValue !== '';
+});
 const canAnalyze = computed(() => {
-  const sourceIsSaved = props.isAvailable && props.savedValue !== '';
   const analysisIsIdle = activeRun.value === null && !isStartingAnalysis.value;
-  return props.source.isAnalyzable && sourceIsSaved && analysisIsIdle;
+  return props.source.isAnalyzable && isSourceReady.value && analysisIsIdle;
 });
 const analyzeButtonLabel = computed(() => {
   if (activeRun.value) {
@@ -203,7 +239,10 @@ const analysisMessage = computed(() => {
   if (latestRun.value?.status === 'failed') {
     return latestRun.value.error_message;
   }
-  return props.savedValue ? analysisHints[props.source.id] : 'Guarda el enlace para poder analizarlo.';
+  if (!isSourceReady.value) {
+    return isFileSource.value ? 'Elige el .zip con tus chats para analizarlo.' : 'Guarda el enlace para poder analizarlo.';
+  }
+  return analysisHints[props.source.id];
 });
 const footerStatus = computed(() => {
   const lastCompletedRun = researchStatus.value?.last_completed;
@@ -273,7 +312,13 @@ async function startAnalysis() {
   isStartingAnalysis.value = true;
 
   try {
-    await ResearchRunService.create({ type: researchTypes[props.source.id] });
+    // Por ahora el único archivo que se analiza es el zip de los chats de WhatsApp.
+    if (isFileSource.value) {
+      await ResearchRunService.createWhatsAppConversationsResearch(selectedFile.value);
+      clearSelectedFile();
+    } else {
+      await ResearchRunService.create({ type: researchTypes[props.source.id] });
+    }
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {
@@ -281,6 +326,22 @@ async function startAnalysis() {
   } finally {
     isStartingAnalysis.value = false;
   }
+}
+
+function selectFile(event) {
+  analysisError.value = '';
+  selectedFile.value = event.target.files[0] ?? null;
+
+  const isTooLarge = selectedFile.value !== null && selectedFile.value.size > MAX_ZIP_FILE_SIZE_BYTES;
+  if (isTooLarge) {
+    analysisError.value = 'El archivo pesa más de 20 MB.';
+    clearSelectedFile();
+  }
+}
+
+function clearSelectedFile() {
+  selectedFile.value = null;
+  fileInput.value.value = '';
 }
 
 // Mientras hay una ejecución activa se consulta el estado cada diez segundos. Cuando termina bien,

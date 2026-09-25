@@ -16,4 +16,8 @@ export default {
   async getGoogleReviewsInsights() {
     return APICall('/api/knowledge-insights/google-reviews');
   },
+
+  async getWhatsAppConversationsInsights() {
+    return APICall('/api/knowledge-insights/whatsapp-conversations');
+  },
 };

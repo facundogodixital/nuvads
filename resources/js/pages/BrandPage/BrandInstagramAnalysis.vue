@@ -411,6 +411,11 @@ const sortedPosts = computed(() => [...props.posts].sort(
 ));
 // Los campos que el modelo devolvió con texto ya quedaron guardados en la marca.
 const updatedProfileFields = computed(() => {
+  // Si la fuente es de otro negocio, no se guardó nada en la marca.
+  const isFromAnotherBusiness = props.analysis.payload.matches_brand === false;
+  if (isFromAnotherBusiness) {
+    return [];
+  }
   const mergedBrandFields = props.analysis.payload.brand ?? {};
   return Object.keys(profileFieldNames)
     .filter((field) => mergedBrandFields[field]?.trim())

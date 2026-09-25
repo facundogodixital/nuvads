@@ -54,4 +54,11 @@ class ResearchRunController extends ApiController
         return $this->respond($status);
     }
 
+
+    public function getWhatsAppConversationsResearchStatus(AuthenticatedRequest $request): JsonResponse
+    {
+        $status = resolve(ResearchRunService::class)->getWhatsAppConversationsResearchStatus($request->brand);
+        return $this->respond($status);
+    }
+
 }

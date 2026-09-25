@@ -272,6 +272,7 @@ class MetaAdsResearchTest extends TestCase
         ];
 
         return [
+            'matches_brand' => true,
             'brand' => [...$brand, ...$brandValues],
             'summary' => 'Anuncia sustratos con envío gratis.',
             'insights' => ['El video es el que más corre.', 'Nunca muestra precios.'],

@@ -26,8 +26,10 @@ use App\Services\KnowledgeInsightService;
 use App\Services\InstagramResearchService;
 use App\Repositories\ResearchRunRepository;
 use App\Repositories\AdministratorRepository;
+use App\Helpers\WhatsAppConversationsZipHelper;
 use App\Repositories\KnowledgeSourceRepository;
 use App\Repositories\KnowledgeInsightRepository;
+use App\Services\WhatsAppConversationsResearchService;
 use App\Services\Dispatchers\ResearchDispatcherService;
 
 
@@ -48,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(WebsiteResearchService::class);
         $this->app->scoped(InstagramResearchService::class);
         $this->app->scoped(MetaAdsResearchService::class);
+        $this->app->scoped(WhatsAppConversationsZipHelper::class);
+        $this->app->scoped(WhatsAppConversationsResearchService::class);
         $this->app->scoped(ResearchRunRepository::class);
         $this->app->scoped(ResearchDispatcherService::class);
         $this->app->scoped(KnowledgeSourceService::class);

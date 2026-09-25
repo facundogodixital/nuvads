@@ -59,6 +59,178 @@
       </div>
     </section>
 
+    <template v-if="hasReviewsWithText">
+      <section
+        v-if="insights.length"
+        aria-labelledby="google-reviews-insights-heading"
+      >
+        <h3
+          id="google-reviews-insights-heading"
+          class="spec-label mb-3"
+        >
+          Conclusiones
+        </h3>
+        <ul class="divide-y divide-border border-y border-border">
+          <li
+            v-for="insight in insightsWithReviews"
+            :key="insight.id"
+            class="py-4"
+          >
+            <p class="max-w-prose text-sm leading-6">
+              {{ insight.text }}
+            </p>
+            <details
+              v-if="insight.reviews.length"
+              class="group mt-2"
+            >
+              <summary class="inline-flex min-h-8 cursor-pointer list-none items-center gap-1 text-xs font-medium text-text-muted hover:text-text">
+                <svg
+                  class="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-90"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m9 6 6 6-6 6"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                {{ formatCount(insight.reviews.length, 'reseña que lo respalda', 'reseñas que lo respaldan') }}
+              </summary>
+              <ul class="mt-1 divide-y divide-border pl-5">
+                <li
+                  v-for="review in insight.reviews"
+                  :key="review.id"
+                >
+                  <BrandGoogleReviewQuote :review="review" />
+                </li>
+              </ul>
+            </details>
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="google-reviews-strengths-heading">
+        <h3
+          id="google-reviews-strengths-heading"
+          class="spec-label mb-1"
+        >
+          Lo que más valoran
+        </h3>
+        <p class="mb-3 text-sm text-text-muted">
+          Ordenado por cuántas reseñas lo mencionan. Toca uno para leer lo que dicen.
+        </p>
+        <ul
+          v-if="strengths.length"
+          class="divide-y divide-border border-y border-border"
+        >
+          <BrandGoogleReviewsTopic
+            v-for="strength in strengths"
+            :key="strength.id"
+            :topic="strength"
+            kind="strength"
+            :reviews-by-id="reviewsById"
+            :time-ranges="timeRanges"
+            :with-text-count="metrics.with_text_count"
+            :max-mentions-count="maxStrengthMentionsCount"
+          />
+        </ul>
+        <p
+          v-else
+          class="rounded-sm border border-dashed border-border p-6 text-center text-sm text-text-muted"
+        >
+          No encontramos elogios que se repitan en tus reseñas.
+        </p>
+      </section>
+
+      <section aria-labelledby="google-reviews-pains-heading">
+        <h3
+          id="google-reviews-pains-heading"
+          class="spec-label mb-1"
+        >
+          De qué se quejan
+        </h3>
+        <p
+          v-if="pains.length"
+          class="mb-3 text-sm text-text-muted"
+        >
+          Solo lo que se repite en al menos dos reseñas. El porcentaje muestra cuánto pesa cada queja.
+        </p>
+        <ul
+          v-if="pains.length"
+          class="divide-y divide-border border-y border-border"
+        >
+          <BrandGoogleReviewsTopic
+            v-for="pain in pains"
+            :key="pain.id"
+            :topic="pain"
+            kind="pain"
+            :reviews-by-id="reviewsById"
+            :time-ranges="timeRanges"
+            :with-text-count="metrics.with_text_count"
+            :max-mentions-count="maxPainMentionsCount"
+          />
+        </ul>
+        <!-- Que no haya quejas repetidas es una buena noticia, no un vacío. -->
+        <p
+          v-else
+          class="mt-3 flex gap-3 rounded-sm bg-success-soft p-4 text-sm leading-6"
+        >
+          <svg
+            class="mt-0.5 h-5 w-5 shrink-0 text-success"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM8 12.5l2.5 2.5L16 9.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Ninguna queja se repite en tus {{ metrics.with_text_count.toLocaleString('es') }} reseñas con texto.
+        </p>
+      </section>
+
+      <section
+        v-if="supportingGroups.length"
+        aria-labelledby="google-reviews-supporting-heading"
+      >
+        <h3
+          id="google-reviews-supporting-heading"
+          class="spec-label mb-3"
+        >
+          Qué más cuentan tus clientes
+        </h3>
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div
+            v-for="supportingGroup in supportingGroups"
+            :key="supportingGroup.key"
+          >
+            <h4 class="text-sm font-medium">
+              {{ supportingGroup.title }}
+            </h4>
+            <ul class="mt-2 flex flex-wrap gap-2">
+              <li
+                v-for="supportingTopic in supportingGroup.topics"
+                :key="supportingTopic.topic"
+                class="rounded-sm border border-border px-2 py-1 text-sm"
+                :title="formatCount(supportingTopic.mentions_count, 'reseña lo menciona', 'reseñas lo mencionan')"
+              >
+                {{ supportingTopic.topic }}
+                <span class="text-text-muted tabular-nums">· {{ supportingTopic.mentions_count.toLocaleString('es') }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </template>
+
     <section aria-labelledby="google-reviews-rating-heading">
       <h3
         id="google-reviews-rating-heading"
@@ -234,178 +406,6 @@
         </li>
       </ol>
     </section>
-
-    <template v-if="hasReviewsWithText">
-      <section aria-labelledby="google-reviews-strengths-heading">
-        <h3
-          id="google-reviews-strengths-heading"
-          class="spec-label mb-1"
-        >
-          Lo que más valoran
-        </h3>
-        <p class="mb-3 text-sm text-text-muted">
-          Ordenado por cuántas reseñas lo mencionan. Toca uno para leer lo que dicen.
-        </p>
-        <ul
-          v-if="strengths.length"
-          class="divide-y divide-border border-y border-border"
-        >
-          <BrandGoogleReviewsTopic
-            v-for="strength in strengths"
-            :key="strength.id"
-            :topic="strength"
-            kind="strength"
-            :reviews-by-id="reviewsById"
-            :time-ranges="timeRanges"
-            :with-text-count="metrics.with_text_count"
-            :max-mentions-count="maxStrengthMentionsCount"
-          />
-        </ul>
-        <p
-          v-else
-          class="rounded-sm border border-dashed border-border p-6 text-center text-sm text-text-muted"
-        >
-          No encontramos elogios que se repitan en tus reseñas.
-        </p>
-      </section>
-
-      <section aria-labelledby="google-reviews-pains-heading">
-        <h3
-          id="google-reviews-pains-heading"
-          class="spec-label mb-1"
-        >
-          De qué se quejan
-        </h3>
-        <p
-          v-if="pains.length"
-          class="mb-3 text-sm text-text-muted"
-        >
-          Solo lo que se repite en al menos dos reseñas. El porcentaje muestra cuánto pesa cada queja.
-        </p>
-        <ul
-          v-if="pains.length"
-          class="divide-y divide-border border-y border-border"
-        >
-          <BrandGoogleReviewsTopic
-            v-for="pain in pains"
-            :key="pain.id"
-            :topic="pain"
-            kind="pain"
-            :reviews-by-id="reviewsById"
-            :time-ranges="timeRanges"
-            :with-text-count="metrics.with_text_count"
-            :max-mentions-count="maxPainMentionsCount"
-          />
-        </ul>
-        <!-- Que no haya quejas repetidas es una buena noticia, no un vacío. -->
-        <p
-          v-else
-          class="mt-3 flex gap-3 rounded-sm bg-success-soft p-4 text-sm leading-6"
-        >
-          <svg
-            class="mt-0.5 h-5 w-5 shrink-0 text-success"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM8 12.5l2.5 2.5L16 9.5"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          Ninguna queja se repite en tus {{ metrics.with_text_count.toLocaleString('es') }} reseñas con texto.
-        </p>
-      </section>
-
-      <section
-        v-if="insights.length"
-        aria-labelledby="google-reviews-insights-heading"
-      >
-        <h3
-          id="google-reviews-insights-heading"
-          class="spec-label mb-3"
-        >
-          Conclusiones
-        </h3>
-        <ul class="divide-y divide-border border-y border-border">
-          <li
-            v-for="insight in insightsWithReviews"
-            :key="insight.id"
-            class="py-4"
-          >
-            <p class="max-w-prose text-sm leading-6">
-              {{ insight.text }}
-            </p>
-            <details
-              v-if="insight.reviews.length"
-              class="group mt-2"
-            >
-              <summary class="inline-flex min-h-8 cursor-pointer list-none items-center gap-1 text-xs font-medium text-text-muted hover:text-text">
-                <svg
-                  class="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-90"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="m9 6 6 6-6 6"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-                {{ formatCount(insight.reviews.length, 'reseña que lo respalda', 'reseñas que lo respaldan') }}
-              </summary>
-              <ul class="mt-1 divide-y divide-border pl-5">
-                <li
-                  v-for="review in insight.reviews"
-                  :key="review.id"
-                >
-                  <BrandGoogleReviewQuote :review="review" />
-                </li>
-              </ul>
-            </details>
-          </li>
-        </ul>
-      </section>
-
-      <section
-        v-if="supportingGroups.length"
-        aria-labelledby="google-reviews-supporting-heading"
-      >
-        <h3
-          id="google-reviews-supporting-heading"
-          class="spec-label mb-3"
-        >
-          Qué más cuentan tus clientes
-        </h3>
-        <div class="grid gap-6 sm:grid-cols-2">
-          <div
-            v-for="supportingGroup in supportingGroups"
-            :key="supportingGroup.key"
-          >
-            <h4 class="text-sm font-medium">
-              {{ supportingGroup.title }}
-            </h4>
-            <ul class="mt-2 flex flex-wrap gap-2">
-              <li
-                v-for="supportingTopic in supportingGroup.topics"
-                :key="supportingTopic.topic"
-                class="rounded-sm border border-border px-2 py-1 text-sm"
-                :title="formatCount(supportingTopic.mentions_count, 'reseña lo menciona', 'reseñas lo mencionan')"
-              >
-                {{ supportingTopic.topic }}
-                <span class="text-text-muted tabular-nums">· {{ supportingTopic.mentions_count.toLocaleString('es') }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-    </template>
   </div>
 </template>
 
@@ -458,6 +458,11 @@ const googleReviewsLabel = computed(() => {
 const reviewsById = computed(() => Object.fromEntries(props.reviews.map((review) => [review.id, review])));
 // Los campos que el modelo devolvió con texto ya quedaron guardados en la marca.
 const updatedProfileFields = computed(() => {
+  // Si la fuente es de otro negocio, no se guardó nada en la marca.
+  const isFromAnotherBusiness = props.analysis.payload.matches_brand === false;
+  if (isFromAnotherBusiness) {
+    return [];
+  }
   const mergedBrandFields = props.analysis.payload.brand ?? {};
   return Object.keys(profileFieldNames)
     .filter((field) => mergedBrandFields[field]?.trim())

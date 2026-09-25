@@ -21,4 +21,9 @@ return [
         'analysis_model' => 'gpt-6-luna',
     ],
 
+    'whatsapp_conversations' => [
+        'conversations_limit' => 500,
+        'analysis_model' => 'gpt-6-luna',
+    ],
+
 ];
