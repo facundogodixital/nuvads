@@ -26,4 +26,8 @@ return [
         'analysis_model' => 'gpt-6-luna',
     ],
 
+    'uploaded_files' => [
+        'analysis_model' => 'gpt-6-luna',
+    ],
+
 ];

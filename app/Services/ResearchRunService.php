@@ -78,10 +78,25 @@ class ResearchRunService
                 'model' => config('research.whatsapp_conversations.analysis_model'), // gpt-6-luna
                 'conversations_limit' => config('research.whatsapp_conversations.conversations_limit'),
             ],
+            'uploaded_files' => [
+                'model' => config('research.uploaded_files.analysis_model'), // gpt-6-luna
+                // Se completa en la transacción con las fuentes de los archivos subidos. Queda vacío en el nuevo
+                // análisis que sigue a un borrado.
+                'uploaded_knowledge_source_ids' => [],
+            ],
         };
 
+        // Las fuentes de los archivos subidos, para borrar sus archivos si no se puede crear la ejecución.
+        $uploadedKnowledgeSources = collect();
         DB::beginTransaction();
         try {
+            foreach ($attributes['files'] ?? [] as $uploadedFile) {
+                $uploadedKnowledgeSources->push(resolve(UploadedFileService::class)->create($brand, $uploadedFile));
+            }
+            $hasUploadedFiles = $uploadedKnowledgeSources->isNotEmpty();
+            if ($hasUploadedFiles) {
+                $input['uploaded_knowledge_source_ids'] = $uploadedKnowledgeSources->pluck('id')->all();
+            }
             $researchRun = $this->researchRunRepository->create($brand, [
                 'type' => $type,
                 'input' => $input,
@@ -98,6 +113,7 @@ class ResearchRunService
                 'whatsapp_conversations' => $researchDispatcherService->dispatchResearchWhatsAppConversationsJob(
                     $researchRun->id,
                 ),
+                'uploaded_files' => $researchDispatcherService->dispatchResearchUploadedFilesJob($researchRun->id),
             };
             DB::commit();
         } catch (Throwable $exception) {
@@ -106,6 +122,10 @@ class ResearchRunService
             $hasStoredZip = isset($input['zip_path']);
             if ($hasStoredZip) {
                 Storage::disk('local')->delete($input['zip_path']);
+            }
+            // Las fuentes de los archivos subidos se deshicieron con la transacción; sus archivos se borran acá.
+            foreach ($uploadedKnowledgeSources as $knowledgeSource) {
+                Storage::disk('local')->delete($knowledgeSource->s3_path);
             }
             throw $exception;
         }
@@ -186,6 +206,16 @@ class ResearchRunService
             'last_completed' => $this->researchRunRepository->findOneCompletedForBrand(
                 $brand, 'whatsapp_conversations',
             ),
+        ];
+    }
+
+
+    public function getUploadedFilesResearchStatus(Brand $brand): array
+    {
+        return [
+            'active' => $this->researchRunRepository->findOneActiveForBrand($brand, 'uploaded_files'),
+            'latest' => $this->researchRunRepository->findOneLatestForBrand($brand, 'uploaded_files'),
+            'last_completed' => $this->researchRunRepository->findOneCompletedForBrand($brand, 'uploaded_files'),
         ];
     }
 

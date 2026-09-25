@@ -47,4 +47,11 @@ class KnowledgeInsightController extends ApiController
         return $this->respond($whatsAppConversationsInsights);
     }
 
+
+    public function getUploadedFilesInsights(AuthenticatedRequest $request): JsonResponse
+    {
+        $uploadedFilesInsights = resolve(KnowledgeInsightService::class)->getUploadedFilesInsights($request->brand);
+        return $this->respond($uploadedFilesInsights);
+    }
+
 }

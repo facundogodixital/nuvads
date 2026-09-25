@@ -169,6 +169,21 @@ class KnowledgeInsightService
     }
 
 
+    // Lo que muestra la pantalla de las fotos y los documentos: analysis, el análisis vigente con el resumen o null;
+    // insights, las conclusiones vigentes; y files, todos los archivos subidos, también los que se están analizando o
+    // no se pudieron leer, cada uno con su enlace.
+    public function getUploadedFilesInsights(Brand $brand): array
+    {
+        $knowledgeInsights = $this->findCurrentByTypes($brand, ['uploaded_files_analysis', 'uploaded_files_insight']);
+
+        return [
+            'analysis' => $knowledgeInsights->firstWhere('type', 'uploaded_files_analysis'),
+            'insights' => $knowledgeInsights->where('type', 'uploaded_files_insight')->values(),
+            'files' => resolve(UploadedFileService::class)->list($brand),
+        ];
+    }
+
+
     // Las conclusiones activas de un tipo pasan a outdated; las corregidas o rechazadas no se tocan.
     public function outdateActiveByType(Brand $brand, string $type): int
     {

@@ -31,13 +31,16 @@ export async function APICall(endpoint, method = 'get', params = {}, opts = {}) 
 }
 
 
-// Envía un archivo como multipart junto con params. Siempre POST.
-// opts.fileFieldName: nombre del campo del archivo. Por defecto 'file'.
+// Envía un archivo, o una lista de archivos, como multipart junto con params. Siempre POST.
+// opts.fileFieldName: nombre del campo del archivo. Por defecto 'file'; para una lista, por ejemplo 'files[]'.
 export async function APIUpload(endpoint, fileToUpload, params = {}, opts = {}) {
   const { fileFieldName = 'file' } = opts;
+  const filesToUpload = Array.isArray(fileToUpload) ? fileToUpload : [fileToUpload];
 
   const formData = new FormData();
-  formData.append(fileFieldName, fileToUpload);
+  for (const file of filesToUpload) {
+    formData.append(fileFieldName, file);
+  }
   for (const [key, value] of Object.entries(params)) {
     formData.append(key, value);
   }

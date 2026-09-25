@@ -76,6 +76,17 @@ class KnowledgeSourceRepository
     }
 
 
+    public function findByTypes(Brand $brand, array $types): Collection
+    {
+        return KnowledgeSource::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->whereIn('type', $types)
+            ->orderBy('id')
+            ->get();
+    }
+
+
     public function deleteByTypeExceptIds(Brand $brand, string $type, array $keptKnowledgeSourceIds): int
     {
         return KnowledgeSource::query()

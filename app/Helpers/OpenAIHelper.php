@@ -32,9 +32,12 @@ class OpenAIHelper
     /**
      * model: ID del modelo; instructions: 'Extrae nombre y colores en JSON.' (la tarea).
      * input: 'UP! vende insumos de jardinería...' (el contenido que se analiza).
-     * Garantiza un objeto JSON válido; el service valida sus campos. También admite imageUrls.
+     * Garantiza un objeto JSON válido; el service valida sus campos. También admite imageUrls, que pueden ser URLs
+     * accesibles o la imagen en base64 ('data:image/png;base64,...'), y files: documentos como PDF, Word o Excel, cada
+     * uno con filename ('menu.pdf') y url, también accesible o en base64 ('data:application/pdf;base64,...').
      *
      * @param  list<string>  $imageUrls
+     * @param  list<array{filename: string, url: string}>  $files
      */
     public function generateJson(
         string $model,
@@ -42,8 +45,11 @@ class OpenAIHelper
         string $input,
         ?int $maxOutputTokens = null,
         array $imageUrls = [],
+        array $files = [],
     ): array {
-        $content = $this->generateContent($model, $instructions, $input, 'json_object', $maxOutputTokens, $imageUrls);
+        $content = $this->generateContent(
+            $model, $instructions, $input, 'json_object', $maxOutputTokens, $imageUrls, $files,
+        );
 
         $data = json_decode($content, true);
         $isJsonObject = is_array($data) && str_starts_with(ltrim($content), '{');
@@ -63,13 +69,17 @@ class OpenAIHelper
         string $outputFormat,
         ?int $maxOutputTokens,
         array $imageUrls,
+        array $files = [],
     ): string {
-        Validator::make(compact('model', 'instructions', 'input', 'maxOutputTokens', 'imageUrls'), [
+        Validator::make(compact('model', 'instructions', 'input', 'maxOutputTokens', 'imageUrls', 'files'), [
             'model' => ['required', 'string'],
             'input' => ['required', 'string'],
             'instructions' => ['required', 'string'],
             'imageUrls' => ['array', 'list'],
-            'imageUrls.*' => ['required', 'string', 'url:http,https'],
+            'imageUrls.*' => ['required', 'string', 'starts_with:http://,https://,data:image/'],
+            'files' => ['array', 'list'],
+            'files.*.filename' => ['required', 'string'],
+            'files.*.url' => ['required', 'string', 'starts_with:http://,https://,data:'],
             'maxOutputTokens' => ['nullable', 'integer', 'min:1'],
         ])->validate();
 
@@ -93,10 +103,18 @@ class OpenAIHelper
             'instructions' => $instructions,
             'text' => ['format' => ['type' => $outputFormat]],
         ];
-        if ($imageUrls !== []) {
+        $hasAttachments = $imageUrls !== [] || $files !== [];
+        if ($hasAttachments) {
             $content = [['type' => 'input_text', 'text' => $input]];
             foreach ($imageUrls as $imageUrl) {
                 $content[] = ['type' => 'input_image', 'image_url' => $imageUrl];
+            }
+            foreach ($files as $file) {
+                // Un documento en base64 viaja en file_data, con su nombre; uno accesible, por su URL.
+                $isBase64File = str_starts_with($file['url'], 'data:');
+                $content[] = $isBase64File
+                    ? ['type' => 'input_file', 'filename' => $file['filename'], 'file_data' => $file['url']]
+                    : ['type' => 'input_file', 'file_url' => $file['url']];
             }
             $payload['input'] = [['role' => 'user', 'content' => $content]];
         }

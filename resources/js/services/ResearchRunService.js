@@ -12,6 +12,13 @@ export default {
     });
   },
 
+  // Las fotos y los documentos viajan juntos, en un solo pedido; el análisis arranca al subirlos.
+  async createUploadedFilesResearch(files) {
+    return APIUpload('/api/research-runs', files, { type: 'uploaded_files' }, {
+      fileFieldName: 'files[]',
+    });
+  },
+
   async getWebsiteResearchStatus() {
     return APICall('/api/research-runs/website/status');
   },
@@ -30,5 +37,9 @@ export default {
 
   async getWhatsAppConversationsResearchStatus() {
     return APICall('/api/research-runs/whatsapp-conversations/status');
+  },
+
+  async getUploadedFilesResearchStatus() {
+    return APICall('/api/research-runs/uploaded-files/status');
   },
 };
