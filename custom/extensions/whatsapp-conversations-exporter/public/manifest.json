@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "WhatsApp conversations exporter",
+  "version": "0.1",
+  "description": "Export your WhatsApp Web conversations as text files",
+  "icons": {
+    "16": "icons/icon_16.png",
+    "32": "icons/icon_32.png",
+    "48": "icons/icon_48.png",
+    "128": "icons/icon_128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "WhatsApp conversations exporter",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "tabs",
+    "alarms",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.clienty.co/*",
+    "wss://*.pusher.com/",
+    "*://*.clienty.test/*",
+    "https://*.pusher.com/",
+    "*://web.whatsapp.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://web.whatsapp.com/*"
+      ],
+      "run_at": "document_end",
+      "js": [
+        "web.whatsapp.content.js"
+      ]
+    },
+    {
+      "matches": [
+        "*://*.clienty.co/*",
+        "*://*.clienty.test/*"
+      ],
+      "run_at": "document_idle",
+      "js": [
+        "clienty.content.js"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "web.whatsapp.content.accessible.js"
+      ],
+      "matches": [
+        "*://web.whatsapp.com/*"
+      ]
+    }
+  ]
+}

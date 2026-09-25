@@ -1,0 +1,39 @@
+{
+  "name": "whatsapp-conversations-exporter",
+  "version": "0.1.0",
+  "description": "Export your WhatsApp Web conversations as text files",
+  "private": true,
+  "scripts": {
+    "watch": "webpack --mode=development --watch --config config/webpack.config.js",
+    "build": "webpack --mode=production --config config/webpack.config.js"
+  },
+  "dependencies": {
+    "@vespaiach/axios-fetch-adapter": "^0.3.0",
+    "axios": "^0.27.2",
+    "bootstrap": "^4.6.1",
+    "bootstrap-vue": "^2.22.0",
+    "bundle-stats-webpack-plugin": "^3.3.8",
+    "jquery": "^3.6.0",
+    "jszip": "^3.10.1",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.34",
+    "popper.js": "^1.16.1",
+    "pusher-js": "^8.4.0",
+    "vue": "^2.6.12",
+    "vuex": "^3.1.3",
+    "whatsapp-web.js": "^1.34.7"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^10.2.4",
+    "css-loader": "^6.7.1",
+    "file-loader": "^6.2.0",
+    "mini-css-extract-plugin": "^2.6.0",
+    "size-plugin": "^2.0.2",
+    "vue-loader": "^15.10.0-beta.5",
+    "vue-template-compiler": "^2.6.14",
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.9.2",
+    "webpack-merge": "^5.8.0"
+  }
+}
