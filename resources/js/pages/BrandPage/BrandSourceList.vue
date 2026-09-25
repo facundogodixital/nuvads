@@ -78,8 +78,7 @@ const groups = computed(() => [
 
 onMounted(loadAnalyzedSources);
 
-// Por ahora solo el sitio web, Instagram, los anuncios, las reseñas de Google, los chats de WhatsApp, el audio y las
-// fotos y documentos tienen análisis real; si falla la consulta, quedan como Por completar.
+// Una fuente está analizada si alguna vez terminó bien. Si falla la consulta, todas quedan como Por completar.
 async function loadAnalyzedSources() {
   try {
     const [

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
+use App\Services\KnowledgeInsightService;
 use Illuminate\Http\Client\RequestException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use App\Jobs\Research\Website\ResearchWebsiteJob;
@@ -454,6 +455,27 @@ class WebsiteResearchTest extends TestCase
 
         $this->getJson("/api/research-runs/{$researchRun->id}")
             ->assertOk()->assertJsonCount(0, 'data.knowledge_sources');
+    }
+
+
+    // Una portada sin texto no tiene nada para analizar: la investigación termina vacía con un mensaje que lo dice, sin
+    // guardar la página ni consultar al modelo, y el análisis anterior sigue vigente.
+    #[Test]
+    public function ends_empty_without_replacing_the_previous_analysis_when_the_homepage_has_no_text(): void
+    {
+        $previousAnalysis = resolve(KnowledgeInsightService::class)->create($this->brand, [
+            'type' => 'website_brand_analysis', 'body' => 'Análisis anterior.', 'status' => 'active', 'level' => 1,
+        ]);
+        Http::fake(['https://api.firecrawl.dev/v2/scrape' => Http::response($this->firecrawlPage('  '))]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchWebsiteJob($researchRun->id))->handle();
+
+        $researchRun->refresh();
+        $this->assertSame('empty', $researchRun->status);
+        $this->assertNotNull($researchRun->status_message);
+        $this->assertDatabaseCount('knowledge_sources', 0);
+        $this->assertSame('active', $previousAnalysis->fresh()->status);
     }
 
 

@@ -153,7 +153,7 @@ async function startRecording() {
   mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
   mediaRecorder.onstop = () => {
     microphoneStream.getTracks().forEach((track) => track.stop());
-    saveRecording(audioChunks, mediaRecorder.mimeType);
+    emitRecordedAudio(audioChunks, mediaRecorder.mimeType);
   };
   mediaRecorder.start();
 
@@ -172,7 +172,7 @@ function stopRecording() {
 
 // Chrome y Firefox graban en webm y Safari en mp4. El servidor reconoce el formato por el contenido; el nombre solo
 // acompaña.
-function saveRecording(audioChunks, mimeType) {
+function emitRecordedAudio(audioChunks, mimeType) {
   const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
   const audioFile = new File(audioChunks, `audio.${extension}`, { type: mimeType });
 

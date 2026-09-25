@@ -1,63 +1,9 @@
 <template>
   <div class="mt-8 space-y-10">
-    <section
-      v-if="updatedProfileFields.length"
-      class="flex gap-3 rounded-sm bg-success-soft p-4"
-      aria-labelledby="google-reviews-profile-heading"
-    >
-      <svg
-        class="mt-0.5 h-5 w-5 shrink-0 text-success"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM8 12.5l2.5 2.5L16 9.5"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <div class="min-w-0 flex-1">
-        <h3
-          id="google-reviews-profile-heading"
-          class="text-sm font-medium text-success"
-        >
-          Actualizamos tu perfil de marca
-        </h3>
-        <p class="mt-1 text-sm leading-6">
-          Sumamos lo que dicen tus clientes a estas partes. Revísalas y corrige lo que quieras.
-        </p>
-        <ul class="mt-3 flex flex-wrap gap-2">
-          <li
-            v-for="field in updatedProfileFields"
-            :key="field"
-            class="rounded-sm bg-surface-raised px-2 py-1 text-xs"
-          >
-            {{ field }}
-          </li>
-        </ul>
-        <RouterLink
-          to="/brand/profile"
-          class="mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-success underline underline-offset-4 hover:text-text"
-        >
-          Ir a Perfil de marca
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="none"
-            aria-hidden="true"
-          ><path
-            d="M4 10h12m-5-5 5 5-5 5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          /></svg>
-        </RouterLink>
-      </div>
-    </section>
+    <BrandUpdatedProfileFields
+      :analysis="analysis"
+      description="Sumamos lo que dicen tus clientes a estas partes."
+    />
 
     <template v-if="hasReviewsWithText">
       <section
@@ -412,10 +358,10 @@
 
 <script setup>
 import { computed } from 'vue';
-import { RouterLink } from 'vue-router';
 import BrandStarRating from './BrandStarRating.vue';
 import BrandGoogleReviewQuote from './BrandGoogleReviewQuote.vue';
 import BrandGoogleReviewsTopic from './BrandGoogleReviewsTopic.vue';
+import BrandUpdatedProfileFields from './BrandUpdatedProfileFields.vue';
 
 const props = defineProps({
   analysis: { type: Object, required: true },
@@ -428,17 +374,6 @@ const props = defineProps({
 
 // La misma estrella que BrandStarRating, para el rótulo de cada fila de puntajes.
 const STAR_PATH = 'M12 2L14.35 8.76L21.51 8.91L15.8 13.24L17.88 20.09L12 16L6.12 20.09L8.2 13.24L2.49 8.91L9.65 8.76Z';
-// Mismos nombres que en Perfil de marca, para que el usuario los reconozca.
-const profileFieldNames = {
-  brand_offer_description: 'Productos y servicios',
-  brand_differentiators_description: 'Qué te hace diferente',
-  brand_customers_description: 'Quiénes te compran',
-  brand_customers_needs_description: 'Qué necesitan',
-  brand_tone_of_voice_description: 'Tu manera de hablar',
-  brand_customers_valued_aspects_description: 'Lo que más valoran',
-  brand_customers_faq_description: 'Preguntas y dudas frecuentes',
-  brand_content_opportunities_description: 'Oportunidades de contenido',
-};
 const supportingGroupTitles = {
   facts: 'Datos útiles que mencionan',
   profiles: 'Quiénes te eligen',
@@ -456,18 +391,6 @@ const googleReviewsLabel = computed(() => {
   return `${formatCount(googleReviewsCount, 'reseña', 'reseñas')} en Google`;
 });
 const reviewsById = computed(() => Object.fromEntries(props.reviews.map((review) => [review.id, review])));
-// Los campos que el modelo devolvió con texto ya quedaron guardados en la marca.
-const updatedProfileFields = computed(() => {
-  // Si la fuente es de otro negocio, no se guardó nada en la marca.
-  const isFromAnotherBusiness = props.analysis.payload.matches_brand === false;
-  if (isFromAnotherBusiness) {
-    return [];
-  }
-  const mergedBrandFields = props.analysis.payload.brand ?? {};
-  return Object.keys(profileFieldNames)
-    .filter((field) => mergedBrandFields[field]?.trim())
-    .map((field) => profileFieldNames[field]);
-});
 const starRows = computed(() => [5, 4, 3, 2, 1].map((stars) => {
   const count = metrics.value.stars_distribution[stars] ?? 0;
   return { stars, count, percentage: count / metrics.value.reviews_count * 100 };

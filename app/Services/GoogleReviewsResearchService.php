@@ -87,9 +87,6 @@ class GoogleReviewsResearchService
         $apifyReviews = array_values(array_filter(
             $datasetItems, fn (array $datasetItem): bool => isset($datasetItem['reviewId']),
         ));
-        // Apify repite totalScore y reviewsCount en cada ítem: se leen del primero.
-        $googleTotalScore = $datasetItems[0]['totalScore'] ?? null;
-        $googleReviewsCount = $datasetItems[0]['reviewsCount'] ?? null;
 
         // Sin reseñas, o solo con estrellas, no hay nada para analizar: la investigación termina vacía antes de guardar
         // nada, así las reseñas y el análisis anteriores siguen vigentes.
@@ -115,6 +112,9 @@ class GoogleReviewsResearchService
             ]);
         }
 
+        // Apify repite totalScore y reviewsCount en cada ítem: se leen del primero.
+        $googleTotalScore = $datasetItems[0]['totalScore'] ?? null;
+        $googleReviewsCount = $datasetItems[0]['reviewsCount'] ?? null;
         $knowledgeSources = $this->saveReviews($brand, $apifyReviews);
         $researchRun = $researchRunService->update($researchRun, [
             'status' => 'analyzing',

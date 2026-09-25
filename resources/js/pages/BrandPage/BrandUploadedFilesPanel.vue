@@ -237,9 +237,9 @@ const footerStatus = computed(() => {
 // Un archivo pendiente solo se está analizando mientras hay un análisis en curso; si no, quedó sin leer.
 const fileTiles = computed(() => props.files.map((file) => {
   const isPending = file.status === 'pending';
-  const isFailed = file.status === 'failed' || (isPending && !isAnalysisActive.value);
+  const wasNotRead = file.status === 'failed' || (isPending && !isAnalysisActive.value);
   let state = 'ready';
-  if (isFailed) {
+  if (wasNotRead) {
     state = 'failed';
   } else if (isPending) {
     state = 'analyzing';
@@ -301,8 +301,10 @@ async function uploadFiles() {
   }
 }
 
+// Mientras se analiza, el archivo se puede ver pero no borrar.
 function openFile(fileTile) {
-  brandUploadedFileModalStore.open(fileTile.file, fileTile.state, !isAnalysisActive.value);
+  const canDeleteFile = !isAnalysisActive.value;
+  brandUploadedFileModalStore.open(fileTile.file, fileTile.state, canDeleteFile);
 }
 
 // El borrado arranca un nuevo análisis de los archivos que quedan: se sigue su estado como el de una subida.

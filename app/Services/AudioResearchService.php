@@ -237,9 +237,9 @@ class AudioResearchService
                 'type' => 'audio_analysis',
                 'body' => $audioAnalysis->summary,
                 'payload' => [
-                    'matches_brand' => $audioAnalysis->matchesBrand,
-                    'brand' => $audioAnalysis->mergedBrandFields,
                     'summary' => $audioAnalysis->summary,
+                    'brand' => $audioAnalysis->mergedBrandFields,
+                    'matches_brand' => $audioAnalysis->matchesBrand,
                 ],
             ])]);
             foreach ($audioAnalysis->insights as $insight) {

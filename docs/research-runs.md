@@ -103,11 +103,12 @@ Las siete investigaciones siguen el mismo recorrido:
 `ResearchWebsiteJob` llama a `WebsiteResearchService`. Requiere `website_url` en la marca,
 `FIRECRAWL_API_KEY` y `OPENAI_API_KEY`. El job tiene un timeout de 600 segundos.
 
-1. Lee la portada con Firecrawl y toma de ahí la identidad visual: logo, colores y fuentes.
+1. Lee la portada con Firecrawl y toma de ahí la identidad visual: logo, colores y fuentes. Si la portada no
+   tiene texto, la investigación termina en `empty` sin guardarla ni consultar al modelo.
 2. Una primera consulta al modelo, solo con la portada, elige hasta dos enlaces internos más
    para leer y completa lo visual que Firecrawl no trajo. Si no hay enlaces ni datos visuales
    faltantes, esta consulta no se hace.
-3. Lee esas páginas con Firecrawl. Máximo: tres páginas por investigación.
+3. Lee esas páginas con Firecrawl; una sin texto se saltea. Máximo: tres páginas por investigación.
 4. Una segunda consulta analiza todas las páginas juntas, con el markdown sin URLs ni
    imágenes y el texto actual de los once campos de texto de la marca. Devuelve esos campos
    mezclados, el nombre, un resumen, las conclusiones y, en `inferred_fields`, los campos a los
@@ -121,7 +122,8 @@ menos 60 segundos.
 
 1. Arranca el actor de Apify `apify~instagram-post-scraper` y consulta la ejecución cada 10
    segundos hasta que termina.
-2. Lee los últimos posteos, tantos como indique `instagram.posts_limit`.
+2. Lee los últimos posteos, tantos como indique `instagram.posts_limit`. Si el perfil no devuelve ninguno, la
+   investigación termina en `empty` sin consultar al modelo.
 3. Cada posteo pasa por el modelo con todas sus imágenes, que devuelve por cada una el texto que
    aparece (`transcription`) y qué muestra (`description`). Los reels van solo con su portada.
    Un posteo que falla se saltea; solo si fallan todos, falla la investigación.

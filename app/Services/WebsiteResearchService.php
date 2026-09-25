@@ -59,6 +59,15 @@ class WebsiteResearchService
         $researchRun = $researchRunService->update($researchRun, ['status' => 'scraping', 'started_at' => now()]);
 
         $homepage = $this->saveScrapedPage($brand, $homepageUrl);
+        // Una portada sin texto no tiene nada para analizar: la investigación termina vacía y el análisis anterior
+        // sigue vigente.
+        if ($homepage === null) {
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'No encontramos texto en tu sitio. Revisa que la dirección sea la correcta.',
+            ]);
+        }
         $knowledgeSources = collect([$homepage]);
         $researchRun = $researchRunService->update($researchRun, [
             'status' => 'analyzing',
@@ -79,7 +88,11 @@ class WebsiteResearchService
             $modelVisualBrandFields = Arr::only($homepageReview->visualBrandFields, $missingVisualFields);
             $visualBrandFields = [...$visualBrandFields, ...$modelVisualBrandFields];
             foreach ($homepageReview->additionalUrls as $url) {
-                $knowledgeSources->push($this->saveScrapedPage($brand, $url));
+                $additionalPage = $this->saveScrapedPage($brand, $url);
+                $hasAdditionalPageContent = $additionalPage !== null;
+                if ($hasAdditionalPageContent) {
+                    $knowledgeSources->push($additionalPage);
+                }
             }
         }
 
@@ -105,14 +118,16 @@ class WebsiteResearchService
     }
 
 
-    // Obtiene la página con Firecrawl y la guarda como fuente de la marca.
-    private function saveScrapedPage(Brand $brand, string $url): KnowledgeSource
+    // Obtiene la página con Firecrawl y la guarda como fuente de la marca. Una página sin texto no tiene nada para
+    // analizar: no se guarda y devuelve null.
+    private function saveScrapedPage(Brand $brand, string $url): ?KnowledgeSource
     {
         $rawJson = resolve(FirecrawlHelper::class)->scrapeWebsite($url);
         $page = json_decode($rawJson, true)['data'];
         $hasContent = trim($page['markdown']) !== '';
         if (!$hasContent) {
-            throw new ApiException(502, 'website_content_empty', 'La página no devolvió contenido para analizar.');
+            $this->logStage('Nothing to analyze: the page has no text.', ['url' => $url]);
+            return null;
         }
 
         $knowledgeSource = resolve(KnowledgeSourceService::class)->create($brand, [

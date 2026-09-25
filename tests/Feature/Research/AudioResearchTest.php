@@ -48,8 +48,8 @@ class AudioResearchTest extends TestCase
 
 
     // El audio grabado queda en el disco hasta que el job lo transcribe y lo borra; la transcripción se guarda como
-    // fuente. El análisis reemplaza al del audio anterior, y en la marca se guarda solo el campo que el modelo cambió:
-    // el que devuelve en null conserva su texto.
+    // fuente, y una foto que llega de más en files se descarta. El análisis reemplaza al del audio anterior, y en la
+    // marca se guarda solo el campo que el modelo cambió: el que devuelve en null conserva su texto.
     #[Test]
     public function analyzes_the_recorded_audio(): void
     {
@@ -75,9 +75,10 @@ class AudioResearchTest extends TestCase
             ])),
         ]);
 
+        $strayPhoto = UploadedFile::fake()->createWithContent('foto.jpg', 'foto');
         $response = $this->post(
             '/api/research-runs',
-            ['type' => 'audio', 'audio_file' => $this->audioFile()],
+            ['type' => 'audio', 'audio_file' => $this->audioFile(), 'files' => [$strayPhoto]],
             ['Accept' => 'application/json'],
         );
         $researchRun = ResearchRun::query()->findOrFail($response->assertCreated()->json('data.id'));
@@ -89,6 +90,7 @@ class AudioResearchTest extends TestCase
         $this->assertSame('completed', $researchRun->status);
         Storage::disk('local')->assertMissing($researchRun->input['audio_path']);
         $audio = resolve(KnowledgeSourceService::class)->find($brand, $researchRun->knowledge_source_ids[0]);
+        $this->assertSame([$audio->id], resolve(KnowledgeSourceService::class)->list($brand)->modelKeys());
         $this->assertSame('Empezamos en 1990 con mi viejo, con un aserradero chico.', $audio->payload['transcript']);
         $this->assertSame('Empezó en 1990 como un aserradero familiar.', $brand->brand_history_description);
         $this->assertSame('Madera para construcción.', $brand->brand_offer_description);

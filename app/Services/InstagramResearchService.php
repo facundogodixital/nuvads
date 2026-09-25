@@ -64,8 +64,16 @@ class InstagramResearchService
         // Ítems de Apify tal cual. Se leen url, type, caption, displayUrl, images (las del carrusel), likesCount,
         // commentsCount, timestamp e isPinned.
         $apifyPosts = $apifyHelper->getDatasetItems($finishedApifyRun->datasetId, limit: $postsLimit);
+        // Un perfil sin posteos no tiene nada para analizar: la investigación termina vacía y el análisis anterior
+        // sigue vigente.
         if ($apifyPosts === []) {
-            throw new ApiException(502, 'instagram_posts_empty', 'El perfil no devolvió posteos para analizar.');
+            $this->logStage('Nothing to analyze: the profile returned no posts.');
+            return $researchRunService->update($researchRun, [
+                'status' => 'empty',
+                'finished_at' => now(),
+                'status_message' => 'No encontramos posteos en ese perfil. '
+                    .'Revisa que el usuario sea el de tu marca y que la cuenta sea pública.',
+            ]);
         }
         $this->logStage('Posts received.', ['posts' => count($apifyPosts)]);
 

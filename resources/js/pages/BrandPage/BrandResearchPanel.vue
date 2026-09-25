@@ -68,7 +68,7 @@
           :id="`${source.id}-url`"
           v-model="sourceUrl"
           :type="source.inputType"
-          :disabled="!isAvailable || isSaving"
+          :disabled="isSaving"
           :aria-invalid="Boolean(saveError)"
           :aria-describedby="`${source.id}-save-feedback`"
           :placeholder="source.placeholder"
@@ -85,11 +85,11 @@
             class="text-xs"
             :class="saveError ? 'text-danger' : 'text-text-muted'"
           >
-            {{ saveError || saveMessage || (isAvailable ? 'Puedes cambiarlo o quitarlo cuando quieras.' : 'Enlaces no disponibles todavía.') }}
+            {{ saveError || saveMessage || 'Puedes cambiarlo o quitarlo cuando quieras.' }}
           </span>
           <button
             type="submit"
-            :disabled="!isAvailable || isSaving || !hasChanges"
+            :disabled="isSaving || !hasChanges"
             class="min-h-11 shrink-0 rounded-sm border border-border px-3 text-sm font-medium enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:text-text-muted"
           >
             {{ isSaving ? 'Guardando…' : 'Guardar' }}
@@ -144,7 +144,6 @@ import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 const props = defineProps({
   source: { type: Object, required: true },
   savedValue: { type: String, default: '' },
-  isAvailable: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['saved', 'analyzed']);
@@ -233,11 +232,11 @@ const isSourceReady = computed(() => {
   if (isFileSource.value) {
     return selectedFile.value !== null;
   }
-  return props.isAvailable && props.savedValue !== '';
+  return props.savedValue !== '';
 });
 const canAnalyze = computed(() => {
   const analysisIsIdle = activeRun.value === null && !isStartingAnalysis.value;
-  return props.source.isAnalyzable && isSourceReady.value && analysisIsIdle;
+  return isSourceReady.value && analysisIsIdle;
 });
 const analyzeButtonLabel = computed(() => {
   if (activeRun.value) {
@@ -249,9 +248,6 @@ const analyzeButtonLabel = computed(() => {
   return latestRun.value ? 'Volver a analizar' : `Analizar ${props.source.title}`;
 });
 const analysisMessage = computed(() => {
-  if (!props.source.isAnalyzable) {
-    return 'Análisis disponible próximamente.';
-  }
   if (activeRun.value) {
     return stageLabels[props.source.id][activeRun.value.status];
   }
@@ -260,11 +256,14 @@ const analysisMessage = computed(() => {
   if (latestRunHasStatusMessage) {
     return latestRun.value.status_message;
   }
-  if (!isSourceReady.value && isRecordingSource.value) {
-    return 'Graba tu audio para analizarlo.';
-  }
   if (!isSourceReady.value) {
-    return isFileSource.value ? 'Elige el .zip con tus chats para analizarlo.' : 'Guarda el enlace para poder analizarlo.';
+    if (isRecordingSource.value) {
+      return 'Graba tu audio para analizarlo.';
+    }
+    if (isFileSource.value) {
+      return 'Elige el .zip con tus chats para analizarlo.';
+    }
+    return 'Guarda el enlace para poder analizarlo.';
   }
   return analysisHints[props.source.id];
 });
@@ -281,9 +280,6 @@ watch(() => props.savedValue, (value) => {
 });
 
 onMounted(async () => {
-  if (!props.source.isAnalyzable) {
-    return;
-  }
   await loadResearchStatus();
   schedulePolling();
 });
@@ -296,7 +292,7 @@ function clearFeedback() {
 }
 
 async function saveSource() {
-  const cannotSave = !props.isAvailable || isSaving.value || !hasChanges.value;
+  const cannotSave = isSaving.value || !hasChanges.value;
   if (cannotSave) {
     return;
   }

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use App\Services\KnowledgeSourceService;
+use App\Services\KnowledgeInsightService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\Research\Instagram\ResearchInstagramJob;
 
@@ -152,6 +153,31 @@ class InstagramResearchTest extends TestCase
         $this->assertSame('No se pudo completar el análisis de Instagram.', $researchRun->status_message);
         $this->assertDatabaseCount('knowledge_sources', 0);
         $this->assertSame([], $this->recordedOpenAiRequests());
+    }
+
+
+    // Un perfil sin posteos no tiene nada para analizar: la investigación termina vacía con un mensaje que lo dice, sin
+    // consultar al modelo, y el análisis anterior sigue vigente.
+    #[Test]
+    public function ends_empty_without_replacing_the_previous_analysis_when_the_profile_has_no_posts(): void
+    {
+        $previousAnalysis = resolve(KnowledgeInsightService::class)->create($this->brand, [
+            'type' => 'instagram_analysis', 'body' => 'Análisis anterior.', 'status' => 'active', 'level' => 1,
+        ]);
+        Http::fake([
+            'https://api.apify.com/v2/actors/*' => Http::response($this->apifyRun('READY')),
+            'https://api.apify.com/v2/actor-runs/run1' => Http::response($this->apifyRun('SUCCEEDED')),
+            'https://api.apify.com/v2/datasets/dataset1/items*' => Http::response([]),
+        ]);
+        $researchRun = $this->createResearchRun();
+
+        (new ResearchInstagramJob($researchRun->id))->handle();
+
+        $researchRun->refresh();
+        $this->assertSame('empty', $researchRun->status);
+        $this->assertNotNull($researchRun->status_message);
+        $this->assertSame([], $this->recordedOpenAiRequests());
+        $this->assertSame('active', $previousAnalysis->fresh()->status);
     }
 
 

@@ -53,12 +53,12 @@ class UploadedFileService
         $storedPath = $uploadedFile->storeAs("uploaded-files/{$brand->id}", $storedFileName, 'local');
         try {
             return resolve(KnowledgeSourceService::class)->create($brand, [
-                'type' => $isImage ? 'image' : 'document',
                 'status' => 'pending',
                 'captured_at' => now(),
-                'title' => Str::limit($fileName, 255, ''),
                 // Por ahora el archivo vive en el disco local; la columna ya prevé S3.
                 's3_path' => $storedPath,
+                'type' => $isImage ? 'image' : 'document',
+                'title' => Str::limit($fileName, 255, ''),
                 'payload' => [
                     'file_name' => $fileName,
                     'mime_type' => $mimeType,
@@ -128,8 +128,8 @@ class UploadedFileService
     }
 
 
-    // Enlace firmado para ver el archivo sin el token de la API. Por ahora no vence. Es relativo, como lo valida
-    // Laravel al servir el disco local.
+    // Enlace firmado para ver el archivo sin el token de la API. Por ahora no vence. La firma se calcula sobre la ruta
+    // relativa, porque así la valida Laravel al servir el disco local.
     private function getUrl(KnowledgeSource $knowledgeSource): string
     {
         $signedPath = URL::signedRoute('storage.local', ['path' => $knowledgeSource->s3_path], absolute: false);

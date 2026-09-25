@@ -28,9 +28,12 @@ class CreateResearchRunRequest extends AuthenticatedRequest
             'zip_file' => ['required_if:type,whatsapp_conversations', 'file', 'mimes:zip'],
             // Lo que graba el navegador: webm en Chrome y Firefox, mp4 en Safari.
             'audio_file' => ['required_if:type,audio', 'file', 'mimes:webm,mp4,m4a'],
-            'files' => ['required_if:type,uploaded_files', 'array', 'list'],
+            // Los archivos solo se aceptan en una subida de fotos y documentos; en los otros tipos se descartan.
+            'files' => ['exclude_unless:type,uploaded_files', 'required_if:type,uploaded_files', 'array', 'list'],
             // La extensión decide si es foto o documento; lo que OpenAI no pueda leer queda marcado al analizarlo.
-            'files.*' => ['file', 'extensions:'.implode(',', $uploadedFileExtensions)],
+            'files.*' => [
+                'exclude_unless:type,uploaded_files', 'file', 'extensions:'.implode(',', $uploadedFileExtensions),
+            ],
         ];
     }
 

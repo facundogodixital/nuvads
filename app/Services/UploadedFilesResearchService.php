@@ -107,9 +107,9 @@ class UploadedFilesResearchService
         $filesAnalysis = $this->requestFilesAnalysis($readyKnowledgeSources, $brand, $model);
 
         // Solo una subida mezcla la marca, y solo si los archivos son de este negocio.
-        $savesBrandFields = $isUpload && $filesAnalysis->matchesBrand;
-        $this->saveInsights($researchRun, $readyKnowledgeSources, $filesAnalysis, $savesBrandFields);
-        if ($savesBrandFields) {
+        $canSaveBrandFields = $isUpload && $filesAnalysis->matchesBrand;
+        $this->saveInsights($researchRun, $readyKnowledgeSources, $filesAnalysis, $canSaveBrandFields);
+        if ($canSaveBrandFields) {
             $this->saveMergedBrandFields($brand, $filesAnalysis->mergedBrandFields);
         } else {
             $this->logStage('Brand fields not saved.', ['isUpload' => $isUpload]);
@@ -371,7 +371,7 @@ class UploadedFilesResearchService
         ResearchRun $researchRun,
         Collection $readyKnowledgeSources,
         UploadedFilesAnalysisDto $filesAnalysis,
-        bool $savesBrandFields,
+        bool $canSaveBrandFields,
     ): Collection {
         $brand = $researchRun->brand;
         $knowledgeInsightService = resolve(KnowledgeInsightService::class);
@@ -392,9 +392,9 @@ class UploadedFilesResearchService
                 'type' => 'uploaded_files_analysis',
                 'body' => $filesAnalysis->summary,
                 'payload' => [
-                    'matches_brand' => $filesAnalysis->matchesBrand,
-                    'brand' => $savesBrandFields ? $filesAnalysis->mergedBrandFields : [],
                     'summary' => $filesAnalysis->summary,
+                    'matches_brand' => $filesAnalysis->matchesBrand,
+                    'brand' => $canSaveBrandFields ? $filesAnalysis->mergedBrandFields : [],
                 ],
             ])]);
             foreach ($filesAnalysis->insights as $insight) {

@@ -92,15 +92,18 @@ class ResearchRunService
             ],
         };
 
-        // Las fuentes de los archivos subidos, para borrar sus archivos si no se puede crear la ejecución.
+        // Solo una subida de fotos y documentos trae archivos; el nuevo análisis que sigue a un borrado, no. Sus
+        // fuentes se guardan para borrar los archivos si no se puede crear la ejecución.
+        $isUploadedFilesRun = $type === 'uploaded_files';
+        $uploadedFiles = $isUploadedFilesRun ? ($attributes['files'] ?? []) : [];
         $uploadedKnowledgeSources = collect();
         DB::beginTransaction();
         try {
-            foreach ($attributes['files'] ?? [] as $uploadedFile) {
+            foreach ($uploadedFiles as $uploadedFile) {
                 $uploadedKnowledgeSources->push(resolve(UploadedFileService::class)->create($brand, $uploadedFile));
             }
-            $hasUploadedFiles = $uploadedKnowledgeSources->isNotEmpty();
-            if ($hasUploadedFiles) {
+            $hasUploadedKnowledgeSources = $uploadedKnowledgeSources->isNotEmpty();
+            if ($hasUploadedKnowledgeSources) {
                 $input['uploaded_knowledge_source_ids'] = $uploadedKnowledgeSources->pluck('id')->all();
             }
             $researchRun = $this->researchRunRepository->create($brand, [
@@ -125,12 +128,12 @@ class ResearchRunService
             DB::commit();
         } catch (Throwable $exception) {
             DB::rollBack();
-            // Sin ejecución, ningún job borraría el archivo subido: el zip trae también los chats personales, y el
+            // Sin ejecución, ningún job borraría el zip o el audio: el zip trae también los chats personales, y el
             // audio no se guarda.
-            $uploadedFilePath = $input['zip_path'] ?? $input['audio_path'] ?? null;
-            $hasUploadedFile = $uploadedFilePath !== null;
-            if ($hasUploadedFile) {
-                Storage::disk('local')->delete($uploadedFilePath);
+            $zipOrAudioPath = $input['zip_path'] ?? $input['audio_path'] ?? null;
+            $hasZipOrAudio = $zipOrAudioPath !== null;
+            if ($hasZipOrAudio) {
+                Storage::disk('local')->delete($zipOrAudioPath);
             }
             // Las fuentes de los archivos subidos se deshicieron con la transacción; sus archivos se borran acá.
             foreach ($uploadedKnowledgeSources as $knowledgeSource) {
@@ -167,6 +170,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getWebsiteResearchStatus(Brand $brand): array
     {
         return [
@@ -177,6 +181,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getInstagramResearchStatus(Brand $brand): array
     {
         return [
@@ -187,6 +192,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getMetaAdsResearchStatus(Brand $brand): array
     {
         return [
@@ -197,6 +203,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getGoogleReviewsResearchStatus(Brand $brand): array
     {
         return [
@@ -207,6 +214,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getWhatsAppConversationsResearchStatus(Brand $brand): array
     {
         return [
@@ -219,6 +227,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getAudioResearchStatus(Brand $brand): array
     {
         return [
@@ -229,6 +238,7 @@ class ResearchRunService
     }
 
 
+    // active: la corrida en curso; latest: la última; last_completed: la última que terminó bien. Cada una o null.
     public function getUploadedFilesResearchStatus(Brand $brand): array
     {
         return [

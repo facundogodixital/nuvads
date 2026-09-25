@@ -188,48 +188,47 @@ const brandSections = [
 
 // Cada fuente tiene su página de detalle. Las que tienen field guardan un enlace en la marca; las de inputType file
 // suben un archivo con el pedido de análisis, y la de recording, un audio que se graba en la pantalla. Las fotos y los
-// documentos tienen su propio panel, porque se suben de a varios y quedan a la vista. Las que no son analizables
-// todavía no tienen backend y muestran un análisis de ejemplo.
+// documentos tienen su propio panel, porque se suben de a varios y quedan a la vista.
 const researchSources = [
   {
     id: 'website', group: 'links', field: 'website_url', title: 'Sitio web', description: 'Tu negocio en tus palabras',
-    label: 'Dirección de tu sitio', inputType: 'url', placeholder: 'https://tumarca.com', isAnalyzable: true,
+    label: 'Dirección de tu sitio', inputType: 'url', placeholder: 'https://tumarca.com',
     resultLabel: 'Oferta e historia',
     icon: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18Z',
   },
   {
     id: 'instagram', group: 'links', field: 'instagram_username', title: 'Instagram', description: 'Tus posteos y lo que mejor funciona',
-    label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca', isAnalyzable: true,
+    label: 'Usuario o enlace del perfil', inputType: 'text', placeholder: '@tumarca',
     resultLabel: 'Contenido y estilo',
     icon: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4ZM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM17.5 6.5h.01',
   },
   {
     id: 'meta-ads', group: 'links', field: 'meta_ads_url', title: 'Anuncios de Instagram y Facebook', description: 'Los anuncios que corres en redes',
-    label: 'Enlace de tu página de Facebook', inputType: 'url', placeholder: 'https://www.facebook.com/tumarca', isAnalyzable: true,
+    label: 'Enlace de tu página de Facebook', inputType: 'url', placeholder: 'https://www.facebook.com/tumarca',
     resultLabel: 'Ofertas y anuncios',
     icon: 'M4 10v4h3l6 4V6L7 10H4ZM17 9a4 4 0 0 1 0 6',
   },
   {
     id: 'google-maps', group: 'links', field: 'google_maps_url', title: 'Google Maps', description: 'La voz de tus clientes en sus reseñas',
-    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…', isAnalyzable: true,
+    label: 'Enlace de tu negocio', inputType: 'url', placeholder: 'https://maps.google.com/…',
     resultLabel: 'Reseñas y reputación',
     icon: 'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   },
   {
     id: 'whatsapp', group: 'files', field: null, title: 'Chats de WhatsApp', description: 'Lo que te preguntan tus clientes',
-    label: 'Archivo .zip con tus chats', inputType: 'file', isAnalyzable: true,
+    label: 'Archivo .zip con tus chats', inputType: 'file',
     resultLabel: 'Preguntas y clientes',
     icon: 'M4 20l1.5-4A8 8 0 1 1 8 18.5L4 20Z',
   },
   {
     id: 'audio', group: 'files', field: null, title: 'Audio', description: 'Cuéntanos tu negocio en dos minutos',
-    inputType: 'recording', isAnalyzable: true,
+    inputType: 'recording',
     resultLabel: 'Historia y diferenciales',
     icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3',
   },
   {
     id: 'uploaded-files', group: 'files', field: null, title: 'Fotos y documentos', description: 'Productos, local, menú o catálogo',
-    label: 'Tus fotos y documentos', isAnalyzable: true,
+    label: 'Tus fotos y documentos',
     resultLabel: 'Productos y estilo',
     icon: 'M4 5h16v14H4V5ZM4 15l4-4 4 4 3-3 5 5M15 9h.01',
   },
