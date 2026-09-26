@@ -136,6 +136,66 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
         ],
 
+        'ResearchCompetitorWebsiteJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorWebsiteJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorWebsiteJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorWebsiteJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorInstagramJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorInstagramJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorInstagramJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorInstagramJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorMetaAdsJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorMetaAdsJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorMetaAdsJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorMetaAdsJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorGoogleReviewsJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorGoogleReviewsJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchCompetitorGoogleReviewsJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchCompetitorGoogleReviewsJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchBrandCompetitionJobInfo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchBrandCompetitionJobInfo.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
+        'ResearchBrandCompetitionJobErrors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/ResearchBrandCompetitionJobErrors.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

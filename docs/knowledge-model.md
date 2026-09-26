@@ -5,7 +5,8 @@ tablas, campos ni migraciones nuevas.
 
 Lo que el sistema sabe de una marca vive en tres lugares: las fuentes (el material leído), las
 conclusiones (lo que la IA sacó de ese material) y los campos de la marca (el perfil que ve y edita el
-usuario). Cómo se generan está en [research-runs.md](research-runs.md).
+usuario). Cómo se generan está en [research-runs.md](research-runs.md). Lo que sabe de sus competidores tiene
+tablas propias, en [competitors.md](competitors.md).
 
 ## Tablas
 
@@ -218,24 +219,29 @@ Las investigaciones completan el perfil de la marca, y ninguna tiene que correr 
 
 Qué campos toca cada investigación:
 
-| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp | Audio | Fotos y documentos |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `name` | Si está vacío | | | | | | |
-| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia |
-| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia |
-| `brand_history_description` | Mezcla | | | | | Si cambia | Si cambia |
-| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
-| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
-| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia |
-| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | | | Si cambia |
-| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | | | Si cambia |
-| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla | | Si cambia |
-| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia |
-| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia |
-| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | | | |
+| Campo | Sitio web | Instagram | Anuncios de Meta | Reseñas de Google | WhatsApp | Audio | Fotos y documentos | Competencia |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `name` | Si está vacío | | | | | | | |
+| `brand_offer_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia | |
+| `brand_differentiators_description` | Mezcla | | Mezcla | Mezcla | | Si cambia | Si cambia | |
+| `brand_history_description` | Mezcla | | | | | Si cambia | Si cambia | |
+| `brand_customers_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia | |
+| `brand_customers_needs_description` | Mezcla | Mezcla | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia | |
+| `brand_visual_style_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia | |
+| `brand_tone_of_voice_description` | Mezcla | Mezcla | Mezcla | Mezcla | | | Si cambia | |
+| `brand_customers_valued_aspects_description` | Mezcla | | | Mezcla | | | Si cambia | |
+| `brand_customers_faq_description` | Mezcla | | | Mezcla | Mezcla | | Si cambia | |
+| `brand_communication_topics_description` | Mezcla | Mezcla | Mezcla | | | | Si cambia | |
+| `brand_content_opportunities_description` | Mezcla | | Mezcla | Mezcla | Mezcla | Si cambia | Si cambia | Mezcla |
+| `brand_logos`, `brand_colors`, `brand_fonts` | Si está vacío | | | | | | | |
+| `competitors_strengths_description`, `competitors_weaknesses_description`, `competitors_opportunities_description` | | | | | | | | Recalcula |
 
 Las pantallas de Instagram, de anuncios, de reseñas, de chats de WhatsApp, del audio y de fotos y documentos
 muestran qué campos del perfil actualizó su último análisis: los que el modelo devolvió con texto en `payload.brand`.
+
+La columna Competencia es el cruce de la marca con sus competidores, que corre cada vez que termina bien el análisis
+de un competidor. Los tres campos `competitors_*` los recalcula enteros y no se editan en la pantalla; las ideas de
+contenido las mezcla como cualquier fuente. Ver [competitors.md](competitors.md#cruce-con-la-competencia).
 
 ## Pendiente
 

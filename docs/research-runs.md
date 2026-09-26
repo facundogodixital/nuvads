@@ -7,7 +7,8 @@ perfil de la marca. La tabla `research_runs` registra cada una: cuándo se pidi�
 qué fuentes usó y cómo terminó.
 
 El modelo de fuentes, conclusiones y campos de la marca está en
-[knowledge-model.md](knowledge-model.md).
+[knowledge-model.md](knowledge-model.md). Las investigaciones de los competidores tienen su propia tabla,
+`competitor_research_runs`, con el mismo recorrido; están en [competitors.md](competitors.md).
 
 ## Qué representa una fila
 

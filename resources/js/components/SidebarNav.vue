@@ -78,6 +78,15 @@ const navItems = [
     paths: ['M4 17V3.5h11.5l-2 4 2 4H4'],
   },
   {
+    to: '/competitors',
+    label: 'Competencia',
+    paths: [
+      'M10 16.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13Z',
+      'M10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+      'M10 10h.01',
+    ],
+  },
+  {
     to: '/inspiration',
     label: 'Inspiración',
     paths: [

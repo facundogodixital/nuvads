@@ -35,6 +35,9 @@ class Brand extends Model
         'brand_customers_faq_description',
         'brand_communication_topics_description',
         'brand_content_opportunities_description',
+        'competitors_strengths_description',
+        'competitors_weaknesses_description',
+        'competitors_opportunities_description',
     ];
 
 
@@ -62,6 +65,9 @@ class Brand extends Model
             'brand_customers_faq_description' => 'string',
             'brand_communication_topics_description' => 'string',
             'brand_content_opportunities_description' => 'string',
+            'competitors_strengths_description' => 'string',
+            'competitors_weaknesses_description' => 'string',
+            'competitors_opportunities_description' => 'string',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',

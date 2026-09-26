@@ -8,7 +8,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 import LibraryPage from '@/pages/LibraryPage/LibraryPage.vue';
 import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage.vue';
 import DashboardPage from '@/pages/DashboardPage/DashboardPage.vue';
+import CompetitorPage from '@/pages/CompetitorPage/CompetitorPage.vue';
 import InspirationPage from '@/pages/InspirationPage/InspirationPage.vue';
+import CompetitorsPage from '@/pages/CompetitorsPage/CompetitorsPage.vue';
 import LoginCallbackPage from '@/pages/LoginCallbackPage/LoginCallbackPage.vue';
 import { applyTheme, getStoredTheme, getSystemTheme } from '@/helpers/preferencesStorage';
 import { getAuthToken, clearAuthToken, rememberDestination, takeDestination } from '@/helpers/authStorage';
@@ -29,6 +31,20 @@ const router = createRouter({
       path: '/brand/sources/:sourceId',
       component: BrandPage,
       props: (route) => ({ view: 'source', sourceId: route.params.sourceId }),
+      meta: { requiresAuth: true },
+    },
+    { path: '/competitors', component: CompetitorsPage, meta: { requiresAuth: true } },
+    // La página del competidor lo carga una sola vez para su resumen y para el detalle de cada fuente.
+    {
+      path: '/competitors/:competitorId',
+      component: CompetitorPage,
+      props: (route) => ({ view: 'overview', competitorId: route.params.competitorId }),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/competitors/:competitorId/sources/:sourceId',
+      component: CompetitorPage,
+      props: (route) => ({ view: 'source', competitorId: route.params.competitorId, sourceId: route.params.sourceId }),
       meta: { requiresAuth: true },
     },
     { path: '/inspiration', component: InspirationPage, meta: { requiresAuth: true } },

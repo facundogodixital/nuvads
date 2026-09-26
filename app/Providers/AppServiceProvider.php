@@ -11,6 +11,7 @@ use App\Services\ClientService;
 use App\Helpers\FirecrawlHelper;
 use App\Helpers\GoogleOAuthHelper;
 use App\Services\LoginCodeService;
+use App\Services\CompetitorService;
 use App\Services\GoogleAuthService;
 use App\Helpers\IpGeolocationHelper;
 use App\Repositories\UserRepository;
@@ -24,16 +25,28 @@ use Illuminate\Support\ServiceProvider;
 use App\Services\KnowledgeSourceService;
 use App\Services\MetaAdsResearchService;
 use App\Services\WebsiteResearchService;
+use App\Services\CompetitorSourceService;
 use App\Services\KnowledgeInsightService;
+use App\Repositories\CompetitorRepository;
+use App\Services\CompetitorInsightService;
 use App\Services\InstagramResearchService;
 use App\Repositories\ResearchRunRepository;
 use App\Repositories\AdministratorRepository;
+use App\Services\CompetitorResearchRunService;
 use App\Services\UploadedFilesResearchService;
 use App\Helpers\WhatsAppConversationsZipHelper;
 use App\Repositories\KnowledgeSourceRepository;
+use App\Repositories\CompetitorSourceRepository;
 use App\Repositories\KnowledgeInsightRepository;
+use App\Repositories\CompetitorInsightRepository;
+use App\Services\BrandCompetitionResearchService;
+use App\Services\CompetitorMetaAdsResearchService;
+use App\Services\CompetitorWebsiteResearchService;
+use App\Services\CompetitorInstagramResearchService;
+use App\Repositories\CompetitorResearchRunRepository;
 use App\Services\WhatsAppConversationsResearchService;
 use App\Services\Dispatchers\ResearchDispatcherService;
+use App\Services\CompetitorGoogleReviewsResearchService;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -76,6 +89,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(ClientRepository::class);
         $this->app->scoped(AdministratorService::class);
         $this->app->scoped(AdministratorRepository::class);
+        $this->app->scoped(CompetitorService::class);
+        $this->app->scoped(CompetitorRepository::class);
+        $this->app->scoped(CompetitorSourceService::class);
+        $this->app->scoped(CompetitorSourceRepository::class);
+        $this->app->scoped(CompetitorInsightService::class);
+        $this->app->scoped(CompetitorInsightRepository::class);
+        $this->app->scoped(CompetitorResearchRunService::class);
+        $this->app->scoped(CompetitorResearchRunRepository::class);
+        $this->app->scoped(CompetitorWebsiteResearchService::class);
+        $this->app->scoped(CompetitorInstagramResearchService::class);
+        $this->app->scoped(CompetitorMetaAdsResearchService::class);
+        $this->app->scoped(CompetitorGoogleReviewsResearchService::class);
+        $this->app->scoped(BrandCompetitionResearchService::class);
     }
 
 

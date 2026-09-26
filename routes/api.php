@@ -3,11 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\BrandController;
 use App\Http\Controllers\API\SessionController;
+use App\Http\Controllers\API\CompetitorController;
 use App\Http\Controllers\API\ResearchRunController;
 use App\Http\Controllers\API\UploadedFileController;
 use App\Http\Middleware\ResolveClientContextMiddleware;
 use App\Http\Controllers\API\KnowledgeInsightController;
+use App\Http\Controllers\API\CompetitorInsightController;
 use App\Http\Middleware\AuthenticateAccessTokenMiddleware;
+use App\Http\Controllers\API\CompetitorResearchRunController;
 
 Route::post('auth/exchange', [SessionController::class, 'create'])->middleware('throttle:10,1');
 
@@ -51,6 +54,48 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
 
         Route::get('brand', [BrandController::class, 'find']);
         Route::patch('brand', [BrandController::class, 'update']);
+
+        Route::get('competitors', [CompetitorController::class, 'list']);
+        Route::post('competitors', [CompetitorController::class, 'create']);
+        Route::get('competitors/{competitorId}', [CompetitorController::class, 'find'])->whereNumber('competitorId');
+        Route::patch('competitors/{competitorId}', [CompetitorController::class, 'update'])
+            ->whereNumber('competitorId');
+        Route::delete('competitors/{competitorId}', [CompetitorController::class, 'delete'])
+            ->whereNumber('competitorId');
+
+        Route::post('competitors/{competitorId}/research-runs', [CompetitorResearchRunController::class, 'create'])
+            ->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/research-runs/website/status',
+            [CompetitorResearchRunController::class, 'getWebsiteResearchStatus'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/research-runs/instagram/status',
+            [CompetitorResearchRunController::class, 'getInstagramResearchStatus'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/research-runs/meta-ads/status',
+            [CompetitorResearchRunController::class, 'getMetaAdsResearchStatus'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/research-runs/google-reviews/status',
+            [CompetitorResearchRunController::class, 'getGoogleReviewsResearchStatus'],
+        )->whereNumber('competitorId');
+
+        Route::get(
+            'competitors/{competitorId}/insights/website', [CompetitorInsightController::class, 'getWebsiteInsights'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/insights/instagram',
+            [CompetitorInsightController::class, 'getInstagramInsights'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/insights/meta-ads', [CompetitorInsightController::class, 'getMetaAdsInsights'],
+        )->whereNumber('competitorId');
+        Route::get(
+            'competitors/{competitorId}/insights/google-reviews',
+            [CompetitorInsightController::class, 'getGoogleReviewsInsights'],
+        )->whereNumber('competitorId');
 
         Route::get('auth/me', [SessionController::class, 'find']);
         Route::post('auth/logout', [SessionController::class, 'delete']);

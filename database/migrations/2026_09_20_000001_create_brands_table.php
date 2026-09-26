@@ -40,6 +40,10 @@ return new class() extends Migration
             $table->text('brand_communication_topics_description')->nullable();
             $table->text('brand_content_opportunities_description')->nullable();
 
+            $table->text('competitors_strengths_description')->nullable();
+            $table->text('competitors_weaknesses_description')->nullable();
+            $table->text('competitors_opportunities_description')->nullable();
+
             $table->timestamps();
             $table->softDeletes();
         });
