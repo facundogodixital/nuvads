@@ -5,6 +5,7 @@ namespace App\Services;
 use Closure;
 use Throwable;
 use App\Models\Brand;
+use App\Helpers\S3Helper;
 use App\Models\ResearchRun;
 use App\Helpers\OpenAIHelper;
 use App\Models\KnowledgeSource;
@@ -124,7 +125,10 @@ class UploadedFilesResearchService
     private function saveAnalyzedFile(Brand $brand, KnowledgeSource $knowledgeSource, string $model): KnowledgeSource
     {
         $fileName = $knowledgeSource->payload['file_name'];
-        $dataUrl = resolve(UploadedFileService::class)->getDataUrl($knowledgeSource);
+        // El archivo va en base64, como lo recibe OpenAI: 'data:image/png;base64,...'. No va su enlace temporal porque
+        // con un enlace OpenAI no recibe el nombre del documento.
+        $fileContents = resolve(S3Helper::class)->getFileContents($knowledgeSource->file_s3_path);
+        $dataUrl = "data:{$knowledgeSource->payload['mime_type']};base64,".base64_encode($fileContents);
         $input = ['file_name' => $fileName];
 
         $isImage = $knowledgeSource->type === 'image';

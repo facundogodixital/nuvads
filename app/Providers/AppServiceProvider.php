@@ -18,7 +18,6 @@ use App\Helpers\IpGeolocationHelper;
 use App\Repositories\UserRepository;
 use App\Services\ResearchRunService;
 use App\Repositories\BrandRepository;
-use App\Services\UploadedFileService;
 use App\Repositories\ClientRepository;
 use App\Services\AdministratorService;
 use App\Services\AudioResearchService;
@@ -71,7 +70,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(WhatsAppConversationsZipHelper::class);
         $this->app->scoped(WhatsAppConversationsResearchService::class);
         $this->app->scoped(AudioResearchService::class);
-        $this->app->scoped(UploadedFileService::class);
         $this->app->scoped(UploadedFilesResearchService::class);
         $this->app->scoped(ResearchRunRepository::class);
         $this->app->scoped(ResearchDispatcherService::class);

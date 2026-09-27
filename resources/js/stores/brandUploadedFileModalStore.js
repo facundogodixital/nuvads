@@ -1,10 +1,10 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import UploadedFileService from '@/services/UploadedFileService';
+import KnowledgeSourceService from '@/services/KnowledgeSourceService';
 
 export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModal', () => {
   const isOpen = ref(false);
-  const uploadedFile = ref(null);
+  const knowledgeSource = ref(null);
   // analyzing, failed o ready: lo decide quien abre el modal, que sabe si hay un análisis en curso.
   const fileState = ref('ready');
   const canDeleteFile = ref(false);
@@ -12,9 +12,9 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
   const isDeleting = ref(false);
   const isConfirmingDelete = ref(false);
 
-  function open(selectedFile, selectedFileState, canDeleteSelectedFile) {
+  function open(selectedKnowledgeSource, selectedFileState, canDeleteSelectedFile) {
     reset();
-    uploadedFile.value = selectedFile;
+    knowledgeSource.value = selectedKnowledgeSource;
     fileState.value = selectedFileState;
     canDeleteFile.value = canDeleteSelectedFile;
     isOpen.value = true;
@@ -28,18 +28,18 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
     isConfirmingDelete.value = false;
   }
 
-  // Borra el archivo y cierra el modal. Devuelve el nuevo análisis de los archivos que quedan, o null si no se pudo.
-  async function deleteUploadedFile() {
+  // Borra el archivo y cierra el modal. Devuelve si se pudo borrar.
+  async function deleteKnowledgeSource() {
     deleteError.value = '';
     isDeleting.value = true;
 
     try {
-      const researchRun = await UploadedFileService.delete(uploadedFile.value.id);
+      await KnowledgeSourceService.delete(knowledgeSource.value.id);
       close();
-      return researchRun;
+      return true;
     } catch (error) {
       deleteError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
-      return null;
+      return false;
     } finally {
       isDeleting.value = false;
     }
@@ -51,7 +51,7 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
   }
 
   function reset() {
-    uploadedFile.value = null;
+    knowledgeSource.value = null;
     fileState.value = 'ready';
     canDeleteFile.value = false;
     deleteError.value = '';
@@ -61,7 +61,7 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
 
   return {
     isOpen,
-    uploadedFile,
+    knowledgeSource,
     fileState,
     canDeleteFile,
     deleteError,
@@ -70,7 +70,7 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
     open,
     askToConfirmDelete,
     cancelDelete,
-    deleteUploadedFile,
+    deleteKnowledgeSource,
     close,
   };
 });

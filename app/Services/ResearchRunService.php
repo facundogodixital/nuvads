@@ -100,8 +100,9 @@ class ResearchRunService
         $uploadedKnowledgeSources = collect();
         DB::beginTransaction();
         try {
+            $knowledgeSourceService = resolve(KnowledgeSourceService::class);
             foreach ($uploadedFiles as $uploadedFile) {
-                $uploadedKnowledgeSources->push(resolve(UploadedFileService::class)->create($brand, $uploadedFile));
+                $uploadedKnowledgeSources->push($knowledgeSourceService->createFromUploadedFile($brand, $uploadedFile));
             }
             $hasUploadedKnowledgeSources = $uploadedKnowledgeSources->isNotEmpty();
             if ($hasUploadedKnowledgeSources) {

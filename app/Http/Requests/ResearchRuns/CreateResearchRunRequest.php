@@ -4,7 +4,7 @@ namespace App\Http\Requests\ResearchRuns;
 
 use App\Services\ResearchRunService;
 use Illuminate\Validation\Validator;
-use App\Services\UploadedFileService;
+use App\Services\KnowledgeSourceService;
 use App\Http\Requests\AuthenticatedRequest;
 
 
@@ -15,8 +15,8 @@ class CreateResearchRunRequest extends AuthenticatedRequest
     public function rules(): array
     {
         $uploadedFileExtensions = [
-            ...UploadedFileService::IMAGE_EXTENSIONS,
-            ...UploadedFileService::DOCUMENT_EXTENSIONS,
+            ...KnowledgeSourceService::IMAGE_EXTENSIONS,
+            ...KnowledgeSourceService::DOCUMENT_EXTENSIONS,
         ];
 
         return [

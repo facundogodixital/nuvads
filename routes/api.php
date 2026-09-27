@@ -5,7 +5,7 @@ use App\Http\Controllers\API\BrandController;
 use App\Http\Controllers\API\SessionController;
 use App\Http\Controllers\API\CompetitorController;
 use App\Http\Controllers\API\ResearchRunController;
-use App\Http\Controllers\API\UploadedFileController;
+use App\Http\Controllers\API\KnowledgeSourceController;
 use App\Http\Middleware\ResolveClientContextMiddleware;
 use App\Http\Controllers\API\KnowledgeInsightController;
 use App\Http\Controllers\API\CompetitorInsightController;
@@ -49,7 +49,7 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
             'knowledge-insights/uploaded-files', [KnowledgeInsightController::class, 'getUploadedFilesInsights'],
         );
 
-        Route::delete('uploaded-files/{knowledgeSourceId}', [UploadedFileController::class, 'delete'])
+        Route::delete('knowledge-sources/{knowledgeSourceId}', [KnowledgeSourceController::class, 'delete'])
             ->whereNumber('knowledgeSourceId');
 
         Route::get('brand', [BrandController::class, 'find']);

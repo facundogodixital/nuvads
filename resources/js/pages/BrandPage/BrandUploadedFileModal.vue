@@ -18,10 +18,10 @@
           id="uploaded-file-heading"
           class="truncate font-medium"
         >
-          {{ uploadedFile.title }}
+          {{ knowledgeSource.title }}
         </h2>
         <p class="mt-0.5 text-xs text-text-muted">
-          {{ fileKindLabel }} · {{ formatFileSize(uploadedFile.payload.size) }}
+          {{ fileKindLabel }} · {{ formatFileSize(knowledgeSource.payload.size) }}
         </p>
       </header>
 
@@ -31,8 +31,8 @@
           class="flex items-center justify-center bg-surface p-3"
         >
           <img
-            :src="uploadedFile.url"
-            :alt="uploadedFile.payload.description ?? uploadedFile.title"
+            :src="knowledgeSource.url"
+            :alt="knowledgeSource.payload.description ?? knowledgeSource.title"
             class="max-h-[50dvh] max-w-full rounded-sm object-contain"
           >
         </div>
@@ -61,7 +61,7 @@
                 {{ isImage ? 'Lo que vemos' : 'Qué es' }}
               </h3>
               <p class="text-sm leading-6">
-                {{ uploadedFile.payload.description }}
+                {{ knowledgeSource.payload.description }}
               </p>
             </section>
             <section
@@ -92,7 +92,7 @@
             type="button"
             :disabled="brandUploadedFileModalStore.isDeleting"
             class="min-h-11 shrink-0 rounded-sm border border-danger px-3 text-sm font-medium text-danger enabled:cursor-pointer enabled:hover:bg-surface-selected disabled:cursor-not-allowed disabled:opacity-60"
-            @click="deleteUploadedFile"
+            @click="deleteKnowledgeSource"
           >
             {{ brandUploadedFileModalStore.isDeleting ? 'Borrando…' : 'Sí, borrar' }}
           </button>
@@ -130,7 +130,7 @@
 
         <div class="ml-auto flex items-center gap-3">
           <a
-            :href="uploadedFile.url"
+            :href="knowledgeSource.url"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex min-h-11 items-center text-sm underline underline-offset-4 hover:text-accent"
@@ -162,18 +162,18 @@ const brandUploadedFileModalStore = useBrandUploadedFileModalStore();
 const dialog = ref(null);
 let openerElement = null;
 
-const uploadedFile = computed(() => brandUploadedFileModalStore.uploadedFile);
-const isImage = computed(() => uploadedFile.value.type === 'image');
+const knowledgeSource = computed(() => brandUploadedFileModalStore.knowledgeSource);
+const isImage = computed(() => knowledgeSource.value.type === 'image');
 // Las fotos dicen Foto; los documentos, su formato, como PDF o DOCX.
 const fileKindLabel = computed(() => {
   if (isImage.value) {
     return 'Foto';
   }
-  return uploadedFile.value.title.split('.').pop().toUpperCase();
+  return knowledgeSource.value.title.split('.').pop().toUpperCase();
 });
 // El texto que tiene la foto, o lo que se sacó del documento.
 const extractedText = computed(() => {
-  const payload = uploadedFile.value.payload;
+  const payload = knowledgeSource.value.payload;
   return isImage.value ? payload.transcription : payload.content;
 });
 const deleteFeedback = computed(() => {
@@ -195,10 +195,10 @@ watch(() => brandUploadedFileModalStore.isOpen, async (isOpen) => {
   dialog.value?.focus();
 });
 
-async function deleteUploadedFile() {
-  const researchRun = await brandUploadedFileModalStore.deleteUploadedFile();
-  if (researchRun) {
-    emit('deleted', researchRun);
+async function deleteKnowledgeSource() {
+  const isDeleted = await brandUploadedFileModalStore.deleteKnowledgeSource();
+  if (isDeleted) {
+    emit('deleted');
   }
 }
 

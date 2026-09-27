@@ -109,13 +109,14 @@ class UploadedFilesResearchTest extends TestCase
         $keptFile = $this->createAnalyzedFile('torta.jpg', 'Torta de chocolate sobre fondo blanco.');
         Http::fake(['https://api.openai.com/v1/responses' => $this->fakeOpenAiResponse(...)]);
 
-        $researchRunId = $this->deleteJson("/api/uploaded-files/{$deletedFile->id}")->assertOk()->json('data.id');
-        $this->deleteJson("/api/uploaded-files/{$keptFile->id}")->assertUnprocessable();
+        $this->deleteJson("/api/knowledge-sources/{$deletedFile->id}")->assertOk();
+        $this->deleteJson("/api/knowledge-sources/{$keptFile->id}")->assertConflict();
         $this->post('/api/research-runs', [
             'type' => 'uploaded_files',
             'files' => [UploadedFile::fake()->create('otra.jpg', 20, 'image/jpeg')],
         ], ['Accept' => 'application/json'])->assertUnprocessable();
-        (new ResearchUploadedFilesJob($researchRunId))->handle();
+        $researchRun = ResearchRun::query()->where('type', 'uploaded_files')->sole();
+        (new ResearchUploadedFilesJob($researchRun->id))->handle();
 
         $knowledgeSourceService = resolve(KnowledgeSourceService::class);
         $this->assertNull($knowledgeSourceService->find($this->brand, $deletedFile->id));

@@ -319,7 +319,8 @@ documentos pdf, doc, docx, odt, rtf, txt, md, csv, xls, xlsx, ppt y pptx. Una su
 archivos: el límite de PHP y de nginx es por pedido, no por archivo.
 
 Las subidas se suman: cada una analiza sus archivos y rehace el análisis general con todos los de la marca. Mientras
-hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla, el request y el service.
+hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla y `ResearchRunService::create`, que
+corre tanto al subir como al borrar.
 
 1. Al subirlos, cada archivo queda como fuente `image` o `document` en `pending` y se sube a S3 como
    `{brand_id}/sources/{type}/{id}.{extensión}`. En la misma transacción se crea la ejecución, con sus IDs en
@@ -335,10 +336,11 @@ hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla, 
 4. En una transacción, las filas activas anteriores de los dos tipos pasan a `outdated` y se guardan las nuevas.
    Después se mezclan los campos de la marca.
 
-Borrar un archivo (`DELETE /api/uploaded-files/{id}`) lo saca con soft delete, borra su archivo de S3 y pide un
-nuevo análisis sin archivos nuevos, que la respuesta devuelve. Ese análisis rehace el resumen y las conclusiones con
-los que quedan y no toca la marca: lo que el archivo ya aportó al perfil queda. Si no queda ninguno, las filas
-activas pasan a `outdated` sin consultar al modelo.
+Borrar un archivo (`DELETE /api/knowledge-sources/{id}`, solo para fuentes `image` y `document`) lo saca con soft
+delete, borra su archivo de S3 y pide un nuevo análisis sin archivos nuevos. La respuesta no trae datos: la pantalla
+sigue el análisis con su estado. Ese análisis rehace el resumen y las conclusiones con los que quedan y no toca la
+marca: lo que el archivo ya aportó al perfil queda. Si no queda ninguno, las filas activas pasan a `outdated` sin
+consultar al modelo.
 
 `GET /api/knowledge-insights/uploaded-files` devuelve `analysis`, `insights` y `files`: todos los archivos subidos,
 también los pendientes y los que no se pudieron leer, del más nuevo al más viejo. Cada uno trae `url`, su enlace

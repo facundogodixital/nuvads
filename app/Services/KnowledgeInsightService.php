@@ -191,16 +191,17 @@ class KnowledgeInsightService
 
 
     // Lo que muestra la pantalla de las fotos y los documentos: analysis, el análisis vigente con el resumen o null;
-    // insights, las conclusiones vigentes; y files, todos los archivos subidos, también los que se están analizando o
-    // no se pudieron leer, cada uno con su enlace.
+    // insights, las conclusiones vigentes; y files, todos los archivos subidos, del más nuevo al más viejo, también
+    // los que se están analizando o no se pudieron leer, cada uno con su enlace.
     public function getUploadedFilesInsights(Brand $brand): array
     {
         $knowledgeInsights = $this->findCurrentByTypes($brand, ['uploaded_files_analysis', 'uploaded_files_insight']);
+        $uploadedKnowledgeSources = resolve(KnowledgeSourceService::class)->findByTypes($brand, ['image', 'document']);
 
         return [
             'analysis' => $knowledgeInsights->firstWhere('type', 'uploaded_files_analysis'),
             'insights' => $knowledgeInsights->where('type', 'uploaded_files_insight')->values(),
-            'files' => resolve(UploadedFileService::class)->list($brand),
+            'files' => $this->addFileUrls($uploadedKnowledgeSources->sortByDesc('id')->values()),
         ];
     }
 
@@ -258,6 +259,18 @@ class KnowledgeInsightService
                 'video_url' => $s3Helper->getTemporaryUrl($mediaItem['video_s3_path']),
             ], $ad->payload['media']);
             $ad->setAttribute('media_urls', $mediaUrls);
+        });
+    }
+
+
+    // Suma a cada foto o documento url, el enlace temporal de S3 de su archivo. No es una columna: solo viaja en la
+    // respuesta.
+    private function addFileUrls(Collection $knowledgeSources): Collection
+    {
+        $s3Helper = resolve(S3Helper::class);
+
+        return $knowledgeSources->each(function (KnowledgeSource $knowledgeSource) use ($s3Helper): void {
+            $knowledgeSource->setAttribute('url', $s3Helper->getTemporaryUrl($knowledgeSource->file_s3_path));
         });
     }
 
