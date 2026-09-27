@@ -82,6 +82,10 @@ marca, así que borrar una marca es borrar una carpeta:
 {brand_id}/competitors/{competitor_id}/sources/meta_ad/{id}/1.jpg  lo mismo, de un competidor
 ```
 
+La app entra con un usuario IAM por entorno, `nuvads-s3-local-user` y `nuvads-s3-production-user`, que solo puede
+listar, leer, escribir y borrar en su bucket: la credencial de local nunca toca production. Su clave va en las
+variables `AWS_*` del `.env`.
+
 Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días, así que la investigación los descarga
 a S3 apenas Apify los devuelve, numerados según su posición: la imagen 1 es la de `images[0]`, y en los videos la
 portada y el video comparten número (`1.jpg` y `1.mp4`). El análisis sigue usando las URLs de Apify, que en ese

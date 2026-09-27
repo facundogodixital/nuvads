@@ -258,6 +258,11 @@ Requieren `OPENAI_API_KEY`, más `FIRECRAWL_API_KEY` para el sitio web y `APIFY_
 Instagram y los anuncios. El modelo y los límites (posteos y anuncios por investigación) se
 configuran en `config/research.php`.
 
+Las fotos y los documentos subidos y las imágenes y los videos de Instagram y de Meta se guardan
+en S3, así que también requieren `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+`AWS_DEFAULT_REGION` (`us-east-1`) y `AWS_BUCKET` (`nuvads-local` en local). La clave es la del
+usuario IAM del entorno: ver [docs/knowledge-model.md](docs/knowledge-model.md#archivos-en-s3).
+
 Los jobs corren en `research_queue`, con `QUEUE_CONNECTION=database` en la misma base de la
 aplicación: la ejecución y su job se guardan en la misma transacción. El `retry_after` de la
 conexión es 900 segundos, por encima del timeout de cada job, para que ninguna entrega se
