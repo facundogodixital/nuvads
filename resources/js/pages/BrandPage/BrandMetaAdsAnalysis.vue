@@ -79,7 +79,7 @@
           :key="ad.id"
           class="flex gap-3 py-4"
         >
-          <!-- Las URLs de Meta vencen a los pocos días; si la imagen no carga, queda el ícono del formato. -->
+          <!-- Si la imagen no se pudo guardar o no carga, queda el ícono del formato. -->
           <button
             type="button"
             aria-label="Ver el anuncio en grande"
@@ -88,13 +88,13 @@
             @click="brandMetaAdsMediaModalStore.open(ad)"
           >
             <img
-              v-if="canShowImage(ad.payload.media[0]?.image_url)"
-              :src="ad.payload.media[0].image_url"
+              v-if="canShowImage(ad.media_urls[0]?.image_url)"
+              :src="ad.media_urls[0].image_url"
               alt=""
               loading="lazy"
               referrerpolicy="no-referrer"
               class="h-full w-full object-cover"
-              @error="markImageAsFailed(ad.payload.media[0].image_url)"
+              @error="markImageAsFailed(ad.media_urls[0].image_url)"
             >
             <svg
               v-else
@@ -113,7 +113,7 @@
             </svg>
             <!-- La esquina avisa si es un video o un carrusel. -->
             <span
-              v-if="canShowImage(ad.payload.media[0]?.image_url) && formatBadgeIcons[getAdFormat(ad)]"
+              v-if="canShowImage(ad.media_urls[0]?.image_url) && formatBadgeIcons[getAdFormat(ad)]"
               class="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm bg-surface-raised text-text"
             >
               <svg
@@ -198,19 +198,19 @@
                 >
                   <!-- El modelo puede devolver más entradas que imágenes: esas quedan sin imagen. -->
                   <button
-                    v-if="canShowImage(ad.payload.media[index]?.image_url)"
+                    v-if="canShowImage(ad.media_urls[index]?.image_url)"
                     type="button"
                     :aria-label="isVideo(ad, index) ? 'Ver el video en grande' : 'Ver esta imagen en grande'"
                     class="w-32 shrink-0 cursor-zoom-in self-start overflow-hidden rounded-sm hover:opacity-90 sm:w-24"
                     @click="brandMetaAdsMediaModalStore.open(ad, index)"
                   >
                     <img
-                      :src="ad.payload.media[index].image_url"
+                      :src="ad.media_urls[index].image_url"
                       alt=""
                       loading="lazy"
                       referrerpolicy="no-referrer"
                       class="w-full bg-surface-selected"
-                      @error="markImageAsFailed(ad.payload.media[index].image_url)"
+                      @error="markImageAsFailed(ad.media_urls[index].image_url)"
                     >
                   </button>
                   <div class="min-w-0 flex-1">

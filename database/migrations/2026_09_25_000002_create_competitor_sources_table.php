@@ -18,8 +18,8 @@ return new class() extends Migration
 
             $table->enum('type', ['web_page', 'instagram_post', 'meta_ad', 'google_review']);
             $table->string('title', 255);
-            $table->string('s3_path', 512)->nullable();
             $table->json('payload')->nullable();
+            $table->string('payload_s3_path', 512)->nullable();
             $table->string('source_ref', 512)->nullable();
             $table->timestamp('captured_at')->nullable();
             $table->enum('status', ['pending', 'ready', 'failed'])->default('pending');

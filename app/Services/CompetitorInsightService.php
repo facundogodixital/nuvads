@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Helpers\S3Helper;
 use App\Models\Competitor;
+use App\Models\CompetitorSource;
 use App\Models\CompetitorInsight;
 use Illuminate\Database\Eloquent\Collection;
 use App\DTO\CompetitorGoogleReviewsInsightsDto;
@@ -50,33 +52,37 @@ class CompetitorInsightService
 
 
     // Lo que muestra la pantalla de Instagram: analysis, el análisis vigente con el resumen y las métricas en su
-    // payload o null; insights, las conclusiones vigentes; y posts, los posteos que leyó ese análisis.
+    // payload o null; insights, las conclusiones vigentes; y posts, los posteos que leyó ese análisis, con los enlaces
+    // de sus archivos.
     public function getInstagramInsights(Competitor $competitor): array
     {
         $competitorInsights = $this->findCurrentByTypes($competitor, ['instagram_analysis', 'instagram_insight']);
         $analysis = $competitorInsights->firstWhere('type', 'instagram_analysis');
         $postIds = $analysis?->competitor_source_ids ?? [];
+        $posts = resolve(CompetitorSourceService::class)->findByIds($competitor, $postIds);
 
         return [
             'analysis' => $analysis,
             'insights' => $competitorInsights->where('type', 'instagram_insight')->values(),
-            'posts' => resolve(CompetitorSourceService::class)->findByIds($competitor, $postIds),
+            'posts' => $this->addPostsMediaUrls($posts),
         ];
     }
 
 
     // Lo que muestra la pantalla de los anuncios de Meta: analysis, el análisis vigente con el resumen y las métricas
-    // en su payload o null; insights, las conclusiones vigentes; y ads, los anuncios que leyó ese análisis.
+    // en su payload o null; insights, las conclusiones vigentes; y ads, los anuncios que leyó ese análisis, con los
+    // enlaces de sus archivos.
     public function getMetaAdsInsights(Competitor $competitor): array
     {
         $competitorInsights = $this->findCurrentByTypes($competitor, ['meta_ads_analysis', 'meta_ads_insight']);
         $analysis = $competitorInsights->firstWhere('type', 'meta_ads_analysis');
         $adIds = $analysis?->competitor_source_ids ?? [];
+        $ads = resolve(CompetitorSourceService::class)->findByIds($competitor, $adIds);
 
         return [
             'analysis' => $analysis,
             'insights' => $competitorInsights->where('type', 'meta_ads_insight')->values(),
-            'ads' => resolve(CompetitorSourceService::class)->findByIds($competitor, $adIds),
+            'ads' => $this->addAdsMediaUrls($ads),
         ];
     }
 
@@ -115,6 +121,37 @@ class CompetitorInsightService
         return $this->competitorInsightRepository->updateStatusByTypeAndStatus(
             $competitor, $type, 'active', 'outdated',
         );
+    }
+
+
+    // Suma a cada posteo image_urls y video_urls, los enlaces temporales de S3 de sus imágenes y su video, en el mismo
+    // orden. No son columnas: solo viajan en la respuesta.
+    private function addPostsMediaUrls(Collection $posts): Collection
+    {
+        $s3Helper = resolve(S3Helper::class);
+
+        return $posts->each(function (CompetitorSource $post) use ($s3Helper): void {
+            $imageUrls = array_map($s3Helper->getTemporaryUrl(...), $post->payload['image_s3_paths']);
+            $videoUrls = array_map($s3Helper->getTemporaryUrl(...), $post->payload['video_s3_paths']);
+            $post->setAttribute('image_urls', $imageUrls);
+            $post->setAttribute('video_urls', $videoUrls);
+        });
+    }
+
+
+    // Suma a cada anuncio media_urls: por cada elemento de media, image_url y video_url, los enlaces temporales de S3
+    // de su imagen y su video. No son columnas: solo viajan en la respuesta.
+    private function addAdsMediaUrls(Collection $ads): Collection
+    {
+        $s3Helper = resolve(S3Helper::class);
+
+        return $ads->each(function (CompetitorSource $ad) use ($s3Helper): void {
+            $mediaUrls = array_map(fn (array $mediaItem): array => [
+                'image_url' => $s3Helper->getTemporaryUrl($mediaItem['image_s3_path']),
+                'video_url' => $s3Helper->getTemporaryUrl($mediaItem['video_s3_path']),
+            ], $ad->payload['media']);
+            $ad->setAttribute('media_urls', $mediaUrls);
+        });
     }
 
 }

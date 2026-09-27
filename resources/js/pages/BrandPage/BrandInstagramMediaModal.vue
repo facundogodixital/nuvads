@@ -17,10 +17,10 @@
     >
       <div class="flex min-h-0 flex-1 items-center justify-center bg-surface p-3">
         <p
-          v-if="hasMediaFailed"
+          v-if="hasMediaFailed || !currentMedia.url"
           class="max-w-xs p-8 text-center text-sm leading-6 text-text-muted"
         >
-          Este contenido ya no está disponible desde Instagram. Puedes verlo en el posteo original.
+          Este contenido no está disponible. Puedes verlo en el posteo original.
         </p>
         <video
           v-else-if="currentMedia.type === 'video'"
@@ -134,11 +134,11 @@ const mediaItems = computed(() => {
     return [];
   }
 
-  const isReelWithVideo = post.payload.raw.type === 'Video' && Boolean(post.payload.raw.videoUrl);
+  const isReelWithVideo = post.payload.raw.type === 'Video' && Boolean(post.video_urls[0]);
   if (isReelWithVideo) {
-    return [{ type: 'video', url: post.payload.raw.videoUrl, posterUrl: post.payload.image_urls?.[0] }];
+    return [{ type: 'video', url: post.video_urls[0], posterUrl: post.image_urls[0] }];
   }
-  return (post.payload.image_urls ?? []).map((url, index) => ({
+  return post.image_urls.map((url, index) => ({
     type: 'image',
     url,
     description: post.payload.images?.[index]?.description ?? '',

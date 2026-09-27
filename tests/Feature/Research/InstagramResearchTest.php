@@ -15,6 +15,7 @@ use App\Services\ResearchRunService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Support\Facades\Storage;
 use App\Services\KnowledgeSourceService;
 use App\Services\KnowledgeInsightService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,9 @@ class InstagramResearchTest extends TestCase
         parent::setUp();
         Queue::fake();
         Sleep::fake();
+        Storage::fake('s3');
+        // Un enlace temporal legible en lugar de uno firmado por S3.
+        Storage::disk('s3')->buildTemporaryUrlsUsing(fn (string $path): string => "https://s3.test/{$path}");
         config()->set('services.apify.api_key', 'testing-key');
         config()->set('services.openai.api_key', 'testing-key');
         config()->set('logging.channels.ResearchInstagramJobInfo', config('logging.channels.null'));
@@ -70,10 +74,11 @@ class InstagramResearchTest extends TestCase
 
 
     // Espera a que Apify termine, transcribe cada posteo con todas sus imágenes y los guarda como fuentes, aunque el
-    // modelo devuelva más entradas que imágenes; un posteo que falla se saltea. El análisis final recibe el texto
-    // actual de la marca: lo mezclado se guarda y lo que vuelve vacío no borra nada. Las métricas ignoran los likes
-    // ocultos y los fijados no cuentan para la frecuencia. La pantalla de Instagram lee el estado, el análisis con sus
-    // métricas, las conclusiones y los posteos leídos.
+    // modelo devuelva más entradas que imágenes; un posteo que falla se saltea. Las imágenes y el video de cada posteo
+    // se guardan en S3 en su orden, y una descarga que falla queda en null. El análisis final recibe el texto actual
+    // de la marca: lo mezclado se guarda y lo que vuelve vacío no borra nada. Las métricas ignoran los likes ocultos y
+    // los fijados no cuentan para la frecuencia. La pantalla de Instagram lee el estado, el análisis con sus métricas,
+    // las conclusiones y los posteos leídos, con los enlaces temporales de sus archivos.
     #[Test]
     public function analyzes_the_posts_and_merges_the_brand_fields(): void
     {
@@ -85,10 +90,12 @@ class InstagramResearchTest extends TestCase
                 ->push($this->apifyRun('SUCCEEDED')),
             'https://api.apify.com/v2/datasets/dataset1/items*' => Http::response($this->apifyPosts()),
             'https://api.openai.com/v1/responses' => Http::sequence()
-                ->push($this->openAiResponse($this->transcription(2)))
-                ->push($this->openAiResponse($this->transcription(2)))
                 ->push(['error' => ['message' => 'Error while downloading the image.']], 400)
+                ->push($this->openAiResponse($this->transcription(2)))
+                ->push($this->openAiResponse($this->transcription(2)))
                 ->push($this->openAiResponse($analysis)),
+            'https://cdn.example/carousel-2.jpg' => Http::response('', 404),
+            'https://cdn.example/*' => Http::response('archivo'),
         ]);
         $researchRun = $this->createResearchRun();
 
@@ -101,11 +108,16 @@ class InstagramResearchTest extends TestCase
         $this->assertCount(2, $researchRun->knowledge_source_ids);
 
         $knowledgeSourceService = resolve(KnowledgeSourceService::class);
-        $image = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[0]);
-        $carousel = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[1]);
-        $this->assertCount(2, $image->payload['images']);
+        $carousel = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[0]);
+        $reel = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[1]);
+        $this->assertCount(2, $reel->payload['images']);
         $this->assertSame('instagram_post', $carousel->type);
         $this->assertSame('Imagen 2', $carousel->payload['images'][1]['description']);
+        $carouselFirstImageS3Path = "{$brand->id}/sources/instagram_post/{$carousel->id}/1.jpg";
+        $reelVideoS3Path = "{$brand->id}/sources/instagram_post/{$reel->id}/1.mp4";
+        $this->assertSame([$carouselFirstImageS3Path, null], $carousel->payload['image_s3_paths']);
+        $this->assertSame([$reelVideoS3Path], $reel->payload['video_s3_paths']);
+        Storage::disk('s3')->assertExists([$carouselFirstImageS3Path, $reelVideoS3Path]);
         $openAiRequests = $this->recordedOpenAiRequests();
         $this->assertSame(
             ['https://cdn.example/carousel-1.jpg', 'https://cdn.example/carousel-2.jpg'],
@@ -126,6 +138,9 @@ class InstagramResearchTest extends TestCase
         $this->assertSame(120, $metrics['formats']['carousel']['average_likes']);
         $this->assertCount(2, $instagramInsights['insights']);
         $this->assertSame($researchRun->knowledge_source_ids, array_column($instagramInsights['posts'], 'id'));
+        [$carouselOnScreen, $reelOnScreen] = $instagramInsights['posts'];
+        $this->assertSame(["https://s3.test/{$carouselFirstImageS3Path}", null], $carouselOnScreen['image_urls']);
+        $this->assertSame(["https://s3.test/{$reelVideoS3Path}"], $reelOnScreen['video_urls']);
     }
 
 
@@ -250,6 +265,7 @@ class InstagramResearchTest extends TestCase
                 'url' => 'https://www.instagram.com/p/reel/',
                 'caption' => null,
                 'displayUrl' => 'https://cdn.example/reel.jpg',
+                'videoUrl' => 'https://cdn.example/reel.mp4',
                 'images' => [],
                 'likesCount' => 300,
                 'commentsCount' => 20,

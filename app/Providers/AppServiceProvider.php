@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Helpers\S3Helper;
 use App\Helpers\ApifyHelper;
 use App\Helpers\OpenAIHelper;
 use App\Services\UserService;
@@ -58,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(S3Helper::class);
         $this->app->scoped(ApifyHelper::class);
         $this->app->scoped(OpenAIHelper::class);
         $this->app->scoped(DeepSeekHelper::class);

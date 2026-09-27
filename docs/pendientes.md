@@ -2,7 +2,6 @@
 
 - Revisar el `retry_after` de los jobs y sus timeouts.
 - Revisar los límites de subida de PHP y nginx, en cantidad de archivos y tamaño.
-- Implementar S3.
-  - Los enlaces de los archivos subidos hoy no vencen; en S3 van a tener que vencer, porque S3 no firma enlaces
-    por más de 7 días.
+- Terminar S3: el audio y el zip de WhatsApp siguen en el disco local mientras se procesan, y `payload_s3_path`
+  todavía no se usa.
 - Poder leer videos y reels.

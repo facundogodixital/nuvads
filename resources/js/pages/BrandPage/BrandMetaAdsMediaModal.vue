@@ -17,10 +17,10 @@
     >
       <div class="flex min-h-0 flex-1 items-center justify-center bg-surface p-3">
         <p
-          v-if="hasMediaFailed"
+          v-if="hasMediaFailed || !currentMedia.url"
           class="max-w-xs p-8 text-center text-sm leading-6 text-text-muted"
         >
-          Este contenido ya no está disponible desde Meta. Puedes verlo en la Biblioteca de anuncios.
+          Este contenido no está disponible. Puedes verlo en la Biblioteca de anuncios.
         </p>
         <video
           v-else-if="currentMedia.type === 'video'"
@@ -135,11 +135,12 @@ const mediaItems = computed(() => {
   }
 
   return ad.payload.media.map((media, index) => {
-    const isVideo = media.type === 'video' && Boolean(media.video_url);
+    const mediaUrls = ad.media_urls[index];
+    const isVideo = media.type === 'video' && Boolean(mediaUrls.video_url);
     if (isVideo) {
-      return { type: 'video', url: media.video_url, posterUrl: media.image_url };
+      return { type: 'video', url: mediaUrls.video_url, posterUrl: mediaUrls.image_url };
     }
-    return { type: 'image', url: media.image_url, description: ad.payload.images?.[index]?.description ?? '' };
+    return { type: 'image', url: mediaUrls.image_url, description: ad.payload.images?.[index]?.description ?? '' };
   });
 });
 const currentMedia = computed(() => mediaItems.value[brandMetaAdsMediaModalStore.mediaIndex] ?? {});

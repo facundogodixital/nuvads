@@ -14,6 +14,7 @@ use App\Services\ResearchRunService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Support\Facades\Storage;
 use App\Services\KnowledgeSourceService;
 use App\Services\KnowledgeInsightService;
 use App\Jobs\Research\MetaAds\ResearchMetaAdsJob;
@@ -33,6 +34,9 @@ class MetaAdsResearchTest extends TestCase
         parent::setUp();
         Queue::fake();
         Sleep::fake();
+        Storage::fake('s3');
+        // Un enlace temporal legible en lugar de uno firmado por S3.
+        Storage::disk('s3')->buildTemporaryUrlsUsing(fn (string $path): string => "https://s3.test/{$path}");
         $this->travelTo('2026-09-24 12:00:00');
         config()->set('services.apify.api_key', 'testing-key');
         config()->set('services.openai.api_key', 'testing-key');
@@ -66,9 +70,11 @@ class MetaAdsResearchTest extends TestCase
 
 
     // Pide a Apify los anuncios más nuevos, transcribe cada uno con sus imágenes y los guarda como fuentes; un
-    // anuncio que falla se saltea. Las métricas cuentan los días de los activos hasta hoy y los de los terminados
+    // anuncio que falla se saltea. Las imágenes y los videos de cada anuncio se guardan en S3 en su orden, y una
+    // descarga que falla queda en null. Las métricas cuentan los días de los activos hasta hoy y los de los terminados
     // hasta su fin. El análisis final recibe el texto actual de la marca: lo mezclado se guarda y lo que vuelve vacío
-    // no borra nada. La pantalla de anuncios lee el estado, el análisis, las conclusiones y los anuncios leídos.
+    // no borra nada. La pantalla de anuncios lee el estado, el análisis, las conclusiones y los anuncios leídos, con
+    // los enlaces temporales de sus archivos.
     #[Test]
     public function analyzes_the_ads_and_merges_the_brand_fields(): void
     {
@@ -80,10 +86,12 @@ class MetaAdsResearchTest extends TestCase
                 ->push($this->apifyRun('SUCCEEDED')),
             'https://api.apify.com/v2/datasets/dataset1/items*' => Http::response($this->apifyAds()),
             'https://api.openai.com/v1/responses' => Http::sequence()
-                ->push($this->openAiResponse($this->transcription(1)))
                 ->push(['error' => ['message' => 'Error while downloading the image.']], 400)
+                ->push($this->openAiResponse($this->transcription(1)))
                 ->push($this->openAiResponse($this->transcription(2)))
                 ->push($this->openAiResponse($analysis)),
+            'https://cdn.example/card-2.jpg' => Http::response('', 404),
+            'https://cdn.example/*' => Http::response('archivo'),
         ]);
         $researchRun = $this->createResearchRun();
 
@@ -99,7 +107,9 @@ class MetaAdsResearchTest extends TestCase
         $this->assertSame('relevancy_monthly_grouped', $apifyInput['sorting']);
         $this->assertSame([['url' => 'https://www.facebook.com/mimarca']], $apifyInput['startUrls']);
 
-        $carousel = resolve(KnowledgeSourceService::class)->find($brand, $researchRun->knowledge_source_ids[1]);
+        $knowledgeSourceService = resolve(KnowledgeSourceService::class);
+        $video = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[0]);
+        $carousel = $knowledgeSourceService->find($brand, $researchRun->knowledge_source_ids[1]);
         $this->assertSame('meta_ad', $carousel->type);
         $this->assertSame('https://www.facebook.com/ads/library/?id=3', $carousel->payload['url']);
         $this->assertSame(30, $carousel->payload['days_running']);
@@ -110,6 +120,14 @@ class MetaAdsResearchTest extends TestCase
         );
         $analysisInput = $this->decodeOpenAiText($openAiRequests[3]['input']);
         $this->assertSame('Sustratos.', $analysisInput['brand']['brand_offer_description']);
+        $videoCoverS3Path = "{$brand->id}/sources/meta_ad/{$video->id}/1.jpg";
+        $videoS3Path = "{$brand->id}/sources/meta_ad/{$video->id}/1.mp4";
+        $this->assertSame(
+            [['type' => 'video', 'image_s3_path' => $videoCoverS3Path, 'video_s3_path' => $videoS3Path]],
+            $video->payload['media'],
+        );
+        $this->assertNull($carousel->payload['media'][1]['image_s3_path']);
+        Storage::disk('s3')->assertExists([$videoCoverS3Path, $videoS3Path]);
 
         $this->assertSame('Sustratos con envío gratis.', $brand->brand_offer_description);
         $this->assertSame('Fotos reales.', $brand->brand_visual_style_description);
@@ -123,6 +141,9 @@ class MetaAdsResearchTest extends TestCase
         $this->assertEquals(['facebook' => 2, 'instagram' => 2], $metrics['platforms']);
         $this->assertCount(2, $metaAdsInsights['insights']);
         $this->assertSame($researchRun->knowledge_source_ids, array_column($metaAdsInsights['ads'], 'id'));
+        [$videoOnScreen, $carouselOnScreen] = $metaAdsInsights['ads'];
+        $this->assertSame("https://s3.test/{$videoS3Path}", $videoOnScreen['media_urls'][0]['video_url']);
+        $this->assertNull($carouselOnScreen['media_urls'][1]['image_url']);
     }
 
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Throwable;
 use App\Models\Brand;
+use App\Helpers\S3Helper;
 use App\Models\ResearchRun;
 use App\Exceptions\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -135,9 +136,9 @@ class ResearchRunService
             if ($hasZipOrAudio) {
                 Storage::disk('local')->delete($zipOrAudioPath);
             }
-            // Las fuentes de los archivos subidos se deshicieron con la transacción; sus archivos se borran acá.
+            // Las fuentes de los archivos subidos se deshicieron con la transacción; sus archivos se borran de S3 acá.
             foreach ($uploadedKnowledgeSources as $knowledgeSource) {
-                Storage::disk('local')->delete($knowledgeSource->s3_path);
+                resolve(S3Helper::class)->delete($knowledgeSource->file_s3_path);
             }
             throw $exception;
         }

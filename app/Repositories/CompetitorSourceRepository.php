@@ -20,6 +20,22 @@ class CompetitorSourceRepository
     }
 
 
+    public function update(Competitor $competitor, int $competitorSourceId, array $attributes): CompetitorSource
+    {
+        $attributes['competitor_id'] = $competitor->id;
+        $attributes['client_id'] = $competitor->client_id;
+        $competitorSource = CompetitorSource::query()
+            ->where('competitor_id', $competitor->id)
+            ->where('client_id', $competitor->client_id)
+            ->findOrFail($competitorSourceId);
+
+        $competitorSource->fill($attributes);
+        $competitorSource->save();
+
+        return $competitorSource;
+    }
+
+
     public function findByIds(Competitor $competitor, array $competitorSourceIds): Collection
     {
         return CompetitorSource::query()

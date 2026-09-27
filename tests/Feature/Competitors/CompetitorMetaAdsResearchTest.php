@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use App\Models\CompetitorResearchRun;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Support\Facades\Storage;
 use App\Services\CompetitorResearchRunService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\Research\Competitors\ResearchBrandCompetitionJob;
@@ -33,6 +34,9 @@ class CompetitorMetaAdsResearchTest extends TestCase
         parent::setUp();
         Queue::fake();
         Sleep::fake();
+        Storage::fake('s3');
+        // Un enlace temporal legible en lugar de uno firmado por S3.
+        Storage::disk('s3')->buildTemporaryUrlsUsing(fn (string $path): string => "https://s3.test/{$path}");
         $this->travelTo('2026-09-24 12:00:00');
         config()->set('services.apify.api_key', 'testing-key');
         config()->set('services.openai.api_key', 'testing-key');
@@ -50,8 +54,9 @@ class CompetitorMetaAdsResearchTest extends TestCase
     }
 
 
-    // Descarta el ítem de la página, transcribe cada anuncio con su portada, analiza con los días corriendo, mezcla los
-    // campos y encola el cruce; la pantalla lee el análisis y los anuncios.
+    // Descarta el ítem de la página, transcribe cada anuncio con su portada y guarda sus archivos en S3 dentro de la
+    // carpeta del competidor, analiza con los días corriendo, mezcla los campos y encola el cruce; la pantalla lee el
+    // análisis y los anuncios, con los enlaces temporales de sus archivos.
     #[Test]
     public function analyzes_the_ads_and_merges_the_competitor_fields(): void
     {
@@ -63,6 +68,7 @@ class CompetitorMetaAdsResearchTest extends TestCase
                 ->push($this->openAiResponse($this->transcription()))
                 ->push($this->openAiResponse($this->transcription()))
                 ->push($this->openAiResponse($this->analysis())),
+            'https://cdn.example/*' => Http::response('archivo'),
         ]);
         $researchRun = $this->createResearchRun();
 
@@ -84,6 +90,11 @@ class CompetitorMetaAdsResearchTest extends TestCase
             ->json('data');
         $this->assertSame(2, $metaAdsInsights['analysis']['payload']['metrics']['ads_count']);
         $this->assertSame([10, 20], array_column(array_column($metaAdsInsights['ads'], 'payload'), 'days_running'));
+        $videoAdId = $researchRun->competitor_source_ids[1];
+        $competitorFolder = "{$this->competitor->brand_id}/competitors/{$this->competitor->id}";
+        $videoS3Path = "{$competitorFolder}/sources/meta_ad/{$videoAdId}/1.mp4";
+        Storage::disk('s3')->assertExists($videoS3Path);
+        $this->assertSame("https://s3.test/{$videoS3Path}", $metaAdsInsights['ads'][1]['media_urls'][0]['video_url']);
     }
 
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Brand;
+use App\Helpers\S3Helper;
 use App\Models\KnowledgeSource;
 use App\Models\KnowledgeInsight;
 use App\DTO\GoogleReviewsInsightsDto;
@@ -77,32 +78,36 @@ class KnowledgeInsightService
 
 
     // Lo que muestra la pantalla de Instagram: analysis, el análisis vigente con el resumen y las métricas en su
-    // payload o null; insights, las conclusiones vigentes; y posts, los posteos que leyó ese análisis.
+    // payload o null; insights, las conclusiones vigentes; y posts, los posteos que leyó ese análisis, con los enlaces
+    // de sus archivos.
     public function getInstagramInsights(Brand $brand): array
     {
         $knowledgeInsights = $this->findCurrentByTypes($brand, ['instagram_analysis', 'instagram_insight']);
         $analysis = $knowledgeInsights->firstWhere('type', 'instagram_analysis');
         $postIds = $analysis?->knowledge_source_ids ?? [];
+        $posts = resolve(KnowledgeSourceService::class)->findByIds($brand, $postIds);
 
         return [
             'analysis' => $analysis,
             'insights' => $knowledgeInsights->where('type', 'instagram_insight')->values(),
-            'posts' => resolve(KnowledgeSourceService::class)->findByIds($brand, $postIds),
+            'posts' => $this->addPostsMediaUrls($posts),
         ];
     }
 
 
     // Lo que muestra la pantalla de los anuncios de Meta: analysis, el análisis vigente con el resumen y las métricas
-    // en su payload o null; insights, las conclusiones vigentes; y ads, los anuncios que leyó ese análisis.
+    // en su payload o null; insights, las conclusiones vigentes; y ads, los anuncios que leyó ese análisis, con los
+    // enlaces de sus archivos.
     public function getMetaAdsInsights(Brand $brand): array
     {
         $knowledgeInsights = $this->findCurrentByTypes($brand, ['meta_ads_analysis', 'meta_ads_insight']);
         $analysis = $knowledgeInsights->firstWhere('type', 'meta_ads_analysis');
         $adIds = $analysis?->knowledge_source_ids ?? [];
+        $ads = resolve(KnowledgeSourceService::class)->findByIds($brand, $adIds);
 
         return [
             'analysis' => $analysis,
-            'ads' => resolve(KnowledgeSourceService::class)->findByIds($brand, $adIds),
+            'ads' => $this->addAdsMediaUrls($ads),
             'insights' => $knowledgeInsights->where('type', 'meta_ads_insight')->values(),
         ];
     }
@@ -223,6 +228,37 @@ class KnowledgeInsightService
                 throw (new ModelNotFoundException())->setModel(KnowledgeInsight::class, [$parentInsightId]);
             }
         }
+    }
+
+
+    // Suma a cada posteo image_urls y video_urls, los enlaces temporales de S3 de sus imágenes y su video, en el mismo
+    // orden. No son columnas: solo viajan en la respuesta.
+    private function addPostsMediaUrls(Collection $posts): Collection
+    {
+        $s3Helper = resolve(S3Helper::class);
+
+        return $posts->each(function (KnowledgeSource $post) use ($s3Helper): void {
+            $imageUrls = array_map($s3Helper->getTemporaryUrl(...), $post->payload['image_s3_paths']);
+            $videoUrls = array_map($s3Helper->getTemporaryUrl(...), $post->payload['video_s3_paths']);
+            $post->setAttribute('image_urls', $imageUrls);
+            $post->setAttribute('video_urls', $videoUrls);
+        });
+    }
+
+
+    // Suma a cada anuncio media_urls: por cada elemento de media, image_url y video_url, los enlaces temporales de S3
+    // de su imagen y su video. No son columnas: solo viajan en la respuesta.
+    private function addAdsMediaUrls(Collection $ads): Collection
+    {
+        $s3Helper = resolve(S3Helper::class);
+
+        return $ads->each(function (KnowledgeSource $ad) use ($s3Helper): void {
+            $mediaUrls = array_map(fn (array $mediaItem): array => [
+                'image_url' => $s3Helper->getTemporaryUrl($mediaItem['image_s3_path']),
+                'video_url' => $s3Helper->getTemporaryUrl($mediaItem['video_s3_path']),
+            ], $ad->payload['media']);
+            $ad->setAttribute('media_urls', $mediaUrls);
+        });
     }
 
 }

@@ -6,6 +6,7 @@ use Closure;
 use Throwable;
 use App\Models\Brand;
 use App\DTO\ApifyRunDto;
+use App\Helpers\S3Helper;
 use App\Models\ResearchRun;
 use Illuminate\Support\Str;
 use App\Helpers\ApifyHelper;
@@ -158,7 +159,7 @@ class MetaAdsResearchService
 
 
     // Manda el copy y las imágenes del anuncio a OpenAI, que devuelve qué dice y qué muestra cada imagen, y guarda
-    // el anuncio como fuente de la marca.
+    // el anuncio como fuente de la marca. Sus imágenes y sus videos se suben a S3, porque las URLs de Meta vencen.
     private function saveTranscribedAd(Brand $brand, array $apifyAd, string $model): KnowledgeSource
     {
         $media = $this->getAdMedia($apifyAd['snapshot']);
@@ -172,7 +173,8 @@ class MetaAdsResearchService
         $rules = ['images' => ['present', 'array']];
         $transcribedImages = $this->requestJsonFromOpenAI($model, $instructions, $input, $rules, $imageUrls)['images'];
 
-        $knowledgeSource = resolve(KnowledgeSourceService::class)->create($brand, [
+        $knowledgeSourceService = resolve(KnowledgeSourceService::class);
+        $knowledgeSource = $knowledgeSourceService->create($brand, [
             'type' => 'meta_ad',
             'status' => 'ready',
             'captured_at' => now(),
@@ -181,7 +183,6 @@ class MetaAdsResearchService
             'payload' => [
                 'url' => $adLibraryUrl,
                 'copy' => $copy,
-                'media' => $media,
                 'images' => $transcribedImages,
                 'days_running' => $this->getAdDaysRunning($apifyAd),
                 'raw' => $apifyAd,
@@ -193,7 +194,61 @@ class MetaAdsResearchService
             'transcribedImages' => $transcribedImages,
         ]);
 
+        // La carpeta lleva el id de la fuente, que recién existe después de crearla.
+        $mediaFolder = "{$brand->id}/sources/meta_ad/{$knowledgeSource->id}";
+        $storedMedia = $this->storeAdMedia($media, $mediaFolder);
+        $knowledgeSource = $knowledgeSourceService->update($brand, $knowledgeSource->id, [
+            'payload' => [...$knowledgeSource->payload, 'media' => $storedMedia],
+        ]);
+        $this->logStage('Ad media stored.', ['knowledgeSourceId' => $knowledgeSource->id, 'media' => $storedMedia]);
+
         return $knowledgeSource;
+    }
+
+
+    // Sube a S3 la imagen y el video de cada elemento de media, numerados según su posición: 1.jpg, 1.mp4, 2.jpg...
+    // Cada elemento queda con type, image_s3_path y video_s3_path, en el mismo orden.
+    private function storeAdMedia(array $media, string $mediaFolder): array
+    {
+        $storedMedia = [];
+        foreach ($media as $index => $mediaItem) {
+            $position = $index + 1;
+            $pathWithoutExtension = "{$mediaFolder}/{$position}";
+            $imageS3Path = $this->storeMediaFile($mediaItem['image_url'], $pathWithoutExtension);
+            $videoS3Path = null;
+            $hasVideo = $mediaItem['video_url'] !== null;
+            if ($hasVideo) {
+                $videoS3Path = $this->storeMediaFile($mediaItem['video_url'], $pathWithoutExtension);
+            }
+
+            $storedMedia[] = [
+                'type' => $mediaItem['type'],
+                'image_s3_path' => $imageS3Path,
+                'video_s3_path' => $videoS3Path,
+            ];
+        }
+
+        return $storedMedia;
+    }
+
+
+    // Descarga url y la sube a S3; devuelve su ruta. Una descarga que falla queda en el log y devuelve null, sin frenar
+    // a las demás.
+    private function storeMediaFile(string $url, string $pathWithoutExtension): ?string
+    {
+        try {
+            return resolve(S3Helper::class)->storeFromUrl($url, $pathWithoutExtension);
+        } catch (Throwable $exception) {
+            $this->logStageError('Media file not stored.', [
+                'url' => $url,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            return null;
+        }
     }
 
 

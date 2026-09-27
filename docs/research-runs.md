@@ -127,7 +127,9 @@ menos 60 segundos.
    investigación termina en `empty` sin consultar al modelo.
 3. Cada posteo pasa por el modelo con todas sus imágenes, que devuelve por cada una el texto que
    aparece (`transcription`) y qué muestra (`description`). Los reels van solo con su portada.
-   Un posteo que falla se saltea; solo si fallan todos, falla la investigación.
+   Un posteo que falla se saltea; solo si fallan todos, falla la investigación. Después de guardar
+   el posteo, sus imágenes y el video de un reel se descargan a S3 (ver
+   [knowledge-model.md](knowledge-model.md#archivos-en-s3)).
 4. Calcula las métricas en PHP: posteos por semana, sin contar los fijados, y promedios de likes
    y comentarios por formato. Apify devuelve -1 likes cuando la cuenta los oculta.
 5. Un análisis final, solo con texto, recibe los posteos transcriptos, las métricas y el texto
@@ -135,7 +137,8 @@ menos 60 segundos.
    conclusiones.
 
 `GET /api/knowledge-insights/instagram` devuelve además `posts`, los posteos que leyó el
-análisis vigente.
+análisis vigente. Cada uno trae `image_urls` y `video_urls`, los enlaces temporales de sus archivos en S3, en el
+mismo orden que `image_s3_paths` y `video_s3_paths`, con null donde la descarga falló.
 
 ## Anuncios de Meta (`meta_ads`)
 
@@ -154,7 +157,8 @@ de la conexión menos 60 segundos.
    publicitar, el análisis de los anuncios que corrió sigue vigente.
 4. Cada anuncio pasa por el modelo con sus imágenes: las tarjetas de un carrusel o de un anuncio
    dinámico, las imágenes y la portada de cada video. Devuelve lo mismo que en Instagram. Un
-   anuncio que falla se saltea; solo si fallan todos, falla la investigación.
+   anuncio que falla se saltea; solo si fallan todos, falla la investigación. Después de guardar
+   el anuncio, sus imágenes y sus videos se descargan a S3.
 5. Calcula las métricas en PHP: cantidad, días del que más lleva corriendo, cantidad y promedio de
    días por formato, y anuncios por plataforma. En los activos, los días se cuentan hasta el
    momento del análisis.
@@ -164,7 +168,8 @@ de la conexión menos 60 segundos.
    señal de lo que funciona.
 
 `GET /api/knowledge-insights/meta-ads` devuelve además `ads`, los anuncios que leyó el análisis
-vigente.
+vigente. Cada uno trae `media_urls`: por cada elemento de `media`, `image_url` y `video_url`, sus enlaces temporales
+en S3.
 
 ## Reseñas de Google (`google_reviews`)
 
@@ -316,9 +321,9 @@ archivos: el límite de PHP y de nginx es por pedido, no por archivo.
 Las subidas se suman: cada una analiza sus archivos y rehace el análisis general con todos los de la marca. Mientras
 hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla, el request y el service.
 
-1. Al subirlos, cada archivo se guarda en `storage/app/private/uploaded-files/<brand_id>/`, con un nombre aleatorio
-   y su extensión original, y queda como fuente `image` o `document` en `pending`. En la misma transacción se crea
-   la ejecución, con sus IDs en `input.uploaded_knowledge_source_ids`; si falla, se borran los archivos guardados.
+1. Al subirlos, cada archivo queda como fuente `image` o `document` en `pending` y se sube a S3 como
+   `{brand_id}/sources/{type}/{id}.{extensión}`. En la misma transacción se crea la ejecución, con sus IDs en
+   `input.uploaded_knowledge_source_ids`; si falla, se borran de S3 los archivos subidos.
 2. Cada archivo nuevo pasa por el modelo en base64: la foto como imagen, que devuelve qué muestra y el texto que
    tiene, y el documento como archivo, que devuelve qué es y lo que dice sobre el negocio. El log no guarda el
    base64. Un archivo que falla queda en `failed` y se sigue con los demás; si fallan todos, falla la investigación y
@@ -330,12 +335,11 @@ hay un análisis en curso no se puede subir ni borrar; lo rechazan la pantalla, 
 4. En una transacción, las filas activas anteriores de los dos tipos pasan a `outdated` y se guardan las nuevas.
    Después se mezclan los campos de la marca.
 
-Borrar un archivo (`DELETE /api/uploaded-files/{id}`) lo saca con soft delete, borra su archivo del disco y pide un
+Borrar un archivo (`DELETE /api/uploaded-files/{id}`) lo saca con soft delete, borra su archivo de S3 y pide un
 nuevo análisis sin archivos nuevos, que la respuesta devuelve. Ese análisis rehace el resumen y las conclusiones con
 los que quedan y no toca la marca: lo que el archivo ya aportó al perfil queda. Si no queda ninguno, las filas
 activas pasan a `outdated` sin consultar al modelo.
 
 `GET /api/knowledge-insights/uploaded-files` devuelve `analysis`, `insights` y `files`: todos los archivos subidos,
-también los pendientes y los que no se pudieron leer, del más nuevo al más viejo. Cada uno trae `url`, un enlace
-firmado que sirve Laravel desde el disco local (`serve` del disco `local`), porque un `<img>` no manda el token de la
-API. Por ahora el enlace no vence; con S3 va a tener que vencer (ver [pendientes.md](pendientes.md)).
+también los pendientes y los que no se pudieron leer, del más nuevo al más viejo. Cada uno trae `url`, su enlace
+temporal en S3 (ver [knowledge-model.md](knowledge-model.md#archivos-en-s3)).

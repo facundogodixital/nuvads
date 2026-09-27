@@ -5,6 +5,7 @@ namespace App\Services;
 use Closure;
 use Throwable;
 use App\DTO\ApifyRunDto;
+use App\Helpers\S3Helper;
 use App\Models\Competitor;
 use Illuminate\Support\Str;
 use App\Helpers\ApifyHelper;
@@ -153,7 +154,7 @@ class CompetitorMetaAdsResearchService
 
 
     // Manda el copy y las imágenes del anuncio a OpenAI, que devuelve qué dice y qué muestra cada imagen, y guarda
-    // el anuncio como fuente del competidor.
+    // el anuncio como fuente del competidor. Sus imágenes y sus videos se suben a S3, porque las URLs de Meta vencen.
     private function saveTranscribedAd(Competitor $competitor, array $apifyAd, string $model): CompetitorSource
     {
         $media = $this->getAdMedia($apifyAd['snapshot']);
@@ -167,7 +168,8 @@ class CompetitorMetaAdsResearchService
         $rules = ['images' => ['present', 'array']];
         $transcribedImages = $this->requestJsonFromOpenAI($model, $instructions, $input, $rules, $imageUrls)['images'];
 
-        $competitorSource = resolve(CompetitorSourceService::class)->create($competitor, [
+        $competitorSourceService = resolve(CompetitorSourceService::class);
+        $competitorSource = $competitorSourceService->create($competitor, [
             'type' => 'meta_ad',
             'status' => 'ready',
             'captured_at' => now(),
@@ -176,7 +178,6 @@ class CompetitorMetaAdsResearchService
             'payload' => [
                 'url' => $adLibraryUrl,
                 'copy' => $copy,
-                'media' => $media,
                 'images' => $transcribedImages,
                 'days_running' => $this->getAdDaysRunning($apifyAd),
                 'raw' => $apifyAd,
@@ -188,7 +189,62 @@ class CompetitorMetaAdsResearchService
             'transcribedImages' => $transcribedImages,
         ]);
 
+        // La carpeta lleva el id de la fuente, que recién existe después de crearla.
+        $competitorFolder = "{$competitor->brand_id}/competitors/{$competitor->id}";
+        $mediaFolder = "{$competitorFolder}/sources/meta_ad/{$competitorSource->id}";
+        $storedMedia = $this->storeAdMedia($media, $mediaFolder);
+        $competitorSource = $competitorSourceService->update($competitor, $competitorSource->id, [
+            'payload' => [...$competitorSource->payload, 'media' => $storedMedia],
+        ]);
+        $this->logStage('Ad media stored.', ['competitorSourceId' => $competitorSource->id, 'media' => $storedMedia]);
+
         return $competitorSource;
+    }
+
+
+    // Sube a S3 la imagen y el video de cada elemento de media, numerados según su posición: 1.jpg, 1.mp4, 2.jpg...
+    // Cada elemento queda con type, image_s3_path y video_s3_path, en el mismo orden.
+    private function storeAdMedia(array $media, string $mediaFolder): array
+    {
+        $storedMedia = [];
+        foreach ($media as $index => $mediaItem) {
+            $position = $index + 1;
+            $pathWithoutExtension = "{$mediaFolder}/{$position}";
+            $imageS3Path = $this->storeMediaFile($mediaItem['image_url'], $pathWithoutExtension);
+            $videoS3Path = null;
+            $hasVideo = $mediaItem['video_url'] !== null;
+            if ($hasVideo) {
+                $videoS3Path = $this->storeMediaFile($mediaItem['video_url'], $pathWithoutExtension);
+            }
+
+            $storedMedia[] = [
+                'type' => $mediaItem['type'],
+                'image_s3_path' => $imageS3Path,
+                'video_s3_path' => $videoS3Path,
+            ];
+        }
+
+        return $storedMedia;
+    }
+
+
+    // Descarga url y la sube a S3; devuelve su ruta. Una descarga que falla queda en el log y devuelve null, sin frenar
+    // a las demás.
+    private function storeMediaFile(string $url, string $pathWithoutExtension): ?string
+    {
+        try {
+            return resolve(S3Helper::class)->storeFromUrl($url, $pathWithoutExtension);
+        } catch (Throwable $exception) {
+            $this->logStageError('Media file not stored.', [
+                'url' => $url,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            return null;
+        }
     }
 
 

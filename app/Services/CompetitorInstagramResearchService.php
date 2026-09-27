@@ -5,6 +5,7 @@ namespace App\Services;
 use Closure;
 use Throwable;
 use App\DTO\ApifyRunDto;
+use App\Helpers\S3Helper;
 use App\Models\Competitor;
 use Illuminate\Support\Str;
 use App\Helpers\ApifyHelper;
@@ -147,20 +148,23 @@ class CompetitorInstagramResearchService
 
 
     // Manda el copy y las imágenes del posteo a OpenAI, que devuelve qué dice y qué muestra cada imagen, y guarda
-    // el posteo como fuente del competidor.
+    // el posteo como fuente del competidor. Sus imágenes y su video se suben a S3, porque las URLs de Instagram vencen.
     private function saveTranscribedPost(Competitor $competitor, array $apifyPost, string $model): CompetitorSource
     {
         $caption = trim($apifyPost['caption'] ?? '');
         $carouselImageUrls = $apifyPost['images'] ?? [];
         // De los reels va solo la portada.
         $imageUrls = $carouselImageUrls !== [] ? $carouselImageUrls : [$apifyPost['displayUrl']];
+        // Solo los reels traen video.
+        $videoUrls = isset($apifyPost['videoUrl']) ? [$apifyPost['videoUrl']] : [];
         $input = ['format' => $this->getPostFormat($apifyPost), 'caption' => $caption];
         $instructions = $this->getPostTranscriptionInstructions();
         // Solo se exige la lista: el modelo puede devolver más entradas que imágenes, por ejemplo una por viñeta.
         $rules = ['images' => ['present', 'array']];
         $transcribedImages = $this->requestJsonFromOpenAI($model, $instructions, $input, $rules, $imageUrls)['images'];
 
-        $competitorSource = resolve(CompetitorSourceService::class)->create($competitor, [
+        $competitorSourceService = resolve(CompetitorSourceService::class);
+        $competitorSource = $competitorSourceService->create($competitor, [
             'type' => 'instagram_post',
             'status' => 'ready',
             'captured_at' => now(),
@@ -169,7 +173,6 @@ class CompetitorInstagramResearchService
             'payload' => [
                 'url' => $apifyPost['url'],
                 'caption' => $caption,
-                'image_urls' => $imageUrls,
                 'images' => $transcribedImages,
                 'raw' => $apifyPost,
             ],
@@ -180,7 +183,52 @@ class CompetitorInstagramResearchService
             'transcribedImages' => $transcribedImages,
         ]);
 
+        // La carpeta lleva el id de la fuente, que recién existe después de crearla.
+        $competitorFolder = "{$competitor->brand_id}/competitors/{$competitor->id}";
+        $mediaFolder = "{$competitorFolder}/sources/instagram_post/{$competitorSource->id}";
+        $imageS3Paths = $this->storeMediaFiles($imageUrls, $mediaFolder);
+        $videoS3Paths = $this->storeMediaFiles($videoUrls, $mediaFolder);
+        $competitorSource = $competitorSourceService->update($competitor, $competitorSource->id, [
+            'payload' => [
+                ...$competitorSource->payload,
+                'image_s3_paths' => $imageS3Paths,
+                'video_s3_paths' => $videoS3Paths,
+            ],
+        ]);
+        $this->logStage('Post media stored.', [
+            'competitorSourceId' => $competitorSource->id,
+            'imageS3Paths' => $imageS3Paths,
+            'videoS3Paths' => $videoS3Paths,
+        ]);
+
         return $competitorSource;
+    }
+
+
+    // Sube cada URL a S3 dentro de mediaFolder, numerada según su posición: 1.jpg, 2.jpg... Las rutas siguen el orden
+    // de las URLs; una descarga que falla queda en null y en el log, sin frenar a las demás.
+    private function storeMediaFiles(array $urls, string $mediaFolder): array
+    {
+        $s3Helper = resolve(S3Helper::class);
+        $s3Paths = [];
+        foreach ($urls as $index => $url) {
+            $position = $index + 1;
+            try {
+                $s3Paths[] = $s3Helper->storeFromUrl($url, "{$mediaFolder}/{$position}");
+            } catch (Throwable $exception) {
+                $s3Paths[] = null;
+                $this->logStageError('Media file not stored.', [
+                    'url' => $url,
+                    'exception' => $exception::class,
+                    'message' => $exception->getMessage(),
+                    'file' => $exception->getFile(),
+                    'line' => $exception->getLine(),
+                    'trace' => $exception->getTraceAsString(),
+                ]);
+            }
+        }
+
+        return $s3Paths;
     }
 
 

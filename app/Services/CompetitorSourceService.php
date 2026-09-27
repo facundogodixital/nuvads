@@ -26,6 +26,12 @@ class CompetitorSourceService
     }
 
 
+    public function update(Competitor $competitor, int $competitorSourceId, array $attributes): CompetitorSource
+    {
+        return $this->competitorSourceRepository->update($competitor, $competitorSourceId, $attributes);
+    }
+
+
     public function findByIds(Competitor $competitor, array $competitorSourceIds): Collection
     {
         return $this->competitorSourceRepository->findByIds($competitor, $competitorSourceIds);

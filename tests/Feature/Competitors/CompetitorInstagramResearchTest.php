@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use App\Models\CompetitorResearchRun;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Support\Facades\Storage;
 use App\Services\CompetitorResearchRunService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Jobs\Research\Competitors\ResearchBrandCompetitionJob;
@@ -33,6 +34,9 @@ class CompetitorInstagramResearchTest extends TestCase
         parent::setUp();
         Queue::fake();
         Sleep::fake();
+        Storage::fake('s3');
+        // Un enlace temporal legible en lugar de uno firmado por S3.
+        Storage::disk('s3')->buildTemporaryUrlsUsing(fn (string $path): string => "https://s3.test/{$path}");
         config()->set('services.apify.api_key', 'testing-key');
         config()->set('services.openai.api_key', 'testing-key');
         config()->set('logging.channels.ResearchCompetitorInstagramJobInfo', config('logging.channels.null'));
@@ -49,8 +53,9 @@ class CompetitorInstagramResearchTest extends TestCase
     }
 
 
-    // Transcribe los posteos salteando el que falla, analiza con métricas que ignoran los likes ocultos, mezcla los
-    // campos y encola el cruce; la pantalla lee el análisis, las conclusiones y los posteos.
+    // Transcribe los posteos salteando el que falla y guarda sus archivos en S3 dentro de la carpeta del competidor,
+    // analiza con métricas que ignoran los likes ocultos, mezcla los campos y encola el cruce; la pantalla lee el
+    // análisis, las conclusiones y los posteos, con los enlaces temporales de sus archivos.
     #[Test]
     public function analyzes_the_posts_and_merges_the_competitor_fields(): void
     {
@@ -65,6 +70,7 @@ class CompetitorInstagramResearchTest extends TestCase
                 ->push(['error' => ['message' => 'Error while downloading the image.']], 400)
                 ->push($this->openAiResponse($this->transcription()))
                 ->push($this->openAiResponse($this->analysis())),
+            'https://cdn.example/*' => Http::response('archivo'),
         ]);
         $researchRun = $this->createResearchRun();
 
@@ -87,6 +93,11 @@ class CompetitorInstagramResearchTest extends TestCase
         $this->assertSame(3, $instagramInsights['analysis']['payload']['metrics']['posts_count']);
         $this->assertCount(1, $instagramInsights['insights']);
         $this->assertSame($researchRun->competitor_source_ids, array_column($instagramInsights['posts'], 'id'));
+        $reelId = $researchRun->competitor_source_ids[1];
+        $competitorFolder = "{$this->competitor->brand_id}/competitors/{$this->competitor->id}";
+        $reelVideoS3Path = "{$competitorFolder}/sources/instagram_post/{$reelId}/1.mp4";
+        Storage::disk('s3')->assertExists($reelVideoS3Path);
+        $this->assertSame(["https://s3.test/{$reelVideoS3Path}"], $instagramInsights['posts'][1]['video_urls']);
     }
 
 
@@ -150,6 +161,7 @@ class CompetitorInstagramResearchTest extends TestCase
                 'url' => 'https://www.instagram.com/p/reel/',
                 'caption' => null,
                 'displayUrl' => 'https://cdn.example/reel.jpg',
+                'videoUrl' => 'https://cdn.example/reel.mp4',
                 'images' => [],
                 'likesCount' => 300,
                 'commentsCount' => 20,

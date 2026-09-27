@@ -56,7 +56,8 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            // Un fallo de S3 se lanza en lugar de devolver false, para que llegue al log.
+            'throw' => true,
             'report' => false,
         ],
 

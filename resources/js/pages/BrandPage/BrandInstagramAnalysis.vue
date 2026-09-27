@@ -103,7 +103,7 @@
           :key="post.id"
           class="flex gap-3 py-4"
         >
-          <!-- Las URLs de Instagram vencen a los pocos días; si la imagen no carga, queda el ícono del formato. -->
+          <!-- Si la imagen no se pudo guardar o no carga, queda el ícono del formato. -->
           <button
             type="button"
             :aria-label="enlargeLabels[getPostFormat(post)]"
@@ -111,13 +111,13 @@
             @click="brandInstagramMediaModalStore.open(post)"
           >
             <img
-              v-if="canShowImage(post.payload.image_urls?.[0])"
-              :src="post.payload.image_urls[0]"
+              v-if="canShowImage(post.image_urls[0])"
+              :src="post.image_urls[0]"
               alt=""
               loading="lazy"
               referrerpolicy="no-referrer"
               class="h-full w-full object-cover"
-              @error="markImageAsFailed(post.payload.image_urls[0])"
+              @error="markImageAsFailed(post.image_urls[0])"
             >
             <svg
               v-else
@@ -136,7 +136,7 @@
             </svg>
             <!-- Como en Instagram, la esquina avisa si es un reel o un carrusel. -->
             <span
-              v-if="canShowImage(post.payload.image_urls?.[0]) && formatBadgeIcons[getPostFormat(post)]"
+              v-if="canShowImage(post.image_urls[0]) && formatBadgeIcons[getPostFormat(post)]"
               class="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm bg-surface-raised text-text"
             >
               <svg
@@ -266,19 +266,19 @@
                 >
                   <!-- El modelo puede devolver más entradas que imágenes: esas quedan sin imagen. -->
                   <button
-                    v-if="canShowImage(post.payload.image_urls?.[index])"
+                    v-if="canShowImage(post.image_urls[index])"
                     type="button"
                     :aria-label="getPostFormat(post) === 'reel' ? enlargeLabels.reel : 'Ver esta imagen en grande'"
                     class="w-32 shrink-0 cursor-zoom-in self-start overflow-hidden rounded-sm hover:opacity-90 sm:w-24"
                     @click="brandInstagramMediaModalStore.open(post, index)"
                   >
                     <img
-                      :src="post.payload.image_urls[index]"
+                      :src="post.image_urls[index]"
                       alt=""
                       loading="lazy"
                       referrerpolicy="no-referrer"
                       class="w-full bg-surface-selected"
-                      @error="markImageAsFailed(post.payload.image_urls[index])"
+                      @error="markImageAsFailed(post.image_urls[index])"
                     >
                   </button>
                   <div class="min-w-0 flex-1">

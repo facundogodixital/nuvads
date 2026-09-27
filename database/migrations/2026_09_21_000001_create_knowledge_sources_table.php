@@ -28,8 +28,9 @@ return new class() extends Migration
                 'adjustment',
             ]);
             $table->string('title', 255);
-            $table->string('s3_path', 512)->nullable();
             $table->json('payload')->nullable();
+            $table->string('payload_s3_path', 512)->nullable();
+            $table->string('file_s3_path', 512)->nullable();
             $table->string('source_ref', 512)->nullable();
             $table->timestamp('captured_at')->nullable();
             $table->enum('status', ['pending', 'ready', 'failed'])->default('pending');

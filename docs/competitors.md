@@ -20,7 +20,10 @@ competencia, para poder cambiar un lado sin romper el otro.
 - `competitor_sources`: el material leído, como `knowledge_sources`. `type` es `web_page`, `instagram_post`,
   `meta_ad` o `google_review`, y `payload` tiene la misma forma que en las fuentes de la marca (ver
   [knowledge-model.md](knowledge-model.md#tipos-de-fuente)), salvo que las reseñas no guardan `detailed_rating` ni
-  `context`. Tiene `s3_path`, como las fuentes de la marca, para cuando los payloads pesados pasen a S3.
+  `context`. Tiene `payload_s3_path`, como las fuentes de la marca, para cuando los payloads pesados pasen a S3.
+  No tiene `file_s3_path`, porque de los competidores no se suben archivos. Las imágenes y los videos de sus
+  posteos y anuncios se guardan en S3 dentro de `{brand_id}/competitors/{competitor_id}/` (ver
+  [knowledge-model.md](knowledge-model.md#archivos-en-s3)).
 - `competitor_research_runs`: cada investigación, como `research_runs`, con `competitor_id` en lugar de `brand_id`
   y `competitor_source_ids` en lugar de `knowledge_source_ids`. `type` es `website`, `instagram`, `meta_ads` o
   `google_reviews`, y los estados son los mismos, incluido `empty`.

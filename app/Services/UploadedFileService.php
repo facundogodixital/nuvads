@@ -4,15 +4,14 @@ namespace App\Services;
 
 use Throwable;
 use App\Models\Brand;
+use App\Helpers\S3Helper;
 use App\Models\ResearchRun;
 use Illuminate\Support\Str;
 use App\Models\KnowledgeSource;
 use App\Exceptions\ApiException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
 use Symfony\Component\Mime\MimeTypes;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
@@ -38,49 +37,56 @@ class UploadedFileService
     ];
 
 
-    // Guarda el archivo en el disco local y lo registra como fuente pendiente de la marca: image si es una foto,
-    // document si no. El job lo analiza y completa su payload.
+    // Registra el archivo como fuente pendiente de la marca, image si es una foto y document si no, y lo sube a S3 con
+    // el id de la fuente en el nombre. El job lo analiza y completa su payload. Se llama dentro de la transacción de
+    // ResearchRunService::create: si la subida falla, la fuente se deshace con ella.
     public function create(Brand $brand, UploadedFile $uploadedFile): KnowledgeSource
     {
         $fileName = $uploadedFile->getClientOriginalName();
         $extension = strtolower($uploadedFile->getClientOriginalExtension());
         $isImage = in_array($extension, self::IMAGE_EXTENSIONS, true);
+        $type = $isImage ? 'image' : 'document';
         // El tipo sale de la extensión: el que detecta PHP por el contenido puede ser application/zip en un .docx.
         $mimeType = MimeTypes::getDefault()->getMimeTypes($extension)[0];
 
-        // Nombre aleatorio con la extensión original, para que el archivo se sirva con su tipo.
-        $storedFileName = Str::random(40).".{$extension}";
-        $storedPath = $uploadedFile->storeAs("uploaded-files/{$brand->id}", $storedFileName, 'local');
+        $knowledgeSourceService = resolve(KnowledgeSourceService::class);
+        $knowledgeSource = $knowledgeSourceService->create($brand, [
+            'type' => $type,
+            'status' => 'pending',
+            'captured_at' => now(),
+            'title' => Str::limit($fileName, 255, ''),
+            'payload' => [
+                'file_name' => $fileName,
+                'mime_type' => $mimeType,
+                'size' => $uploadedFile->getSize(),
+            ],
+        ]);
+
+        // La extensión original hace que el archivo se sirva con su tipo.
+        $fileS3Path = "{$brand->id}/sources/{$type}/{$knowledgeSource->id}.{$extension}";
+        $s3Helper = resolve(S3Helper::class);
+        $s3Helper->storeUploadedFile($uploadedFile, $fileS3Path);
         try {
-            return resolve(KnowledgeSourceService::class)->create($brand, [
-                'status' => 'pending',
-                'captured_at' => now(),
-                // Por ahora el archivo vive en el disco local; la columna ya prevé S3.
-                's3_path' => $storedPath,
-                'type' => $isImage ? 'image' : 'document',
-                'title' => Str::limit($fileName, 255, ''),
-                'payload' => [
-                    'file_name' => $fileName,
-                    'mime_type' => $mimeType,
-                    'size' => $uploadedFile->getSize(),
-                ],
-            ]);
+            return $knowledgeSourceService->update($brand, $knowledgeSource->id, ['file_s3_path' => $fileS3Path]);
         } catch (Throwable $exception) {
-            Storage::disk('local')->delete($storedPath);
+            $s3Helper->delete($fileS3Path);
             throw $exception;
         }
     }
 
 
-    // Los archivos subidos de la marca, del más nuevo al más viejo, cada uno con url, el enlace para verlo.
+    // Los archivos subidos de la marca, del más nuevo al más viejo, cada uno con url, su enlace temporal de S3.
     public function list(Brand $brand): Collection
     {
+        $s3Helper = resolve(S3Helper::class);
         $knowledgeSources = resolve(KnowledgeSourceService::class)->findByTypes($brand, ['image', 'document']);
 
-        return $knowledgeSources->sortByDesc('id')->values()->each(function (KnowledgeSource $knowledgeSource): void {
-            // url no es una columna: solo viaja en la respuesta.
-            $knowledgeSource->setAttribute('url', $this->getUrl($knowledgeSource));
-        });
+        return $knowledgeSources->sortByDesc('id')->values()->each(
+            function (KnowledgeSource $knowledgeSource) use ($s3Helper): void {
+                // url no es una columna: solo viaja en la respuesta.
+                $knowledgeSource->setAttribute('url', $s3Helper->getTemporaryUrl($knowledgeSource->file_s3_path));
+            },
+        );
     }
 
 
@@ -112,29 +118,19 @@ class UploadedFileService
             throw $exception;
         }
         // El archivo se borra recién cuando el borrado de la fuente quedó firme.
-        Storage::disk('local')->delete($knowledgeSource->s3_path);
+        resolve(S3Helper::class)->delete($knowledgeSource->file_s3_path);
 
         return $researchRun;
     }
 
 
-    // El archivo en base64, como lo recibe OpenAI: 'data:image/png;base64,...'. Cuando los archivos estén en S3, va
-    // a alcanzar con un enlace temporal.
+    // El archivo en base64, como lo recibe OpenAI: 'data:image/png;base64,...'. No va su enlace temporal porque con un
+    // enlace OpenAI no recibe el nombre del documento.
     public function getDataUrl(KnowledgeSource $knowledgeSource): string
     {
-        $fileContents = Storage::disk('local')->get($knowledgeSource->s3_path);
+        $fileContents = resolve(S3Helper::class)->getFileContents($knowledgeSource->file_s3_path);
 
         return "data:{$knowledgeSource->payload['mime_type']};base64,".base64_encode($fileContents);
-    }
-
-
-    // Enlace firmado para ver el archivo sin el token de la API. Por ahora no vence. La firma se calcula sobre la ruta
-    // relativa, porque así la valida Laravel al servir el disco local.
-    private function getUrl(KnowledgeSource $knowledgeSource): string
-    {
-        $signedPath = URL::signedRoute('storage.local', ['path' => $knowledgeSource->s3_path], absolute: false);
-
-        return URL::to($signedPath);
     }
 
 }

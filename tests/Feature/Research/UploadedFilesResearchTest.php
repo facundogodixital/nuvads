@@ -33,7 +33,9 @@ class UploadedFilesResearchTest extends TestCase
     {
         parent::setUp();
         Queue::fake();
-        Storage::fake('local');
+        Storage::fake('s3');
+        // Un enlace temporal legible en lugar de uno firmado por S3.
+        Storage::disk('s3')->buildTemporaryUrlsUsing(fn (string $path): string => "https://s3.test/{$path}");
         config()->set('services.openai.api_key', 'testing-key');
         config()->set('logging.channels.ResearchUploadedFilesJobInfo', config('logging.channels.null'));
         config()->set('logging.channels.ResearchUploadedFilesJobErrors', config('logging.channels.null'));
@@ -49,9 +51,9 @@ class UploadedFilesResearchTest extends TestCase
     }
 
 
-    // Cada archivo subido pasa por el modelo: la foto como imagen y el menú como documento, los dos en base64. El que
-    // falla queda marcado y no frena a los demás. El análisis general mezcla solo el campo que los archivos cambian, y
-    // la pantalla recibe todos los archivos con su enlace.
+    // Cada archivo subido se guarda en S3 con el id de su fuente y pasa por el modelo: la foto como imagen y el menú
+    // como documento, los dos en base64. El que falla queda marcado y no frena a los demás. El análisis general mezcla
+    // solo el campo que los archivos cambian, y la pantalla recibe todos los archivos con su enlace temporal.
     #[Test]
     public function analyzes_each_uploaded_file_and_merges_only_the_brand_fields_they_change(): void
     {
@@ -92,12 +94,14 @@ class UploadedFilesResearchTest extends TestCase
         $this->assertSame('Torta de chocolate sobre fondo blanco.', $imageDescription);
         $this->assertSame('Torta de chocolate $5000', $filesByName['menu.pdf']['payload']['content']);
         $this->assertSame('failed', $filesByName['roto.pdf']['status']);
-        $this->assertStringContainsString('signature=', $filesByName['torta.jpg']['url']);
+        $tortaS3Path = "{$this->brand->id}/sources/image/{$filesByName['torta.jpg']['id']}.jpg";
+        Storage::disk('s3')->assertExists($tortaS3Path);
+        $this->assertSame("https://s3.test/{$tortaS3Path}", $filesByName['torta.jpg']['url']);
     }
 
 
-    // Mientras se analizan los archivos no se puede subir ni borrar otro. Borrar uno se lleva su archivo y rehace el
-    // análisis con los que quedan, sin tocar la marca aunque el modelo devuelva campos.
+    // Mientras se analizan los archivos no se puede subir ni borrar otro. Borrar uno se lleva su archivo de S3 y rehace
+    // el análisis con los que quedan, sin tocar la marca aunque el modelo devuelva campos.
     #[Test]
     public function deleting_a_file_redoes_the_analysis_without_it_and_keeps_the_brand(): void
     {
@@ -115,7 +119,7 @@ class UploadedFilesResearchTest extends TestCase
 
         $knowledgeSourceService = resolve(KnowledgeSourceService::class);
         $this->assertNull($knowledgeSourceService->find($this->brand, $deletedFile->id));
-        Storage::disk('local')->assertMissing($deletedFile->s3_path);
+        Storage::disk('s3')->assertMissing($deletedFile->file_s3_path);
         $filesAnalysisRequest = $this->recordedOpenAiRequests()[0];
         $this->assertStringNotContainsString('viejo.jpg', $filesAnalysisRequest['input']);
         $this->assertStringContainsString('torta.jpg', $filesAnalysisRequest['input']);
@@ -128,14 +132,14 @@ class UploadedFilesResearchTest extends TestCase
 
     private function createAnalyzedFile(string $fileName, string $description): KnowledgeSource
     {
-        $storedPath = "uploaded-files/{$this->brand->id}/{$fileName}";
-        Storage::disk('local')->put($storedPath, 'imagen');
+        $fileS3Path = "{$this->brand->id}/sources/image/{$fileName}";
+        Storage::disk('s3')->put($fileS3Path, 'imagen');
 
         return resolve(KnowledgeSourceService::class)->create($this->brand, [
             'type' => 'image',
             'status' => 'ready',
             'title' => $fileName,
-            's3_path' => $storedPath,
+            'file_s3_path' => $fileS3Path,
             'payload' => [
                 'file_name' => $fileName,
                 'mime_type' => 'image/jpeg',

@@ -25,7 +25,8 @@ tablas propias, en [competitors.md](competitors.md).
 | `title` | Título para mostrar: el de la página, o el copy del posteo o del anuncio. |
 | `source_ref` | Referencia al original, por ejemplo la URL. |
 | `payload` | El material leído. Su forma depende del tipo. |
-| `s3_path` | Archivo guardado, para las fuentes que lo tengan: hoy, las fotos y los documentos subidos. Por ahora es la ruta en el disco local; la columna ya prevé S3. |
+| `payload_s3_path` | Ruta en S3 del payload, para cuando sea pesado. Excluye a `payload`: el material está en uno de los dos, nunca en ambos. Todavía sin uso. |
+| `file_s3_path` | Ruta en S3 del archivo, para las fuentes que son un archivo: hoy, las fotos y los documentos subidos. Es independiente de `payload`, que guarda sus datos. |
 | `captured_at` | Cuándo se leyó. |
 | `status` | `pending`, `ready` o `failed`. |
 
@@ -33,12 +34,12 @@ tablas propias, en [competitors.md](competitors.md).
 
 - `web_page`: una página del sitio. `payload` guarda `url`, `provider` (`firecrawl`) y `raw_json`, la
   respuesta completa de Firecrawl.
-- `instagram_post`: un posteo. `payload` guarda `url`, `caption`, las imágenes enviadas al modelo en
-  `image_urls`, lo que el modelo vio en cada una en `images` (`transcription` y `description`) y el
-  ítem completo de Apify en `raw`.
+- `instagram_post`: un posteo. `payload` guarda `url`, `caption`, lo que el modelo vio en cada imagen en `images`
+  (`transcription` y `description`), las rutas en S3 de esas imágenes en `image_s3_paths` y la del video de un
+  reel en `video_s3_paths`, y el ítem completo de Apify en `raw`.
 - `meta_ad`: un anuncio. `payload` guarda `url` (su enlace en la Biblioteca de anuncios), `copy`,
-  `media` (cada imagen o video, con `type`, `image_url`, que en los videos es la portada, y
-  `video_url`), `images` como en Instagram, `days_running` al momento del análisis y el ítem
+  `media` (cada imagen o video, con `type`, `image_s3_path`, que en los videos es la portada, y
+  `video_s3_path`), `images` como en Instagram, `days_running` al momento del análisis y el ítem
   completo de Apify en `raw`.
 - `google_review`: una reseña de Google Maps. `title` es el comienzo del texto, o "5 estrellas, sin texto",
   y `source_ref` el enlace a la reseña. `payload` guarda `url`, `text` (null si solo tiene estrellas),
@@ -56,11 +57,12 @@ tablas propias, en [competitors.md](competitors.md).
   investigación nueva reemplaza las conversaciones anteriores de la marca al terminar bien.
 - `audio`: la transcripción de un audio que el usuario graba en la pantalla contando su negocio. `title` es el
   comienzo de la transcripción y `payload` guarda `transcript`. El audio se borra apenas se transcribe, así que
-  `s3_path` queda en null. Un audio nuevo no borra los anteriores.
+  `file_s3_path` queda en null. Un audio nuevo no borra los anteriores.
 
 - `image` y `document`: una foto o un documento que subió el usuario. La extensión decide el tipo: jpg, png,
   webp y gif son fotos; pdf, doc, docx, odt, rtf, txt, md, csv, xls, xlsx, ppt y pptx, documentos. `title` es el
-  nombre del archivo y `s3_path` dónde quedó guardado, con un nombre aleatorio y su extensión original. `payload`
+  nombre del archivo y `file_s3_path` dónde quedó guardado en S3, con el id de la fuente y su extensión original.
+  `payload`
   guarda `file_name`, `mime_type` (según la extensión) y `size`, y el análisis suma `description` (qué muestra la
   foto o qué es el documento) y `transcription` (el texto de la foto, o null) o `content` (lo que dice el documento
   sobre el negocio, o null). Se crea en `pending` al subirlo y el análisis la deja en `ready` o `failed`. Las
@@ -68,8 +70,27 @@ tablas propias, en [competitors.md](competitors.md).
 
 El esquema prevé además `adjustment`, todavía sin uso.
 
-Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días: el análisis las usa
-en el momento, y cuando ya no cargan la pantalla muestra el ícono del formato o un aviso.
+## Archivos en S3
+
+Hay un bucket por entorno, `nuvads-local` y `nuvads-production`, en `us-east-1`, privados. Adentro, todo cuelga de la
+marca, así que borrar una marca es borrar una carpeta:
+
+```text
+{brand_id}/sources/image/{id}.jpg                                  foto o documento subido
+{brand_id}/sources/instagram_post/{id}/1.jpg                       imágenes y video de un posteo
+{brand_id}/sources/meta_ad/{id}/1.jpg                              imágenes y videos de un anuncio
+{brand_id}/competitors/{competitor_id}/sources/meta_ad/{id}/1.jpg  lo mismo, de un competidor
+```
+
+Las URLs de imágenes y videos de Instagram y de Meta vencen a los pocos días, así que la investigación los descarga
+a S3 apenas Apify los devuelve, numerados según su posición: la imagen 1 es la de `images[0]`, y en los videos la
+portada y el video comparten número (`1.jpg` y `1.mp4`). El análisis sigue usando las URLs de Apify, que en ese
+momento funcionan. Una descarga que falla queda en el log y su ruta en null, sin frenar a las demás; la pantalla
+muestra el ícono del formato o un aviso.
+
+`S3Helper` concentra la comunicación con S3. La pantalla recibe enlaces temporales, porque un `<img>` no manda el
+token de la API: se firman por 7 días, el máximo de S3, y se guardan 6 en el caché de Laravel. Así cada entrada a la
+pantalla recibe el mismo enlace y el navegador reutiliza lo que ya descargó. Firmar un enlace no llama a AWS.
 
 ## Conclusiones
 

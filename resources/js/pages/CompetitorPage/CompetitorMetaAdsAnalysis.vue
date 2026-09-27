@@ -73,16 +73,16 @@
           :key="ad.id"
           class="flex gap-3 py-4"
         >
-          <!-- Las URLs de Meta vencen a los pocos días; si la imagen no carga, queda el formato escrito. -->
+          <!-- Si la imagen no se pudo guardar o no carga, queda el formato escrito. -->
           <span class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface-selected text-xs text-text-muted">
             <img
-              v-if="canShowImage(ad.payload.media[0]?.image_url)"
-              :src="ad.payload.media[0].image_url"
+              v-if="canShowImage(ad.media_urls[0]?.image_url)"
+              :src="ad.media_urls[0].image_url"
               alt=""
               loading="lazy"
               referrerpolicy="no-referrer"
               class="h-full w-full object-cover"
-              @error="markImageAsFailed(ad.payload.media[0].image_url)"
+              @error="markImageAsFailed(ad.media_urls[0].image_url)"
             >
             <template v-else>{{ formatNames[getAdFormat(ad)] ?? 'Anuncio' }}</template>
           </span>
