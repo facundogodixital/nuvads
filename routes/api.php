@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\BrandController;
 use App\Http\Controllers\API\SessionController;
 use App\Http\Controllers\API\CompetitorController;
+use App\Http\Controllers\API\ContentTypeController;
 use App\Http\Controllers\API\ResearchRunController;
 use App\Http\Controllers\API\KnowledgeSourceController;
 use App\Http\Middleware\ResolveClientContextMiddleware;
@@ -96,6 +97,8 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
             'competitors/{competitorId}/insights/google-reviews',
             [CompetitorInsightController::class, 'getGoogleReviewsInsights'],
         )->whereNumber('competitorId');
+
+        Route::get('content-types', [ContentTypeController::class, 'list']);
 
         Route::get('auth/me', [SessionController::class, 'find']);
         Route::post('auth/logout', [SessionController::class, 'delete']);

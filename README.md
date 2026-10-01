@@ -221,14 +221,16 @@ chmod 600 .env
 make up
 docker compose --env-file .env.docker --file compose.yaml exec -T php composer install
 docker compose --env-file .env.docker --file compose.yaml exec -T php php artisan key:generate
+docker compose --env-file .env.docker --file compose.yaml exec -T php php artisan migrate
+docker compose --env-file .env.docker --file compose.yaml exec -T php php artisan db:seed
 docker compose --env-file .env.docker --file compose.yaml exec -T node npm ci
 make frontend-build
 ```
 
-`composer.lock` y `package-lock.json` fijan las versiones instaladas. La estructura
-conserva las migraciones base de Laravel; todavía no se ejecutaron ni se cargaron
-datos de ejemplo. MongoDB permanece disponible en Docker; su integración con
-Laravel queda pendiente de decidir.
+`composer.lock` y `package-lock.json` fijan las versiones instaladas. `migrate` crea
+las tablas y `db:seed` carga los datos iniciales que la aplicación necesita, que hoy
+son los tipos de contenido; se puede repetir sin duplicarlos. MongoDB permanece
+disponible en Docker; su integración con Laravel queda pendiente de decidir.
 
 ## Tests del backend
 

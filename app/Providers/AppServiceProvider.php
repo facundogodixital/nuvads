@@ -16,6 +16,7 @@ use App\Services\CompetitorService;
 use App\Services\GoogleAuthService;
 use App\Helpers\IpGeolocationHelper;
 use App\Repositories\UserRepository;
+use App\Services\ContentTypeService;
 use App\Services\ResearchRunService;
 use App\Repositories\BrandRepository;
 use App\Repositories\ClientRepository;
@@ -30,6 +31,7 @@ use App\Services\KnowledgeInsightService;
 use App\Repositories\CompetitorRepository;
 use App\Services\CompetitorInsightService;
 use App\Services\InstagramResearchService;
+use App\Repositories\ContentTypeRepository;
 use App\Repositories\ResearchRunRepository;
 use App\Repositories\AdministratorRepository;
 use App\Services\CompetitorResearchRunService;
@@ -102,6 +104,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(CompetitorMetaAdsResearchService::class);
         $this->app->scoped(CompetitorGoogleReviewsResearchService::class);
         $this->app->scoped(BrandCompetitionResearchService::class);
+        $this->app->scoped(ContentTypeService::class);
+        $this->app->scoped(ContentTypeRepository::class);
     }
 
 
