@@ -246,7 +246,9 @@ async function save() {
     emit('saved', brand);
     saveMessage.value = 'Guardado.';
   } catch (error) {
-    saveError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+    const fieldErrors = Object.values(error.errors ?? {});
+    const firstFieldError = fieldErrors[0]?.[0];
+    saveError.value = firstFieldError ?? error.message;
   } finally {
     isSaving.value = false;
   }

@@ -38,7 +38,9 @@ export const useBrandUploadedFileModalStore = defineStore('brandUploadedFileModa
       close();
       return true;
     } catch (error) {
-      deleteError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+      const fieldErrors = Object.values(error.errors ?? {});
+      const firstFieldError = fieldErrors[0]?.[0];
+      deleteError.value = firstFieldError ?? error.message;
       return false;
     } finally {
       isDeleting.value = false;

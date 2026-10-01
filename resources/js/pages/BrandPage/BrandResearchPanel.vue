@@ -308,7 +308,8 @@ async function saveSource() {
     emit('saved', brand);
     saveMessage.value = savedValue ? 'Guardado.' : 'Enlace eliminado.';
   } catch (error) {
-    saveError.value = error.errors?.[props.source.field]?.[0] ?? error.message;
+    const sourceFieldError = error.errors?.[props.source.field]?.[0];
+    saveError.value = sourceFieldError ?? error.message;
   } finally {
     isSaving.value = false;
   }
@@ -345,7 +346,9 @@ async function startAnalysis() {
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {
-    analysisError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+    const fieldErrors = Object.values(error.errors ?? {});
+    const firstFieldError = fieldErrors[0]?.[0];
+    analysisError.value = firstFieldError ?? error.message;
   } finally {
     isStartingAnalysis.value = false;
   }

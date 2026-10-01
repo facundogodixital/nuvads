@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\API\IdeaController;
 use App\Http\Controllers\API\BrandController;
 use App\Http\Controllers\API\SessionController;
 use App\Http\Controllers\API\CompetitorController;
@@ -99,6 +100,11 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
         )->whereNumber('competitorId');
 
         Route::get('content-types', [ContentTypeController::class, 'list']);
+        Route::post(
+            'content-types/{contentTypeId}/suggested-ideas', [IdeaController::class, 'generateSuggestedIdeas'],
+        )->whereNumber('contentTypeId');
+
+        Route::post('ideas', [IdeaController::class, 'create']);
 
         Route::get('auth/me', [SessionController::class, 'find']);
         Route::post('auth/logout', [SessionController::class, 'delete']);

@@ -16,6 +16,13 @@ class ContentTypeRepository
     }
 
 
+    // Un tipo rotado tiene soft delete: queda afuera, como uno que no existe.
+    public function find(int $contentTypeId): ?ContentType
+    {
+        return ContentType::query()->find($contentTypeId);
+    }
+
+
     public function list(): Collection
     {
         return ContentType::query()->orderBy('id')->get();

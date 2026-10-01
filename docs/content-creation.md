@@ -113,8 +113,31 @@ Catálogo de entradas, con lo que hoy existe en el cerebro:
 Reseñas de clientes toma las cinco entradas de Google: las reseñas, y sus agrupamientos por elogio, por producto y por
 persona del equipo, más el puntaje. Educativo toma las preguntas de los chats, que dicen qué enseñar, y los lugares
 donde vive lo que el negocio sabe: el audio, los documentos y el sitio. Las frases textuales de clientes de WhatsApp
-no entran como reseñas: son mensajes privados, y publicarlos pide permiso del cliente. Todas las entradas son por
-ahora solo nombres: sus clases se escriben en el tramo de las entradas.
+no entran como reseñas: son mensajes privados, y publicarlos pide permiso del cliente. Las cinco entradas de Google
+ya tienen su clase, en `app/Services/ContentTypeInputs/`; el mapa de nombre a clase está en `config/content.php`.
+Las demás son por ahora solo nombres: un nombre sin clase no cuenta, y sus clases llegan con el tramo de su tipo.
+
+#### Qué manda cada entrada de Google
+
+El usuario dejó estos números a criterio del agente el 01/10/2026, pidiendo algo práctico y que no quede corto. Son
+de arranque: viven como constantes en la clase de cada entrada y se ajustan al ver ideas reales.
+
+- Qué reseña sirve: de 4 o 5 estrellas, con texto, y que no esté ya en una idea de la marca. "Ya usada" es que su ID
+  figure en `knowledge_source_ids` de alguna fila de `ideas` de la marca.
+- `google_review_strengths`, `google_review_products` y `google_review_staff` mandan grupos: hasta 10 cada una, los
+  de más menciones. De cada grupo va su nombre, cuántas menciones tiene y 8 reseñas elegidas al azar entre las que
+  sirven. Si quedan menos de 8 sin usar, van las que haya; si no queda ninguna, se sortea de nuevo entre todas las de
+  4 o 5 estrellas con texto. Un grupo sin ninguna reseña que sirva no se manda.
+- `google_reviews` manda 20 reseñas sueltas, al azar, con el mismo filtro y sin agrupar. Vale la misma regla que en
+  los grupos: si no queda ninguna sin usar, se sortea de nuevo entre todas las que sirven.
+- `google_review_score` manda el puntaje de la ficha y la cantidad de reseñas. Es un dato de apoyo: viaja con el
+  material, pero no alcanza para prender la tarjeta del tipo.
+- De cada reseña viajan su ID, el nombre de pila, las estrellas, la fecha y el texto cortado a 300 caracteres. El
+  conjunto entero de reseñas nunca se manda: como mucho son 260 reseñas cortas, tenga la marca 300 o 5000.
+- Se sortea al azar y no por fecha para que cada generación vea reseñas distintas. Solo se excluyen las que quedaron
+  en una idea elegida, así que con orden por fecha volverían siempre las mismas que el modelo no eligió. La reseña
+  viaja con su fecha, y la receta del tipo ya pide preferir las más recientes.
+- Una entrada está vacía cuando no tiene nada que mandar: ningún grupo, ninguna reseña que sirva o ningún puntaje.
 
 ### Ejemplos de carga de `content_types`
 
@@ -310,7 +333,39 @@ pregunta y las tarjetas, todas prendidas y sin acción al tocarlas. Prender y ap
 acción, con el paso 2.
 
 Paso 2. Al elegir un tipo, se generan ideas de ese tipo y se muestran en una lista de un renglón cada una, con un
-renglón chico que dice de dónde salen. Elige una y sigue. Los detalles se ven después.
+renglón chico que dice de dónde salen. Elige una y sigue. Decidido el 01/10/2026 para el tramo de Reseñas de
+clientes:
+
+- Una tarjeta está prendida cuando al menos una de las entradas del tipo que alcanzan para sostener ideas tiene
+  material para la marca. El puntaje de Google no cuenta: es un dato de apoyo, y con un puntaje solo no se arma
+  ninguna idea. Apagada, dice qué falta, y lo dice según el caso. Si la marca no analizó sus reseñas: "Analiza tus
+  reseñas de Google para usar este tipo." Si las analizó pero ninguna sirve: "Tus reseñas de Google todavía no
+  alcanzan: hacen falta reseñas de 4 o 5 estrellas con texto." Un tipo cuyas entradas todavía no tienen clase, como
+  Educativo hoy, queda apagado con "Disponible pronto".
+- La generación es un pedido que espera: la pantalla pide las ideas y aguarda la respuesta del modelo. En las
+  investigaciones, llamadas parecidas tardan entre 11 y 18 segundos. No hay job, cola ni caché, y las ideas sugeridas no
+  se guardan en ningún lado: viven en la pantalla. El controller sube su límite de tiempo a 120 segundos con
+  `SystemHelper`, como se hace en Clienty. Si empieza a tardar más de lo que espera el servidor web, se pasa a un
+  job.
+- El prompt lleva la receta del tipo, el material de sus entradas y, de fondo, el nombre y los campos de texto de la
+  marca. El modelo devuelve las ideas que el material sostiene, sin número fijo. PHP descarta los IDs que no se
+  mandaron y las ideas que quedan sin respaldo.
+- En la lista, al tocar una idea se despliegan sus reseñas. Hay tres acciones: seguir con la idea elegida, buscar
+  otras ideas y volver a los tipos. Al seguir, la idea se guarda y se muestra guardada con sus reseñas, porque el
+  paso 3 todavía no está programado.
+
+El paso 2 ya está programado para Reseñas de clientes, desde el 01/10/2026, y el usuario lo probó con Up!:
+
+- `GET /api/content-types` devuelve por cada tipo `is_available` y `unavailable_reason` para la marca del pedido.
+- `POST /api/content-types/{contentTypeId}/suggested-ideas` genera las ideas sugeridas y las devuelve con sus
+  reseñas, sin guardar nada. Lo que el modelo devuelve mal se descarta o se corrige, y queda registrado en el log.
+- `POST /api/ideas` guarda la idea elegida. Sus comprobaciones están en el request y fallan como errores de campo.
+- El modelo que genera las ideas está en `config/content.php`, en `ideas.model`.
+- En el código, una idea que el modelo sugirió y todavía no se guardó es una idea sugerida, `suggestedIdea`: un
+  modelo `Idea` sin guardar. No se la llama propuesta.
+- En la pantalla, las ideas sugeridas de cada tipo viven en la memoria de la página: volver a los tipos y entrar de
+  nuevo no las pide otra vez, y se pierden al salir de Crear. Una idea guardada sale de la lista. Si buscar otras
+  ideas falla, la lista anterior se conserva. Cuando ningún tipo está disponible, un aviso lleva a Mi marca.
 
 Paso 3. Al elegir una idea, la app escribe la pieza y el usuario la lee y la corrige antes de que se dibuje nada.
 Cuatro conceptos, que no se mezclan:
@@ -384,12 +439,15 @@ después.
 
 Qué se guarda y cuándo:
 
-- La idea nace cuando el usuario la elige con "Seguir con esta". Las propuestas que no eligió no se guardan.
+- La idea nace cuando el usuario la elige con "Seguir con esta". Las ideas sugeridas que no eligió no se guardan.
 - La pieza nace con "Generar la pieza", con el formato, el guión y el copy que quedaron después de las correcciones.
   Los dos guiones y las ediciones del paso 3 no se persisten antes de eso.
 - Cada imagen dibujada se guarda al dibujarse, elegida o no.
 
-### Modelo tentativo de `ideas`
+### Modelo de `ideas`
+
+Ya está programado, desde el 01/10/2026: la tabla, el modelo, `IdeaService` y `POST /api/ideas`. Sigue siendo lo
+mínimo que necesita el paso 2.
 
 Todo lo de la idea es tentativo: es lo mínimo que necesita el paso 2, y se completa cuando lleguen los pasos que
 lo pidan. Primera tabla por marca: lleva `client_id`, `brand_id`, timestamps y soft deletes.
@@ -401,11 +459,11 @@ lo pidan. Primera tabla por marca: lleva `client_id`, `brand_id`, timestamps y s
 | `angle` | El texto del ángulo usado, copiado, para que la idea se lea sola. Null en los tipos sin ángulos. |
 | `knowledge_insight_ids` | JSON: las conclusiones en que se apoya. |
 | `knowledge_source_ids` | JSON: las fuentes concretas que muestra o usa, por ejemplo las reseñas. |
-| `status` | Por ahora solo `proposed`. Los demás estados, cuando hagan falta. |
+| `status` | String abierto, sin lista cerrada en la base; cuando esté todo cerrado puede pasar a enum. Hoy tiene un solo valor, `chosen`: la idea se guarda cuando el usuario la elige. |
 | `model` | Modelo de IA que la escribió. |
 
-- La idea se guarda cuando el usuario la elige, con su respaldo de IDs. Las propuestas que no eligió no se guardan,
-  así que `proposed` deja de ser el primer estado; cuál es, se ve con los estados.
+- La idea se guarda cuando el usuario la elige, con su respaldo de IDs, y nace con `status` `chosen`. Las ideas
+  sugeridas que no eligió no se guardan.
 - El ángulo va en la idea, no en la pieza.
 - El renglón chico de la pantalla sale de qué entradas aportaron los IDs de respaldo.
 
@@ -419,7 +477,7 @@ Ejemplo, las tres ideas de Up! de arriba:
     "angle": null,
     "knowledge_insight_ids": [71],
     "knowledge_source_ids": [512, 587, 601],
-    "status": "proposed", "model": "gpt-6-luna"
+    "status": "chosen", "model": "gpt-6-luna"
   },
   {
     "id": 22, "client_id": 3, "brand_id": 7, "content_type_id": 1,
@@ -427,7 +485,7 @@ Ejemplo, las tres ideas de Up! de arriba:
     "angle": null,
     "knowledge_insight_ids": [74],
     "knowledge_source_ids": [533, 598],
-    "status": "proposed", "model": "gpt-6-luna"
+    "status": "chosen", "model": "gpt-6-luna"
   },
   {
     "id": 23, "client_id": 3, "brand_id": 7, "content_type_id": 1,
@@ -435,7 +493,7 @@ Ejemplo, las tres ideas de Up! de arriba:
     "angle": null,
     "knowledge_insight_ids": [76],
     "knowledge_source_ids": [520, 544, 590],
-    "status": "proposed", "model": "gpt-6-luna"
+    "status": "chosen", "model": "gpt-6-luna"
   }
 ]
 ```
@@ -519,13 +577,12 @@ Reseñas de clientes · Estas son las ideas que te salen a ti
 ### Por definir
 
 - Cómo se usa el análisis de la competencia.
-- Los estados de la idea y cómo se articula con los pasos que siguen.
+- Los demás estados de la idea, además de `chosen`, y cómo se articula con los pasos que siguen.
 - Los estados de la pieza.
 - Que el usuario pueda marcar en la lista qué idea no le gusta, para tener en cuenta y aprender.
 - Cómo se ajusta la imagen elegida.
 - Cómo se eligen las tres combinaciones de estilo y composición para que no repitan lo reciente de la marca.
-- Si un tipo se prende con al menos una entrada con material o necesita todas. Se propuso "al menos una", sin decidir.
-- Qué lee exactamente cada entrada y cuánto manda al modelo: se define en la implementación.
+- Qué lee y cuánto manda al modelo cada entrada que no es de Google.
 - Si el tema sigue existiendo, cómo se lleva adelante Inspiración y cómo se organizan las ideas.
 - El modelo de la pieza, y cómo se articula con los tipos y los estilos: qué estilo y qué composición toma y cómo se
   rotan.

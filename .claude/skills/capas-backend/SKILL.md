@@ -32,6 +32,7 @@ Común a las tres capas:
   - Un array de hasta tres claves está bien, con un comentario breve que diga qué trae. El comentario es obligatorio y tiene que quitar carga cognitiva: quien lee entiende el array ahí mismo, sin ir a buscar el método que lo arma. Para eso, un DTO sobra.
   - Si la estructura tiene más claves, y sobre todo si pasa a otros métodos o clases, va un DTO, para que su forma se lea sin ir a buscarla.
   - Ni DTO para dos o tres claves, ni array para una estructura grande.
+  - Excepción: los atributos para crear un modelo pueden pasarse en un array al service y al repository, tenga las claves que tenga, por ejemplo cuando salen del request y van derecho al service. Cuando antes hay que armarlos desde otra estructura, como el payload de un proveedor, van en un DTO que sabe armarse solo y expone `toArray()` para persistir.
 
 Duración de las instancias:
 - Services, repositories y helpers se registran como scoped por defecto.

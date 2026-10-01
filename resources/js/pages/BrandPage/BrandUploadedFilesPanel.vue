@@ -295,7 +295,9 @@ async function uploadFiles() {
     await loadResearchStatus();
     schedulePolling();
   } catch (error) {
-    analysisError.value = Object.values(error.errors ?? {})[0]?.[0] ?? error.message;
+    const fieldErrors = Object.values(error.errors ?? {});
+    const firstFieldError = fieldErrors[0]?.[0];
+    analysisError.value = firstFieldError ?? error.message;
   } finally {
     isUploading.value = false;
   }

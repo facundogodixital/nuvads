@@ -23,7 +23,8 @@ class ContentType extends Model
         'layouts',
     ];
 
-    // Al frontend viaja solo lo que muestra la tarjeta: id, key, name y description.
+    // Al frontend viaja solo lo que muestra la tarjeta: id, key, name y description, más si la marca lo puede usar,
+    // que suma ContentTypeService.
     protected $hidden = [
         'instructions',
         'inputs',

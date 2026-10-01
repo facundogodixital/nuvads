@@ -13,7 +13,9 @@ class ContentTypeSeeder extends Seeder
     // Crea cada tipo solo si no hay uno activo con su key; nunca actualiza ni borra los que ya existen.
     public function run(): void
     {
-        // name y description los ve el usuario; instructions, angles y layouts son para el modelo, en voseo.
+        // name y description los ve el usuario; instructions, angles y layouts son para el modelo, en voseo. inputs son
+        // los nombres de las entradas del cerebro que lee el tipo: sus clases están en app/Services/ContentTypeInputs/
+        // y el mapa de nombre a clase, en config/content.php. angles en null es un tipo sin ángulos.
         $contentTypes = [
             [
                 'key' => 'customer_reviews',
@@ -81,8 +83,8 @@ class ContentTypeSeeder extends Seeder
 
         $contentTypeService = resolve(ContentTypeService::class);
         foreach ($contentTypes as $contentTypeAttributes) {
-            $activeContentTypeExists = $contentTypeService->findOneByKey($contentTypeAttributes['key']) !== null;
-            if (!$activeContentTypeExists) {
+            $hasActiveContentType = $contentTypeService->findOneByKey($contentTypeAttributes['key']) !== null;
+            if (!$hasActiveContentType) {
                 $contentTypeService->create($contentTypeAttributes);
             }
         }
