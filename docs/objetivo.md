@@ -23,6 +23,9 @@ salga con una pieza que le guste y que pueda publicar. Que vea que la app lo con
 cada corrección suya queda y mejora lo siguiente, para que le den ganas de darle más datos. Y que no se encierre: que
 las piezas no se parezcan entre sí ni parezcan hechas por una IA.
 
+Y que lo haga solo: cada pantalla se tiene que entender sin que nadie se la explique. Quien la usa no es técnico ni
+tiene tiempo; si no entiende qué es cada cosa, de dónde salió y qué pasa si toca un botón, abandona.
+
 ## Dónde está el valor
 
 El foso no es la generación, es el cerebro: lo que la app aprendió de ese negocio no se reemplaza con otra app. Por

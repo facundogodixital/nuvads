@@ -264,6 +264,9 @@ Ejemplo:
 
 - El contexto de producto vive en `PRODUCT.md`. Leerlo antes de trabajar en funcionalidades del producto.
 - Los textos de la aplicación, en principio, en español neutro, para poder atacar todo LATAM al mismo tiempo.
+- Una pantalla tiene que entenderla quien la usa, sin que nadie se la explique. Cada bloque dice qué es y de dónde sale; cada botón dice qué hace y sobre qué; cada opción dice qué cambia al elegirla.
+- Los textos usan las palabras del usuario final, no las del diseño interno ni las del código: "imagen", no "placa".
+- Antes de programar una pantalla se acuerda su boceto con el usuario, con datos reales. Antes de presentarla hecha, se la abre en el navegador y se la recorre como la recorrería él.
 
 ## 10. Errores: no encapsular
 
