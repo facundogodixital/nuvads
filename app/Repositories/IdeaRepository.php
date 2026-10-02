@@ -20,12 +20,33 @@ class IdeaRepository
     }
 
 
+    public function find(Brand $brand, int $ideaId): ?Idea
+    {
+        return Idea::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->find($ideaId);
+    }
+
+
     public function list(Brand $brand): Collection
     {
         return Idea::query()
             ->where('brand_id', $brand->id)
             ->where('client_id', $brand->client_id)
             ->orderBy('id')
+            ->get();
+    }
+
+
+    // De la más nueva a la más vieja.
+    public function findByStatus(Brand $brand, string $status): Collection
+    {
+        return Idea::query()
+            ->where('brand_id', $brand->id)
+            ->where('client_id', $brand->client_id)
+            ->where('status', $status)
+            ->orderByDesc('id')
             ->get();
     }
 

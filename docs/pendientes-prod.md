@@ -15,5 +15,5 @@
   ```
 
 - Darle al servidor web de producción el mismo tiempo de espera que tiene nginx en local, `fastcgi_read_timeout 130s`
-  en el bloque que pasa los pedidos a PHP. Lo necesita la generación de ideas, que espera al modelo hasta 120
-  segundos.
+  en el bloque que pasa los pedidos a PHP. Lo necesitan la generación de ideas y la escritura de la pieza, que
+  esperan al modelo hasta 120 segundos.

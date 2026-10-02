@@ -328,9 +328,9 @@ Paso 1. Entra y ve la pregunta "¿De qué quieres hablar?" y una tarjeta por fil
 `description`, todas a la vista sin scroll. La tarjeta es el botón: toca una y sigue. Como elige un tipo por vez, no
 hay tildes múltiples ni barra de progreso. Los tipos sin material aparecen igual, apagados y sin poder elegirse, con
 una línea que dice qué fuente falta; así ve el menú completo desde el primer día. Si ninguno tiene material, es la
-misma pantalla con todo apagado más un aviso que lo lleva a cargar fuentes. Ya está programada la primera parte: la
-pregunta y las tarjetas, todas prendidas y sin acción al tocarlas. Prender y apagar llega con las entradas, y la
-acción, con el paso 2.
+misma pantalla con todo apagado más un aviso que lo lleva a cargar fuentes. Ya está programado: la pregunta, las
+tarjetas prendidas o apagadas según el material de la marca, el aviso cuando ninguna está disponible y, debajo de las
+tarjetas, la lista de las ideas de la marca en estado `chosen`, para retomarlas.
 
 Paso 2. Al elegir un tipo, se generan ideas de ese tipo y se muestran en una lista de un renglón cada una, con un
 renglón chico que dice de dónde salen. Elige una y sigue. Decidido el 01/10/2026 para el tramo de Reseñas de
@@ -351,8 +351,7 @@ clientes:
   marca. El modelo devuelve las ideas que el material sostiene, sin número fijo. PHP descarta los IDs que no se
   mandaron y las ideas que quedan sin respaldo.
 - En la lista, al tocar una idea se despliegan sus reseñas. Hay tres acciones: seguir con la idea elegida, buscar
-  otras ideas y volver a los tipos. Al seguir, la idea se guarda y se muestra guardada con sus reseñas, porque el
-  paso 3 todavía no está programado.
+  otras ideas y volver a los tipos. Al seguir, la idea se guarda y la pantalla pasa directo al paso 3.
 
 El paso 2 ya está programado para Reseñas de clientes, desde el 01/10/2026, y el usuario lo probó con Up!:
 
@@ -401,6 +400,68 @@ Cómo elige el usuario:
 
 Las variantes quedan para la imagen, en el paso siguiente: mirar tres imágenes es rápido y corregir una es difícil.
 
+Decidido el 01/10/2026 para Reseñas de clientes, en esta pasada:
+
+- Las citas son solo las reseñas de la idea que el usuario eligió. No se editan a mano; se puede quitar una placa.
+  El modelo puede cortar una reseña larga con puntos suspensivos, y PHP comprueba que el corte sea literal.
+- Cada placa de reseña del guión lleva su texto, sus estrellas, su nombre de pila y el ID de la reseña. Las
+  estrellas y el nombre van copiados, porque una investigación nueva de Google reemplaza las reseñas viejas. El guión
+  deja de ser una lista de textos sueltos.
+- Con una reseña, placa única. Con dos o tres, vienen escritas las dos versiones: el carrusel, con una reseña por
+  placa y una placa final de invitación, y una placa única con la reseña más fuerte.
+- Para que el usuario vea varias propuestas, la placa final y el copy vienen con tres opciones cada uno. Elige una y
+  la edita si quiere. "Otras opciones" trae tres nuevas, con un campo opcional de indicaciones. "Otra versión" por
+  placa queda para después.
+- Nada se guarda en este paso: todo vive en la memoria de la página, y "Generar la pieza" queda sin acción hasta
+  que exista el paso que dibuja. La tabla `pieces` llega con ese paso.
+- Al elegir una idea se pasa directo a esta pantalla, y en Crear hay una lista corta de ideas guardadas para
+  retomarlas.
+
+Decidido el 02/10/2026, después de que el usuario probó la pantalla y no la entendió:
+
+- La pantalla tiene que explicarse sola: cada bloque dice qué es y de dónde sale, cada botón dice qué hace y sobre
+  qué, y cada opción dice qué cambia al elegirla. Se rehízo según un boceto que el usuario aprobó, que está en el
+  tablero, en "Segunda vuelta".
+- Las opciones de la invitación de la última imagen y del texto del posteo se leen enteras y no se editan. Hay una
+  opción más, "Escribir manualmente", que abre un campo. Cambia lo del 01/10/2026, que decía que el usuario elegía
+  una opción y la editaba.
+- En una sola imagen va una sola reseña, y el usuario elige cuál. Viene marcada la que el modelo consideró más
+  fuerte. Cambia lo del 01/10/2026, que ponía la más fuerte sin dejar elegir.
+- La lista de ideas de Crear se pide por estado: las ideas van a tener distintos estados, y ahí se ven las que
+  están en `chosen`.
+- En el código no entra "slide", una palabra que el usuario no conoce y no aprobó. Cada reseña del guión viaja con
+  la misma forma que en el paso 2: `id`, `name`, `stars`, `date` y `text`.
+- Cómo se corrige "Escribir otras opciones" se ve después. Hoy repite el pedido entero con las indicaciones del
+  usuario: reescribe todo junto, y el modelo no sabe qué opciones ya mostró.
+
+El paso 3 ya está programado para Reseñas de clientes, desde el 01/10/2026, y se rehízo el 02/10/2026. El usuario
+vio la pantalla rehecha y dijo que quedó bastante bien:
+
+- `GET /api/ideas?status=chosen` lista las ideas de la marca del pedido que están en ese estado, de la más nueva a
+  la más vieja. `status` es obligatorio. En Crear aparecen debajo de las tarjetas, como "Tus ideas guardadas", y
+  tocar una abre su paso 3.
+- `POST /api/ideas/{ideaId}/suggested-piece` escribe la pieza sugerida de una idea guardada y la devuelve, sin
+  guardar nada. Recibe `instructions`, las indicaciones opcionales del usuario, de hasta 500 caracteres. Devuelve
+  `carousel_script`, con una reseña por imagen, o null si la idea tiene una sola reseña; `single_script`, con la
+  reseña más fuerte; `closing_texts`, las opciones para la invitación de la última imagen; y `copies`, las opciones
+  para el texto del posteo. Cada reseña trae `id`, `name`, `stars`, `date` y `text`, que es el texto como va en la
+  imagen.
+- Es un pedido que espera al modelo, como la generación de ideas: sin job, cola ni caché, con el límite de tiempo
+  en 120 segundos. El modelo que escribe está en `config/content.php`, en `pieces.model`.
+- El prompt lleva la receta de la fila de `content_types` con la que nació la idea, el título de la idea, sus
+  reseñas enteras, de fondo la marca y, si vinieron, las indicaciones del usuario.
+- Las reseñas de la idea que una investigación nueva de Google borró no se usan. Si no queda ninguna, la API
+  responde `idea_material_missing` y la pantalla le dice al usuario que busque otras ideas.
+- PHP comprueba que cada cita sea literal; si no lo es, la placa lleva la reseña entera. Las estrellas y el nombre
+  salen de la reseña, nunca del modelo. Lo que se descarta o se corrige queda registrado en el log.
+- En el código, lo que el modelo escribió y todavía no se guardó es una pieza sugerida, `suggestedPiece`.
+- En la pantalla, la pieza sugerida de cada idea, con lo que el usuario eligió y escribió, vive en la memoria de la
+  página: volver a los tipos y entrar de nuevo a la idea no la pide otra vez, y se pierde al salir de Crear.
+  "Escribir otras opciones" la pide de nuevo, con las indicaciones si las hay. "Generar la pieza" se ve,
+  deshabilitado.
+- En los textos de la pantalla, cada placa es una "imagen".
+- Las decisiones chicas que tomó el agente en estas pasadas están en el tablero, en "Tramo 3".
+
 ```text
 Qué sustrato elegir según la etapa del cultivo
 Educativo · Compará dos opciones y decí cuándo conviene cada una
@@ -439,15 +500,17 @@ después.
 
 Qué se guarda y cuándo:
 
-- La idea nace cuando el usuario la elige con "Seguir con esta". Las ideas sugeridas que no eligió no se guardan.
+- La idea nace cuando el usuario la elige con "Seguir con la idea elegida". Las ideas sugeridas que no eligió no se
+  guardan.
 - La pieza nace con "Generar la pieza", con el formato, el guión y el copy que quedaron después de las correcciones.
   Los dos guiones y las ediciones del paso 3 no se persisten antes de eso.
 - Cada imagen dibujada se guarda al dibujarse, elegida o no.
 
 ### Modelo de `ideas`
 
-Ya está programado, desde el 01/10/2026: la tabla, el modelo, `IdeaService` y `POST /api/ideas`. Sigue siendo lo
-mínimo que necesita el paso 2.
+Ya está programado, desde el 01/10/2026: la tabla, el modelo, `IdeaService`, `POST /api/ideas`, que guarda la idea
+elegida, y `GET /api/ideas?status=chosen`, que lista las ideas de la marca que están en un estado. Sigue siendo lo
+mínimo que necesitan los pasos 2 y 3.
 
 Todo lo de la idea es tentativo: es lo mínimo que necesita el paso 2, y se completa cuando lleguen los pasos que
 lo pidan. Primera tabla por marca: lleva `client_id`, `brand_id`, timestamps y soft deletes.
@@ -466,6 +529,7 @@ lo pidan. Primera tabla por marca: lleva `client_id`, `brand_id`, timestamps y s
   sugeridas que no eligió no se guardan.
 - El ángulo va en la idea, no en la pieza.
 - El renglón chico de la pantalla sale de qué entradas aportaron los IDs de respaldo.
+- La lista de ideas de Crear se pide por `status`. Hoy pide las `chosen`.
 
 Ejemplo, las tres ideas de Up! de arriba:
 
@@ -577,7 +641,14 @@ Reseñas de clientes · Estas son las ideas que te salen a ti
 ### Por definir
 
 - Cómo se usa el análisis de la competencia.
-- Los demás estados de la idea, además de `chosen`, y cómo se articula con los pasos que siguen.
+- Los demás estados de la idea, además de `chosen`, y cómo se articula con los pasos que siguen. El usuario quiere
+  que la lista de Crear muestre las ideas elegidas que todavía no se usaron. El agente propuso que generar la pieza
+  le cambie el `status` a la idea; falta que el usuario lo confirme.
+- Cómo se corrige "Escribir otras opciones" del paso 3. Hoy repite el pedido entero con las indicaciones del
+  usuario: reescribe todo junto, no se puede pedir solo un texto, y el modelo no sabe qué opciones ya mostró.
+- La forma del guión de Reseñas de clientes dentro de `pieces.script`. El modelo tentativo lo describe como una
+  lista de textos, y en el paso 3 cada imagen de reseña lleva `id`, `name`, `stars`, `date` y `text`, más el texto
+  de la invitación.
 - Los estados de la pieza.
 - Que el usuario pueda marcar en la lista qué idea no le gusta, para tener en cuenta y aprender.
 - Cómo se ajusta la imagen elegida.

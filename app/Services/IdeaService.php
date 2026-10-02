@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Idea;
 use App\Models\Brand;
 use App\Repositories\IdeaRepository;
+use Illuminate\Database\Eloquent\Collection;
 
 
 class IdeaService
@@ -27,6 +28,20 @@ class IdeaService
             'status' => 'chosen',
             'model' => config('content.ideas.model'), // gpt-6-luna
         ]);
+    }
+
+
+    // La idea de la marca con ese ID, o null si no existe o es de otra marca.
+    public function find(Brand $brand, int $ideaId): ?Idea
+    {
+        return $this->ideaRepository->find($brand, $ideaId);
+    }
+
+
+    // Las ideas guardadas de la marca que tienen ese estado, de la más nueva a la más vieja.
+    public function findByStatus(Brand $brand, string $status): Collection
+    {
+        return $this->ideaRepository->findByStatus($brand, $status);
     }
 
 

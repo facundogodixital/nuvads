@@ -251,6 +251,34 @@ class IdeasTest extends TestCase
     }
 
 
+    // La lista trae solo las ideas guardadas de la marca del pedido que tienen el estado pedido, de la más nueva a la
+    // más vieja.
+    #[Test]
+    public function lists_the_request_brand_ideas_with_the_requested_status_from_newest_to_oldest(): void
+    {
+        $ideaService = resolve(IdeaService::class);
+        $secondBrand = resolve(BrandService::class)->create($this->brand->client, ['name' => 'Segunda marca']);
+        $ideaAttributes = [
+            'content_type_id' => $this->customerReviews->id,
+            'title' => 'Lo que más repiten: que te atienden bien',
+            'angle' => null,
+            'knowledge_insight_ids' => [],
+            'knowledge_source_ids' => [],
+        ];
+        $olderIdea = $ideaService->create($this->brand, $ideaAttributes);
+        $ideaService->create($secondBrand, $ideaAttributes);
+        $ideaWithAnotherStatus = $ideaService->create($this->brand, $ideaAttributes);
+        // Un estado cualquiera distinto de chosen: status es un texto abierto.
+        $ideaWithAnotherStatus->update(['status' => 'another_status']);
+        $newerIdea = $ideaService->create($this->brand, $ideaAttributes);
+
+        $response = $this->getJson('/api/ideas?status=chosen');
+
+        $response->assertOk();
+        $this->assertSame([$newerIdea->id, $olderIdea->id], $response->json('data.*.id'));
+    }
+
+
     private function createGoogleReview(
         int $stars,
         ?string $text,

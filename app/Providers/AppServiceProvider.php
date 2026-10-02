@@ -29,6 +29,7 @@ use App\Services\IdeaGenerationService;
 use Illuminate\Support\ServiceProvider;
 use App\Services\KnowledgeSourceService;
 use App\Services\MetaAdsResearchService;
+use App\Services\PieceGenerationService;
 use App\Services\WebsiteResearchService;
 use App\Services\CompetitorSourceService;
 use App\Services\KnowledgeInsightService;
@@ -118,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(IdeaService::class);
         $this->app->scoped(IdeaRepository::class);
         $this->app->scoped(IdeaGenerationService::class);
+        $this->app->scoped(PieceGenerationService::class);
         $this->app->scoped(SystemHelper::class);
         $this->app->scoped(GoogleReviewsInput::class);
         $this->app->scoped(GoogleReviewStrengthsInput::class);

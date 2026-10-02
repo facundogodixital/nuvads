@@ -1,6 +1,18 @@
 <template>
   <SystemLayout>
     <div class="max-w-[1296px] space-y-8">
+      <!-- El paso 3 de cada idea queda guardado por su ID mientras no se sale de Crear: al volver a entrar a una idea
+           se ve lo que tenía, sin pedir de nuevo su pieza sugerida. -->
+      <KeepAlive>
+        <SuggestedPieceStep
+          v-if="selectedIdea"
+          :key="selectedIdea.id"
+          :idea="selectedIdea"
+          :content-type-name="getContentTypeName(selectedIdea)"
+          @back="selectedIdea = null"
+        />
+      </KeepAlive>
+
       <SuggestedIdeasStep
         v-if="selectedContentType"
         :content-type="selectedContentType"
@@ -8,11 +20,11 @@
         :is-generating="selectedIdeaGeneration.isGenerating"
         :generation-error="selectedIdeaGeneration.error"
         @generate="generateSuggestedIdeas(selectedContentType)"
-        @saved="removeSavedSuggestedIdea"
+        @saved="continueWithSavedIdea"
         @back="selectedContentType = null"
       />
 
-      <template v-else>
+      <template v-if="isContentTypesViewVisible">
         <h1 class="text-3xl font-medium tracking-tight">
           ¿De qué quieres hablar?
         </h1>
@@ -33,7 +45,7 @@
           <button
             type="button"
             class="min-h-11 cursor-pointer underline underline-offset-4"
-            @click="loadContentTypes"
+            @click="loadContentTypesAndSavedIdeas"
           >
             Volver a intentar
           </button>
@@ -84,6 +96,34 @@
               </li>
             </ul>
           </template>
+
+          <section
+            v-if="savedIdeas.length"
+            aria-labelledby="saved-ideas-heading"
+          >
+            <h2
+              id="saved-ideas-heading"
+              class="spec-label mb-3"
+            >
+              Tus ideas guardadas
+            </h2>
+            <ul class="divide-y divide-border rounded-sm border border-border bg-surface-raised">
+              <li
+                v-for="savedIdea in savedIdeas"
+                :key="savedIdea.id"
+              >
+                <!-- Tocar una idea guardada abre su paso 3. -->
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer flex-col px-4 py-3 text-left hover:bg-surface-selected"
+                  @click="selectedIdea = savedIdea"
+                >
+                  <span class="font-medium">{{ savedIdea.title }}</span>
+                  <span class="text-xs text-text-muted">{{ getSavedIdeaLine(savedIdea) }}</span>
+                </button>
+              </li>
+            </ul>
+          </section>
         </template>
       </template>
     </div>
@@ -97,13 +137,18 @@ import { ref, computed, onMounted } from 'vue';
 import IdeaService from '@/services/IdeaService';
 import SystemLayout from '@/layouts/SystemLayout.vue';
 import SuggestedIdeasStep from './SuggestedIdeasStep.vue';
+import SuggestedPieceStep from './SuggestedPieceStep.vue';
 import ContentTypeService from '@/services/ContentTypeService';
 
 const loadError = ref('');
+// Las ideas guardadas de la marca, de la más nueva a la más vieja.
+const savedIdeas = ref([]);
 const isLoading = ref(true);
 const hasLoaded = ref(false);
 const contentTypes = ref([]);
-// El tipo que eligió el usuario; null mientras ve las tarjetas.
+// La página muestra una vista a la vez: el paso 3 de la idea elegida, las ideas sugeridas del tipo elegido o, si
+// no hay ninguno elegido, los tipos y las ideas guardadas.
+const selectedIdea = ref(null);
 const selectedContentType = ref(null);
 // La generación de ideas de cada tipo, por su ID: ideas sugeridas, pedido en curso y error. Vive en la memoria
 // de la página para no volver a pagar lo que ya se pidió; al salir de Crear se pierde.
@@ -111,15 +156,25 @@ const ideaGenerationsByContentTypeId = ref({});
 
 const selectedIdeaGeneration = computed(() => ideaGenerationsByContentTypeId.value[selectedContentType.value.id]);
 const hasAvailableContentType = computed(() => contentTypes.value.some((contentType) => contentType.is_available));
+const isContentTypesViewVisible = computed(() => {
+  const hasSelectedIdea = selectedIdea.value !== null;
+  const hasSelectedContentType = selectedContentType.value !== null;
+  return !hasSelectedIdea && !hasSelectedContentType;
+});
 
-onMounted(loadContentTypes);
+onMounted(loadContentTypesAndSavedIdeas);
 
-async function loadContentTypes() {
+// Los tipos y las ideas guardadas se piden juntos: si falla uno, se muestra el error y el reintento pide los dos.
+async function loadContentTypesAndSavedIdeas() {
   loadError.value = '';
   isLoading.value = true;
 
   try {
-    contentTypes.value = await ContentTypeService.list();
+    const savedIdeasRequest = IdeaService.list({ status: 'chosen' });
+    const contentTypesRequest = ContentTypeService.list();
+    const [loadedContentTypes, loadedSavedIdeas] = await Promise.all([contentTypesRequest, savedIdeasRequest]);
+    savedIdeas.value = loadedSavedIdeas;
+    contentTypes.value = loadedContentTypes;
     hasLoaded.value = true;
   } catch (error) {
     loadError.value = error.message;
@@ -160,11 +215,37 @@ async function generateSuggestedIdeas(contentType) {
   }
 }
 
-// La idea sugerida que se guardó sale de la lista de su tipo, para que no se pueda guardar dos veces.
-function removeSavedSuggestedIdea(savedSuggestedIdea) {
+// La idea sugerida que se guardó sale de la lista de su tipo, para que no se pueda guardar dos veces. La idea
+// guardada se suma primera a las ideas guardadas y se pasa directo a su paso 3.
+function continueWithSavedIdea(savedSuggestedIdea, savedIdea) {
   const ideaGeneration = ideaGenerationsByContentTypeId.value[savedSuggestedIdea.content_type_id];
   const unsavedSuggestedIdeas = ideaGeneration.suggestedIdeas
     .filter((suggestedIdea) => suggestedIdea !== savedSuggestedIdea);
   ideaGeneration.suggestedIdeas = unsavedSuggestedIdeas;
+
+  savedIdeas.value.unshift(savedIdea);
+
+  selectedIdea.value = savedIdea;
+  selectedContentType.value = null;
+}
+
+// El nombre del tipo de una idea, cuando su tipo está entre los que se listan; si no, vacío.
+function getContentTypeName(idea) {
+  const contentType = contentTypes.value.find((listedContentType) => listedContentType.id === idea.content_type_id);
+  const isListedContentType = contentType !== undefined;
+  return isListedContentType ? contentType.name : '';
+}
+
+// El renglón chico de una idea guardada: el nombre de su tipo, si se conoce, y la fecha en que se guardó.
+function getSavedIdeaLine(savedIdea) {
+  const savedDate = formatDate(savedIdea.created_at);
+  const contentTypeName = getContentTypeName(savedIdea);
+  const hasContentTypeName = contentTypeName !== '';
+  return hasContentTypeName ? `${contentTypeName} · ${savedDate}` : savedDate;
+}
+
+function formatDate(isoDate) {
+  const date = new Date(isoDate);
+  return date.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 </script>

@@ -104,7 +104,10 @@ Route::middleware([AuthenticateAccessTokenMiddleware::class, ResolveClientContex
             'content-types/{contentTypeId}/suggested-ideas', [IdeaController::class, 'generateSuggestedIdeas'],
         )->whereNumber('contentTypeId');
 
+        Route::get('ideas', [IdeaController::class, 'list']);
         Route::post('ideas', [IdeaController::class, 'create']);
+        Route::post('ideas/{ideaId}/suggested-piece', [IdeaController::class, 'generateSuggestedPiece'])
+            ->whereNumber('ideaId');
 
         Route::get('auth/me', [SessionController::class, 'find']);
         Route::post('auth/logout', [SessionController::class, 'delete']);

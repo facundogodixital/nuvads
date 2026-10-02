@@ -12,38 +12,57 @@ se revisa contra el diseño. Los commits se hacen cuando el usuario los pide.
 
 Esta sección es lo primero que hay que leer al volver al trabajo, por ejemplo después de compactar la conversación o
 al abrir una sesión nueva. Resume el estado, lo que sigue, lo que está abierto y cómo se trabaja. El detalle de cada
-tramo está más abajo. Actualizada el 01/10/2026.
+tramo está más abajo. Actualizada el 02/10/2026.
 
 ### Dónde estamos
 
 - Tramo 1, `content_types` y las tarjetas de tipos: commiteado y pusheado en `be7d3ea`.
-- Tramo 2, el paso 2 para Reseñas de clientes: hecho, revisado y commiteado el 01/10/2026, en el commit que sigue a
-  `be7d3ea`. No se pushea hasta que el usuario lo pida.
+- Tramo 2, el paso 2 para Reseñas de clientes: hecho, revisado y commiteado el 01/10/2026, en `0c74af7`. Pusheado
+  el 02/10/2026, cuando el usuario lo pidió.
 - El usuario ya corrió las dos migraciones y el seeder en la base local, y probó el paso 2 con Up!: generó ideas con
   una llamada real y guardó una. La tabla `ideas` tiene una fila, de Up!, del tipo Reseñas de clientes. No reportó
-  problemas, y el log no tiene errores de la generación. Esta sesión nunca vio la pantalla en un navegador.
+  problemas, y el log no tiene errores de la generación.
+- Tramo 3, el paso 3 para Reseñas de clientes: hecho el 01/10/2026 y rehecho el 02/10/2026. La primera versión el
+  usuario la probó con una escritura real y no entendió la pantalla; aprobó un boceto nuevo y dos cambios en el
+  backend. La versión rehecha la vio el 02/10/2026 y dijo que quedó bastante bien. Commiteado y pusheado ese día, a
+  su pedido, en el commit que sigue a `0c74af7`; el commit siguiente suma la regla de claridad de las pantallas a
+  `AGENTS.md`, al objetivo y al revisor. No necesita migraciones ni seeders. Lo vigente del tramo está en "Segunda
+  vuelta", al final de la sección "Tramo 3".
 - Base local: Up! es la marca 1 y tiene 620 reseñas de Google; Clienty es la marca 2 y no tiene ninguna, así que ve
-  la tarjeta de Reseñas apagada. Los dos tipos cargados ya tienen sus entradas nuevas.
+  la tarjeta de Reseñas apagada. Los dos tipos cargados ya tienen sus entradas nuevas. La idea guardada de Up! tiene
+  dos reseñas, y las dos siguen en la base.
 
 ### Qué sigue
 
 - Escuchar qué le pareció al usuario la prueba con Up!: si las ideas salen buenas es lo que decide los ajustes. La
   receta de Reseñas todavía no dice qué hacer con el puntaje de Google.
-- Tramo 3, Educativo de punta a punta: sus siete entradas (`whatsapp_questions`, `audio_insights`, `brand_faq`,
-  `audio_transcripts`, `uploaded_documents`, `website_pages`, `whatsapp_purposes`) y su paso 2. Antes de programarlo
-  hay que cerrar con el usuario, de a una: qué lee y cuánto manda cada entrada; cómo se generaliza el prompt y la
-  validación, que hoy hablan solo de reseñas (`review_ids`, de una a tres reseñas por idea); cómo se muestra en la
-  pantalla el respaldo de una idea que no son reseñas; y el ajuste de la receta de Educativo a sus entradas.
+- El usuario cambió el orden el 01/10/2026: quiere seguir en vertical con Reseñas de clientes hasta probar el flujo
+  completo, y recién después extender a otros tipos. Educativo queda para más adelante.
+- Lo primero que el usuario dijo que se ve después: cómo se corrige "Escribir otras opciones" del paso 3. Hoy
+  repite el pedido entero con las indicaciones del usuario: reescribe todo junto, no se puede pedir solo un texto, y
+  el modelo no sabe qué opciones ya mostró.
+- Tramo 4, el paso 4 para Reseñas de clientes: `styles`, `piece_images` y dibujar. Necesita sus propias decisiones:
+  el modelo que dibuja, dónde se guardan las imágenes y si corre en un job.
+- Tramo 5 en adelante, los demás tipos. Para Educativo hay que cerrar antes: qué lee y cuánto manda cada una de sus
+  siete entradas (`whatsapp_questions`, `audio_insights`, `brand_faq`, `audio_transcripts`, `uploaded_documents`,
+  `website_pages`, `whatsapp_purposes`); cómo se generalizan el prompt y la validación de las ideas sugeridas, que hoy
+  hablan solo de reseñas (`review_ids`, de una a tres reseñas por idea); cómo se muestra el respaldo de una idea que
+  no son reseñas; y el ajuste de su receta. El paso 3 también habla solo de reseñas, y al escribir la pieza no manda
+  el `angle` de la idea, porque Reseñas no tiene ángulos: Educativo lo va a necesitar.
 - La rotación de tipos ya hace falta en cuanto se cambie la receta de Reseñas, porque hay una idea que apunta a ese
   tipo. No está programada. El seeder nunca actualiza filas que existen, y `deleted_at_ts` guarda segundos. Mientras
   no exista, un cambio de textos en la base local se hace con un `UPDATE` que el agente entrega y el usuario corre.
-- Después: el paso 3 (formato, guión y copy), y `styles` con el paso 4 (`pieces`, `piece_images` y dibujar).
 
 ### Abierto, sin apuro
 
+- No volver a generar lo ya generado. Hoy cada entrada a la lista de ideas sugeridas, cada entrada al paso 3 y cada
+  "Escribir otras opciones" es una llamada paga, y lo que devuelven vive solo en la memoria de la página. El usuario
+  dijo que se ve más adelante: por ahora quiere profundizar en vertical.
 - Un texto de la pantalla: si el usuario guarda la última idea sugerida de la lista y vuelve a entrar, dice que no
   salieron ideas, que no es exacto.
-- Los demás estados de la idea, además de `chosen`.
+- Los demás estados de la idea, además de `chosen`. El usuario quiere que la lista de Crear muestre las ideas
+  elegidas que todavía no se usaron, y hoy nada marca una idea como usada. El agente propuso que, cuando exista el
+  paso que dibuja, generar la pieza le cambie el `status` a la idea; falta que el usuario lo confirme.
 - El log de cada generación, con el prompt y la respuesta: el usuario dijo que por ahora no.
 - La excepción del skill de capas vale para crear un modelo. No nombra los `update`, que en todo el proyecto reciben
   arrays, ni los arrays de cuatro claves que las entradas arman para el prompt.
@@ -57,6 +76,24 @@ tramo está más abajo. Actualizada el 01/10/2026.
   el usuario dijo de obviar las dos cosas por ahora.
 - En `docs/pendientes.md`, el test anulado de `KnowledgePersistenceTest`. En `docs/pendientes-prod.md`, el tiempo de
   espera del servidor web de producción.
+- Del tramo 3, tres cosas que el agente le explicó al usuario el 02/10/2026 y que él no decidió. No se tocan hasta
+  que las decida:
+  - La pantalla de la pieza recuerda lo de cada idea con `<KeepAlive>`, en `CreatePage.vue`, y la lista de ideas
+    sugeridas lo hace con la variable `ideaGenerationsByContentTypeId`, de la misma página: dos formas distintas
+    para la misma necesidad.
+  - `continueWithSavedIdea`, en `CreatePage.vue`, hace tres cosas y el nombre dice solo la última.
+  - En una idea de tres reseñas, quitar una del carrusel no se puede deshacer: solo vuelve al pedir "Escribir otras
+    opciones".
+- En el código ya commiteado quedaron dos formas que el revisor marcó al pasar por el tramo 3 y que no se tocaron,
+  por ser anteriores: la cadena de cinco llamadas de `IdeaService::getUsedKnowledgeSourceIds`, y las condiciones
+  compuestas con nombre en `IdeaGenerationService`, donde un operando es una comparación sin nombre. El código del
+  tramo 3 ya las parte.
+- `GET /api/ideas` devuelve también `deleted_at`, en null, como las otras listas del proyecto que responden el
+  modelo. `POST /api/ideas` no lo trae.
+- Una idea armada a mano contra `POST /api/ideas`, con fuentes que no son reseñas, responde `idea_material_missing`
+  al pedir su pieza, con un texto que para ese caso es inexacto. Por la app no se llega.
+- El proyecto no tiene tests de frontend. La prueba de comportamiento de Crear vive fuera del repo, en el scratchpad
+  de la sesión que la armó, y se pierde con ella.
 
 ### Cómo se trabaja con el usuario
 
@@ -71,20 +108,24 @@ tramo está más abajo. Actualizada el 01/10/2026.
   Opus sobre `master`. El backend y el frontend pueden ir en dos corridas en paralelo si no tocan los mismos
   archivos; el frontend recibe el contrato de los endpoints. Después esta sesión corre tests y linters, lee el
   resultado contra el diseño y resuelve con las reglas escritas lo que puede; lo que no, queda como duda para él.
+- Una pantalla se le muestra primero como boceto, con sus datos reales, y se encarga recién con su ok. Hecha, esta
+  sesión la abre en el navegador y la recorre como usuario antes de presentársela.
 - El subagente lee `AGENTS.md`, `PRODUCT.md`, `DESIGN.md`, el objetivo, el diseño, este tablero y los skills que
   apliquen (`capas-backend`, `api-backend`, `testing-backend`, `frontend-vue`, `jobs-backend`). No corre migraciones
   ni seeders en la base local, no hace llamadas reales ni pagas, no commitea, no toca `docs/` y devuelve sus dudas.
   Para seguir con un subagente que ya trabajó, se lo retoma con un mensaje, así conserva su contexto.
 - `revisor-nuvads` se lanza solo cuando el usuario lo pide, con Sonnet. En el tramo 2 lo pidió para cada corrida y
-  para el commit anterior. Hay que pasarle el alcance y las excepciones que el usuario aprobó. Lo que encuentra lo
-  corrige el subagente; las dudas que marca se le llevan al usuario con el archivo y la línea donde mirar.
+  para el commit anterior, y en el tramo 3, para cada corrida; sobre la segunda vuelta del tramo 3 no pasó. Hay que
+  pasarle el alcance y las excepciones que el usuario aprobó. Lo que encuentra lo corrige el subagente; las dudas
+  que marca se le llevan al usuario con el archivo y la línea donde mirar.
 - Nada de corridas reales ni llamadas pagas por cuenta propia: la primera generación real la disparó el usuario.
 - Los commits se hacen cuando los pide: en inglés entero, sin palabras en castellano como "tramo", con el formato
-  `[Main topic] Description`, verbos en pasado y sin líneas de coautoría. El push, solo si lo pide.
+  `[Main topic] Description`, verbos en pasado y sin líneas de coautoría. El push, solo si lo pide. No se le
+  pregunta por el commit ni por el push, ni se ponen entre las cosas a decidir: lo dijo el 02/10/2026.
 - Respuestas cortas y en castellano. Cuando no entiende algo, se le explica con un ejemplo concreto y, si es de
   código, con el enlace al archivo y la línea.
 
-### Convenciones que se aclararon en esta sesión
+### Convenciones que aclaró el usuario
 
 - Los textos que ve el usuario van en español neutro, de tú. Los prompts para el modelo van en voseo. El contenido de
   una marca va en la voz de esa marca.
@@ -106,6 +147,18 @@ tramo está más abajo. Actualizada el 01/10/2026.
   son de una o dos líneas. Los subagentes comprueban sus tests rompiendo el código a propósito y restaurándolo.
 - Los `layouts` de un tipo describen cómo se ven los elementos dentro de una placa, nunca cómo se reparte el
   contenido entre placas. La regla completa está en el diseño.
+- Del 02/10/2026: una pantalla tiene que entenderla quien la usa sin que nadie se la explique. Antes de encargarla
+  se le muestra al usuario el boceto con datos reales, y antes de presentarla se la mira en el navegador como
+  usuario. Cumplir el encargo y pasar el revisor no alcanza. El usuario pidió dejarlo escrito: la regla está en la
+  sección 9 de `AGENTS.md`, el porqué en `docs/objetivo.md`, y el revisor la controla en el paso 4 de su
+  procedimiento.
+- Del 02/10/2026: ninguna palabra ni clase nueva para un concepto del dominio entra al código sin haberla charlado
+  con el usuario. Si un subagente necesita una, frena y la devuelve. "Slide" quedó afuera por eso: en el código las
+  reseñas son `review`, y donde hace falta una palabra para "placa" va `image`, como en `piece_images` del diseño.
+- Del 02/10/2026: en los textos que ve el usuario final, cada placa es una "imagen". "Placa", "guión" y "copy" son
+  palabras del diseño, no de la pantalla.
+- Del 02/10/2026: al explicar o preguntar, cada cosa se nombra con su tabla, su columna, su variable y su archivo,
+  y se dice qué pasa en la pantalla. Nada de "guardar una idea" o "un mapa en la página" sin decir qué es.
 
 ### Datos técnicos útiles
 
@@ -116,9 +169,17 @@ tramo está más abajo. Actualizada el 01/10/2026.
   usa `php -r` cargando `vendor/autoload.php` y `bootstrap/app.php`.
 - Los textos del seeder tienen que ser idénticos a los ejemplos JSON del diseño. Se comprueba con un script que junta
   los literales del seeder y los compara con esos JSON.
-- El modelo que genera las ideas es `gpt-6-luna`, en `config/content.php`. Las llamadas parecidas tardan entre 11 y
-  18 segundos. `OpenAIHelper` espera hasta 120 segundos y nginx hasta 130, en `docker/nginx/default.conf`.
-- El caché de la app es de archivos y la cola es la base de datos. La generación de ideas no usa ninguno de los dos.
+- El modelo que genera las ideas es `gpt-6-luna`, en `config/content.php`, en `ideas.model`; el que escribe la
+  pieza es el mismo, en `pieces.model`. Las llamadas parecidas tardan entre 11 y 18 segundos. `OpenAIHelper` espera
+  hasta 120 segundos y nginx hasta 130, en `docker/nginx/default.conf`.
+- El caché de la app es de archivos y la cola es la base de datos. La generación de ideas y la escritura de la pieza
+  no usan ninguno de los dos.
+- El frontend local lo sirve Vite con `make dev`. Si está corriendo, un cambio en `resources/js` se ve al recargar.
+- Para mirar una pantalla sin pagar llamadas al modelo: en el panel del navegador, abrir `http://localhost:8080`
+  con el usuario de prueba, que ve las marcas Up! y Clienty. Antes de tocar nada que escriba ideas o piezas, se
+  reemplaza en la página el envío de `XMLHttpRequest` para que los `POST` a `suggested-ideas` y `suggested-piece`
+  devuelvan una respuesta armada a mano; la app usa axios, que en el navegador envía con `XMLHttpRequest`. El
+  reemplazo se pierde si la página se recarga: hay que comprobar que sigue puesto antes de cada click.
 
 ## Tramos
 
@@ -128,12 +189,13 @@ Lista propuesta, a ajustar. Cada tramo arranca con el ok del usuario.
 | --- | --- | --- |
 | 1 | `content_types`: tabla, modelo, repository, service, la carga de dos tipos, el endpoint que los lista y la pantalla del paso 1 con las tarjetas. | Hecho y commiteado |
 | 2 | Paso 2 para Reseñas de clientes, de punta a punta: la tabla `ideas`, las cinco entradas de Google, tarjetas prendidas o apagadas, generar ideas y elegir una. | Hecho, revisado, probado por el usuario y commiteado |
-| 3 | Las entradas de Educativo y su paso 2. | Pendiente |
-| 4 | Paso 3: escribir formato, guión y copy. | Pendiente |
-| 5 | `styles`, y paso 4: `pieces`, `piece_images` y dibujar. | Pendiente |
+| 3 | Paso 3 para Reseñas de clientes: escribir formato, guión y copy y corregirlos en la pantalla, sin guardar nada. | Hecho, y rehecho a pedido del usuario, que vio la versión nueva y la dio por buena. Commiteado y pusheado |
+| 4 | Paso 4 para Reseñas de clientes: `styles`, `piece_images` y dibujar. | Pendiente |
+| 5 | Los demás tipos, empezando por Educativo: sus entradas y su recorrido. | Pendiente |
 
-El orden cambió el 01/10/2026: primero un tipo de punta a punta, para ver si el método da ideas buenas antes de
-construir todas las entradas. Los estilos pasan al final, porque nada los usa hasta que se dibuja.
+El orden cambió dos veces el 01/10/2026. Primero, un tipo de punta a punta antes de construir todas las entradas,
+para ver si el método da ideas buenas. Después, el usuario pidió seguir en vertical con ese mismo tipo hasta probar
+el flujo completo, y extender a otros tipos recién al final.
 
 ## Tramo 1: `content_types`
 
@@ -644,3 +706,488 @@ Qué decidir:
 - Para optimizar: saber si un tipo tiene material arma el material completo de una entrada en cada visita a Crear.
 - Fuera de este tramo: el mensaje general de validación del handler dice "Revisá los campos indicados.", en voseo,
   mientras el resto de la app habla de tú.
+
+## Tramo 3: Reseñas de clientes, paso 3
+
+Estado: hecho y revisado el 01/10/2026, con el usuario ausente. El 02/10/2026 el usuario lo probó, no entendió la
+pantalla y pidió rehacerla. La versión rehecha la vio ese mismo día y dijo que quedó bastante bien. Commiteado y
+pusheado el 02/10/2026, a pedido del usuario.
+
+Cómo leer esta sección: lo vigente está en "Segunda vuelta", al final, con el contrato y el boceto de hoy. Lo que
+está antes es el registro del 01/10/2026, y en tres puntos quedó reemplazado: el boceto de "Qué ve el usuario", la
+forma de cada reseña en el contrato de los encargos, y la lista de ideas, que ahora se pide por estado.
+
+### Qué es
+
+De una idea guardada, la app escribe los textos de la pieza y el usuario los corrige en la pantalla. Todavía no se
+dibuja nada y no se guarda nada: la pieza se guarda cuando exista el paso que la dibuja, que es el tramo 4.
+
+### Qué ve el usuario
+
+Este boceto es el del 01/10/2026 y quedó reemplazado por el de "Segunda vuelta": el usuario no entendió la pantalla
+que salió de él.
+
+Al elegir una idea y seguir, pasa directo a esta pantalla. También llega desde una lista de ideas guardadas que
+aparece en Crear. El ejemplo es con la idea que el usuario ya guardó de Up!; las citas son inventadas para mostrar
+la forma.
+
+```text
+Tus compras llegan rápido
+Reseñas de clientes
+
+Formato   (•) Carrusel   ( ) Placa única
+
+ 1  ★★★★★ Marcela   "Pedí un lunes y el miércoles ya lo tenía..."      [Quitar]
+ 2  ★★★★★ Juan      "Llegó antes de lo que me dijeron."                [Quitar]
+ 3  ★★★★  Lucía     "Rapidísimo el envío, todo bien embalado."         [Quitar]
+ 4  Placa final     (•) "¿Querés el tuyo esta semana? Escribinos."
+                    ( ) "Pedí hoy y recibilo en 48 horas."
+                    ( ) "Hacé tu pedido y te lo llevamos."              se puede editar
+
+Texto del posteo    (•) opción 1   ( ) opción 2   ( ) opción 3          se puede editar
+ "No lo decimos nosotros: lo dicen quienes ya recibieron su pedido..."
+
+ Indicaciones: ____________   [ Otras opciones ]        [ Generar la pieza → ]
+```
+
+### Decisiones del usuario (01/10/2026)
+
+Dos de estas decisiones cambiaron el 02/10/2026: las opciones ya no se editan, sino que hay una opción "Escribir
+manualmente"; y en la imagen única el usuario elige cuál reseña va. Está en "Segunda vuelta".
+
+- Sin tabla nueva en este tramo. Todo vive en la memoria de la página. El usuario preguntó por qué habría ya una
+  tabla `pieces`: sin imagen todavía no hay pieza, así que la tabla llega con el paso que dibuja. "Generar la pieza"
+  se ve pero queda sin acción. Si el usuario sale de la pantalla, hay que escribir de nuevo.
+- Las citas son solo las reseñas de la idea que el usuario aprobó: el modelo no puede traer otras.
+- Cada placa de reseña lleva su texto, sus estrellas, su nombre de pila y el ID de la reseña. Las estrellas y el
+  nombre van copiados, porque una investigación nueva de Google reemplaza las reseñas viejas.
+- Las citas no se editan a mano. Se puede quitar una placa. El modelo puede cortar una reseña larga con puntos
+  suspensivos, y PHP comprueba que el corte sea literal.
+- Con una reseña, la pieza es placa única. Con dos o tres, vienen escritas las dos versiones: el carrusel, y una
+  placa única con la reseña más fuerte.
+- El objetivo que recordó el usuario: que pueda ver varias propuestas para avanzar, o modificar una que le gusta
+  pero no lo convence. En el paso 2 la variedad sale del sorteo de reseñas. Acá las citas ya están elegidas, así que
+  la variedad la pone el modelo: tres opciones para la placa final y tres para el copy, editables, con "Otras
+  opciones" y un campo opcional de indicaciones. La variedad fuerte llega con las imágenes.
+- "Otra versión" por placa, que estaba en el diseño, queda para después.
+- El copy se ve en esta misma pantalla, abajo de todo.
+- Al elegir una idea se pasa directo a esta pantalla, y en Crear aparece una lista corta de ideas guardadas para
+  retomarlas.
+- Se corre como el tramo 2: un pedido que espera, sin job, con el mismo modelo; backend y frontend con Opus;
+  `revisor-nuvads` con Sonnet después de cada corrida; sin commit.
+- En el código, lo que el modelo escribe y todavía no se guardó es una pieza sugerida, `suggestedPiece`.
+
+### Cómo se ejecuta
+
+Las dos corridas van en paralelo, porque el contrato está fijado de antemano y no tocan los mismos archivos. Cuando
+terminan, esta sesión corre tests y linters, lee el resultado contra el diseño, le pasa `revisor-nuvads` con Sonnet
+a cada una, hace corregir a cada subagente lo que aparezca y deja al día este tablero y el diseño. Nadie hace
+llamadas reales al modelo: la primera escritura real la dispara el usuario desde la pantalla.
+
+### Encargo de la corrida de backend
+
+Los dos encargos que siguen son el texto que recibieron los subagentes el 01/10/2026 y quedan como registro. Su
+contrato ya no es el vigente: el de hoy está en "Segunda vuelta".
+
+````text
+Tarea: implementar el backend del tramo 3 de "Creación de contenido" en el repo `/var/www/html/nuvads` (Laravel y Vue, sin TypeScript ni Inertia). Trabajás sobre `master`, en este mismo directorio. Sos un subagente: no podés hablar con el usuario, que además no está disponible. Todo lo que haya que preguntarle me lo devolvés a mí en tu informe.
+
+El tramo 3 es el paso 3 de Crear para un solo tipo, Reseñas de clientes: de una idea guardada, la app escribe los textos de la pieza y el usuario los corrige en la pantalla. En este tramo no se guarda nada en la base y no hay tablas ni migraciones nuevas: la pieza recién se guarda cuando exista el paso que la dibuja. El frontend lo hace otra corrida, en paralelo con la tuya: no toques `resources/js`. El contrato de abajo es fijo, porque el frontend se está programando contra él.
+
+Antes de escribir nada, leé completos:
+
+- `AGENTS.md`: los acuerdos del proyecto. Son obligatorios y un revisor los controla línea por línea.
+- `PRODUCT.md` y `docs/objetivo.md`.
+- `docs/content-creation-progress.md`: las secciones "Para retomar", que trae las convenciones que el usuario aclaró, y "Tramo 3".
+- `docs/content-creation.md`: "Modelo de `content_types`", los pasos 2 y 3 de "Qué ve el usuario en Crear" y "Modelo de `ideas`".
+- `docs/knowledge-model.md`: la fuente `google_review`.
+
+Antes de la parte que cubre cada uno, leé completo el skill del proyecto que corresponde: `.claude/skills/capas-backend/SKILL.md`, `.claude/skills/api-backend/SKILL.md` y `.claude/skills/testing-backend/SKILL.md`. Mirá lo que dejó el tramo 2 (`IdeaGenerationService`, `IdeaService`, `IdeaController`, `CreateIdeaRequest`, las entradas de `app/Services/ContentTypeInputs/`, `tests/Feature/ContentCreation/IdeasTest.php`) y seguí esos patrones.
+
+El contrato:
+
+`GET /api/ideas`, 200. Las ideas guardadas de la marca del pedido, de la más nueva a la más vieja. Cada idea va con la misma forma que devuelve `POST /api/ideas`:
+
+{"data":[{"id":1,"client_id":3,"brand_id":1,"content_type_id":1,"title":"Tus compras llegan rápido","angle":null,"knowledge_insight_ids":[76],"knowledge_source_ids":[512,587,601],"status":"chosen","model":"gpt-6-luna","created_at":"...","updated_at":"..."}]}
+
+`POST /api/ideas/{ideaId}/suggested-piece`, 200. Escribe la pieza sugerida de una idea guardada y la devuelve. No guarda nada. Tarda como la generación de ideas: normalmente entre 10 y 30 segundos, y puede llegar a 2 minutos. Cuerpo: `instructions`, opcional, un texto de hasta 500 caracteres con las indicaciones del usuario; puede faltar o venir null.
+
+{"data":{"idea_id":1,"carousel_script":[{"text":"Pedí un lunes y el miércoles ya lo tenía...","stars":5,"name":"Marcela","knowledge_source_id":512},{"text":"Llegó antes de lo que me dijeron.","stars":5,"name":"Juan","knowledge_source_id":587},{"text":"Rapidísimo el envío, todo bien embalado.","stars":4,"name":null,"knowledge_source_id":601}],"single_script":[{"text":"Pedí un lunes y el miércoles ya lo tenía...","stars":5,"name":"Marcela","knowledge_source_id":512}],"closing_texts":["¿Querés el tuyo esta semana? Escribinos.","Pedí hoy y recibilo en 48 horas.","Hacé tu pedido y te lo llevamos."],"copies":["...","...","..."]}}
+
+- `carousel_script` trae una placa por reseña de la idea, en el orden de la idea, sin la placa final. Es null cuando la idea tiene una sola reseña: esa idea solo admite placa única.
+- `single_script` trae siempre una sola placa, con la reseña más fuerte.
+- Cada placa trae `text`, las palabras del cliente, enteras o cortadas con puntos suspensivos; `stars`; `name`, el nombre de pila, que puede ser null; y `knowledge_source_id`.
+- `closing_texts` son las opciones para la placa final del carrusel. Normalmente son tres, pero pueden ser menos. Es `[]` cuando `carousel_script` es null.
+- `copies` son las opciones para el texto del posteo. Normalmente son tres, pero pueden ser menos; nunca viene vacío.
+- Errores: 404 `not_found` si la idea no existe o es de otra marca; 422 `validation_failed` si `instructions` no es un texto de hasta 500 caracteres; 422 `idea_material_missing`, con un `message` para el usuario, si las reseñas de la idea ya no existen; 502 `piece_generation_failed`, con un `message` para el usuario, si la escritura falló; 500 `internal_error` si falla el proveedor.
+
+Qué construir:
+
+1. `GET /api/ideas`, con el contrato de arriba.
+2. `POST /api/ideas/{ideaId}/suggested-piece`, con el contrato de arriba. Es un pedido que espera la respuesta del modelo, sin job, sin cola y sin caché, y el método del controller empieza subiendo el límite de tiempo a 120 segundos con `SystemHelper`, igual que la generación de ideas sugeridas. Un solo service cuenta la historia completa, de punta a punta y legible de corrido:
+   - Busca la idea de la marca del pedido. Si no existe o es de otra marca, usa el patrón del proyecto para un ID que no existe.
+   - Carga las fuentes de la idea con los métodos genéricos que ya existen y se queda con las reseñas de Google que siguen existiendo, en el orden de `knowledge_source_ids` de la idea. Una investigación nueva de Google borra las reseñas anteriores, así que pueden faltar. Si no queda ninguna, responde 422 `idea_material_missing` con el mensaje "Las reseñas de esta idea ya no están en tu marca. Busca otras ideas." Si quedan algunas, sigue con esas.
+   - Arma el prompt, en castellano y en voseo como los que ya existen: la receta del tipo, que es el `instructions` de la fila de `content_types` de la idea; el título de la idea; las reseñas completas, cada una con su id, nombre de pila, estrellas, fecha y texto entero; y de fondo la marca, igual que en la generación de ideas sugeridas. Si vinieron indicaciones del usuario, van como un pedido suyo para esta escritura, dejando claro que no pueden cambiar las palabras de los clientes ni las reglas de la receta.
+   - Le pide al modelo un objeto JSON con: por cada reseña, el texto que se muestra, entero o cortado con puntos suspensivos y sin cambiar ninguna palabra; cuál es la reseña más fuerte, para la placa única; tres textos distintos entre sí para la placa final del carrusel, que es una invitación acorde al negocio, en la voz de la marca; y tres copies distintos entre sí para el texto del posteo, en la voz de la marca. Nada de datos inventados.
+   - Valida lo que vuelve, de forma flexible y dejando registrado con `report()` todo lo que descarta o corrige, con lo que llegó:
+     - Solo valen las reseñas de la idea. Un ID ajeno se descarta.
+     - El texto de cada reseña tiene que ser literal. Partido por los puntos suspensivos, cada fragmento tiene que estar tal cual en la reseña original, sin contar diferencias de espacios. Si no lo es, o si el modelo no devolvió esa reseña, se usa el texto original entero.
+     - Si la reseña más fuerte no es de la idea, vale la primera.
+     - De los textos de la placa final y de los copies quedan los que sean textos no vacíos. No se exige que sean tres.
+     - Si no queda ningún copy, o no queda ningún texto de placa final cuando la idea tiene más de una reseña, la escritura falló: 502 `piece_generation_failed`, con el mensaje "No pudimos escribir la pieza. Vuelve a intentarlo."
+   - Los errores de `OpenAIHelper` se relanzan como en la generación de ideas sugeridas, con `piece_generation_failed`, ese mismo mensaje y la original como `previous`.
+   - Las estrellas y el nombre de pila de cada placa salen de la reseña, nunca del modelo.
+3. En `config/content.php`, el modelo que escribe la pieza: `gpt-6-luna`.
+4. Tests del backend según el skill `testing-backend`, con el modelo simulado con `Http::fake()`. Respetá su presupuesto y justificá en el informe lo que lo supere. Los comportamientos que importan: que la lista trae solo las ideas de la marca del pedido; que la escritura manda al modelo la receta, las reseñas enteras y las indicaciones; que un corte que no es literal se reemplaza por el texto original; que una idea de una sola reseña no trae carrusel; y los errores del contrato.
+
+Nombres: lo que el modelo escribe y todavía no se guardó es una pieza sugerida, `suggestedPiece`, igual que la idea sugerida. No uses "proposal" ni "draft".
+
+Límites:
+
+- No crees tablas, campos ni migraciones, y no ejecutes ninguna migración ni seeder sobre la base local. No guardes nada en la base ni en caché en estos endpoints.
+- Ninguna llamada real al modelo ni a otro servicio pago: solo simuladas en los tests.
+- Corré los tests de lo que tocaste, la suite completa y los linters del proyecto, y dejá pasando todo lo tuyo. No reformatees archivos ajenos. Si el entorno Docker no está levantado, informalo.
+- No toques la configuración de nginx, de PHP ni de Docker, ni el `Makefile`.
+- No hagas commits ni operaciones de git que cambien el estado. No modifiques nada en `docs/` ni en `resources/js`.
+- Fuera de los archivos nuevos, tocá solo lo que el patrón exige: `routes/api.php`, el registro scoped, `config/content.php` y los archivos del tramo 2 que este cambio necesita.
+- No agregues dependencias. No lances otros agentes ni revisores.
+- Ningún método con nombre de un subtipo de `KnowledgeSource` en el service ni en el repository de fuentes. Ninguna línea que junte varias operaciones: partila en variables con nombre. No agregues tests de 401 por endpoint.
+- No construyas nada de lo que sigue: guardar la pieza, estilos, imágenes, otros tipos de contenido. No cambies los textos de `instructions`, `angles` ni `layouts` de los tipos.
+- Decisiones de implementación menores que los skills y el patrón existente resuelven: decidilas y anotalas en el informe. Ante una duda de alcance, de producto o de requisitos, o si hiciera falta algo que no está autorizado acá, no la resuelvas con un supuesto: frená esa parte, terminá lo que no depende de ella y devolveme la duda. Si necesitás apartarte del contrato, no lo cambies: decímelo.
+
+Informe final, breve y en castellano: (a) archivos creados y modificados, con una línea por cada uno; (b) si el contrato quedó exactamente como está arriba; (c) el prompt completo que se le manda al modelo, literal; (d) todos los textos visibles para el usuario que escribiste; (e) los comandos que corriste y su resultado real, con la salida si algo falla; (f) las decisiones de implementación que tomaste; (g) lo que no hiciste y por qué; (h) dudas para el usuario. No declares terminado nada que no hayas verificado.
+````
+
+### Encargo de la corrida de frontend
+
+````text
+Tarea: implementar el frontend del tramo 3 de "Creación de contenido" en el repo `/var/www/html/nuvads` (Laravel y Vue, sin TypeScript ni Inertia). Trabajás sobre `master`, en este mismo directorio. Sos un subagente: no podés hablar con el usuario, que además no está disponible. Todo lo que haya que preguntarle me lo devolvés a mí en tu informe.
+
+El tramo 3 es el paso 3 de Crear para un solo tipo, Reseñas de clientes: de una idea guardada, la app escribe los textos de la pieza y el usuario los corrige en la pantalla. En este tramo no se guarda nada: todo vive en la memoria de la página. El backend lo hace otra corrida, en paralelo con la tuya, en `app/`, `tests/`, `config/` y `routes/`: no toques nada fuera de `resources/js`. El contrato de abajo es fijo: el backend se está programando para cumplirlo.
+
+Antes de escribir nada, leé completos:
+
+- `AGENTS.md`: los acuerdos del proyecto. Son obligatorios y un revisor los controla línea por línea.
+- `.claude/skills/frontend-vue/SKILL.md`: completo, antes de tocar cualquier archivo.
+- `PRODUCT.md`, `DESIGN.md` y `docs/objetivo.md`.
+- `docs/content-creation-progress.md`: las secciones "Para retomar", que trae las convenciones que el usuario aclaró, y "Tramo 3".
+- `docs/content-creation.md`: los pasos 2 y 3 de "Qué ve el usuario en Crear".
+
+Mirá lo que dejó el tramo 2 en `resources/js/pages/CreatePage/` y en `resources/js/services/IdeaService.js`, y seguí esos patrones.
+
+El criterio del usuario para esta pantalla: tiene que ser práctica, y lo visual no importa por ahora porque se va a refactorizar. No inviertas en diseño fino. Sí importan la claridad, que cada estado esté resuelto y que el código cumpla el skill.
+
+El contrato:
+
+`GET /api/ideas`, 200. Las ideas guardadas de la marca del pedido, de la más nueva a la más vieja. Cada idea va con la misma forma que devuelve `POST /api/ideas`:
+
+{"data":[{"id":1,"client_id":3,"brand_id":1,"content_type_id":1,"title":"Tus compras llegan rápido","angle":null,"knowledge_insight_ids":[76],"knowledge_source_ids":[512,587,601],"status":"chosen","model":"gpt-6-luna","created_at":"...","updated_at":"..."}]}
+
+`POST /api/ideas/{ideaId}/suggested-piece`, 200. Escribe la pieza sugerida de una idea guardada y la devuelve. No guarda nada. Tarda como la generación de ideas: normalmente entre 10 y 30 segundos, y puede llegar a 2 minutos. Cuerpo: `instructions`, opcional, un texto de hasta 500 caracteres con las indicaciones del usuario; puede faltar o venir null.
+
+{"data":{"idea_id":1,"carousel_script":[{"text":"Pedí un lunes y el miércoles ya lo tenía...","stars":5,"name":"Marcela","knowledge_source_id":512},{"text":"Llegó antes de lo que me dijeron.","stars":5,"name":"Juan","knowledge_source_id":587},{"text":"Rapidísimo el envío, todo bien embalado.","stars":4,"name":null,"knowledge_source_id":601}],"single_script":[{"text":"Pedí un lunes y el miércoles ya lo tenía...","stars":5,"name":"Marcela","knowledge_source_id":512}],"closing_texts":["¿Querés el tuyo esta semana? Escribinos.","Pedí hoy y recibilo en 48 horas.","Hacé tu pedido y te lo llevamos."],"copies":["...","...","..."]}}
+
+- `carousel_script` trae una placa por reseña de la idea, en el orden de la idea, sin la placa final. Es null cuando la idea tiene una sola reseña: esa idea solo admite placa única.
+- `single_script` trae siempre una sola placa, con la reseña más fuerte.
+- Cada placa trae `text`, las palabras del cliente, enteras o cortadas con puntos suspensivos; `stars`; `name`, el nombre de pila, que puede ser null; y `knowledge_source_id`.
+- `closing_texts` son las opciones para la placa final del carrusel. Normalmente son tres, pero pueden ser menos. Es `[]` cuando `carousel_script` es null.
+- `copies` son las opciones para el texto del posteo. Normalmente son tres, pero pueden ser menos; nunca viene vacío.
+- Errores: 404 `not_found` si la idea no existe o es de otra marca; 422 `validation_failed` si `instructions` no es un texto de hasta 500 caracteres; 422 `idea_material_missing`, con un `message` para el usuario, si las reseñas de la idea ya no existen; 502 `piece_generation_failed`, con un `message` para el usuario, si la escritura falló; 500 `internal_error` si falla el proveedor.
+
+Qué construir, todo dentro de la página Crear (`/create`), sin rutas nuevas en el router:
+
+1. Las ideas guardadas. En la vista de los tipos, además de las tarjetas, una lista corta con las ideas guardadas de la marca: el título de cada una, el nombre de su tipo cuando el tipo está en la lista de tipos, y su fecha. Tocar una abre el paso 3 de esa idea. Si no hay ninguna, la lista no se muestra.
+2. El paso directo. Hoy, después de "Seguir con la idea elegida", la pantalla muestra la idea guardada y un texto que dice que el paso siguiente no está disponible. Ahora, después de guardarla, pasa directo al paso 3 de esa idea, y la idea aparece en la lista de ideas guardadas.
+3. El paso 3 de una idea. Al entrar pide la pieza sugerida y muestra un estado de espera claro, con un texto que avise que puede tardar. Cuando llega:
+   - Arriba, el título de la idea y el nombre de su tipo, sin editar, y la forma de volver.
+   - El formato: un selector entre Carrusel y Placa única, con Carrusel elegido, cuando `carousel_script` no es null. Si es null, solo hay placa única y no hay selector. Cambiar de formato es instantáneo: las dos versiones ya vinieron.
+   - Las placas de reseña del formato elegido, numeradas: estrellas, nombre de pila y las palabras del cliente. Las palabras del cliente no se editan. En carrusel, cada placa de reseña se puede quitar mientras queden más de dos.
+   - La placa final, solo en carrusel: las opciones de `closing_texts` para elegir una, y un campo de texto con la elegida, que el usuario puede editar. Elegir otra opción reemplaza el texto del campo.
+   - El texto del posteo: las opciones de `copies` para elegir una, y un campo de texto más grande con la elegida, editable.
+   - "Otras opciones", con un campo opcional de indicaciones: vuelve a pedir la pieza sugerida mandando esas indicaciones y reemplaza la que había. Mientras espera, las acciones quedan deshabilitadas. Si falla, se conserva la pieza sugerida anterior y el error se muestra encima, con su reintento.
+   - "Generar la pieza": se ve, pero deshabilitado, con un texto corto que diga que el paso siguiente todavía no está disponible.
+4. La memoria. La pieza sugerida de cada idea, con lo que el usuario eligió y editó, vive en la memoria de la página. Si vuelve a la vista de los tipos y entra otra vez a la misma idea sin salir de Crear, ve lo que tenía, sin pedirlo de nuevo: cada pedido cuesta plata. Solo "Otras opciones" pide de nuevo. Al salir de la página se pierde. No uses `localStorage` ni nada que persista.
+5. Estados: la espera; un error del primer pedido, con el `message` de la API y reintento. Para elegir qué texto de error mostrar seguí lo que ya hace la página: primero el error de campo, si lo hay, y si no el `message`, en pasos con nombre.
+6. Las llamadas a la API van en los services de JS según el skill: listar las ideas y pedir la pieza sugerida.
+
+Nombres: lo que el modelo escribe y todavía no se guardó es una pieza sugerida, `suggestedPiece`, igual que la idea sugerida. No uses "proposal" ni "draft". Los textos que ve el usuario van en español neutro, de tú, como el resto de la app.
+
+Límites:
+
+- No toques nada fuera de `resources/js`. No agregues rutas al router ni entradas al menú.
+- No agregues dependencias, librerías ni herramientas. No lances otros agentes ni revisores.
+- No hagas commits ni operaciones de git que cambien el estado. No modifiques nada en `docs/`.
+- No levantes servidores ni Vite, no abras la aplicación y no hagas pedidos reales a la API: escribir una pieza cuesta plata. Verificá con ESLint, que tiene que quedar pasando, con un build de prueba que no escriba en `public/build`, y con una prueba de comportamiento sobre los componentes reales, con dobles de los services, como en el tramo 2.
+- Ninguna línea que junte varias operaciones: partila en variables con nombre. No extraigas funciones compartidas para lógica chica que se repite: cada componente tiene la suya.
+- No construyas nada de lo que sigue: guardar la pieza, estilos, imágenes, otros tipos de contenido.
+- Decisiones de implementación menores que el skill y el patrón existente resuelven: decidilas y anotalas en el informe. Ante una duda de alcance, de producto o de requisitos, no la resuelvas con un supuesto: frená esa parte, terminá lo que no depende de ella y devolveme la duda. Si necesitás apartarte del contrato, no lo cambies: decímelo.
+
+Informe final, breve y en castellano: (a) archivos creados y modificados, con una línea por cada uno; (b) todos los textos visibles para el usuario que escribiste, literales, y cuándo aparece cada uno; (c) los comandos que corriste y su resultado real; (d) las decisiones de implementación que tomaste; (e) lo que no hiciste y por qué; (f) dudas para el usuario. No declares terminado nada que no hayas verificado.
+````
+
+### Lo que salió en el camino
+
+Las dos corridas, con Opus y en paralelo, terminaron sin dudas que frenaran el trabajo.
+
+Corrida de backend:
+
+- Entregó `PieceGenerationService`, con `generateSuggestedPiece` como único método público; `SuggestedPieceDto` y
+  `ReviewSlideDto`; `GenerateSuggestedPieceRequest`; `IdeaController::list` y `generateSuggestedPiece`;
+  `IdeaService::find` y `list`; la relación `Idea::contentType()`; las dos rutas; `pieces.model` en
+  `config/content.php`; y cuatro tests, uno en `IdeasTest` y tres en `PiecesTest`.
+- El contrato quedó como estaba escrito, con una diferencia: `GET /api/ideas` trae además `deleted_at`, en null,
+  porque el proyecto responde el modelo leído de la base, igual que las otras listas.
+- La receta se lee de la fila exacta de `content_types` de la idea, también si el tipo fue rotado, con
+  `withTrashed()`: es lo que dice el diseño.
+- Comprobó sus tests rompiendo el código a propósito: 21 roturas, todas atrapadas.
+- Un texto visible que escribió: "Las indicaciones pueden tener hasta 500 caracteres."
+
+Corrida de frontend:
+
+- Entregó `SuggestedPieceStep.vue`, el paso 3 completo; `PieceService.js`; `IdeaService.list()`; y los cambios en
+  `CreatePage.vue` y `SuggestedIdeasStep.vue` para la lista de ideas guardadas y el paso directo.
+- Verificó con ESLint, con un build de prueba y con una prueba de comportamiento sobre los componentes reales, con
+  dobles de los services: 160 comprobaciones. No abrió la app ni pidió nada a la API.
+- Textos visibles que escribió: "Tus ideas guardadas"; "← Volver a los tipos"; "Escribiendo tu pieza… Puede tardar
+  un rato, a veces hasta dos minutos."; "Escribiendo otras opciones… Puede tardar un rato, a veces hasta dos
+  minutos."; "Volver a intentar"; "Formato", "Carrusel" y "Placa única"; "Placas"; "Quitar"; "Placa final"; "Texto
+  del posteo"; "Opción 1", "Opción 2" y "Opción 3"; "Indicaciones (opcional)", con el ejemplo "Por ejemplo: más
+  corto, sin hablar de precios"; "Otras opciones", que mientras espera dice "Escribiendo…"; y "Generar la pieza",
+  deshabilitado, junto a "El paso siguiente todavía no está disponible."
+- Quitó el texto del paso 2 que decía que la idea quedó guardada y que el paso siguiente no estaba disponible.
+
+Verificado por esta sesión:
+
+- La suite completa pasa, 148 tests con el mismo salteado de antes. Pint, PHPCS y ESLint pasan. El build de prueba
+  del frontend compila sin tocar `public/build`.
+- Leyó contra el diseño `PieceGenerationService`, los DTO, el request, el controller, los tests y los componentes.
+- Nadie vio la pantalla en un navegador ni hizo una escritura real. Fue el error de esta pasada: el usuario la abrió
+  el 02/10/2026 y no la entendió.
+
+`revisor-nuvads` con Sonnet, una pasada por corrida. Las correcciones las aplicó cada subagente y las verificó esta
+sesión con tests, linters y lectura; no hubo segunda pasada del revisor.
+
+- Frontend: nada estructural y tres observaciones de estilo, corregidas: el orden de dos pares de líneas, y
+  `finalSlideNumber`, que pasó a `closingSlideNumber`.
+- Backend: una observación estructural y tres de estilo, corregidas. El test del límite de 500 caracteres se sacó,
+  porque el skill de tests dice que no se prueban las reglas estándar de validación; el encargo estaba mal en ese
+  punto. La consulta de las fuentes quedó partida en pasos con nombre, se corrigió un orden de líneas, y el texto de
+  placa que devuelve el modelo quedó con un solo nombre, separado del texto de la reseña.
+
+Decisiones que tomó esta sesión, con las reglas escritas:
+
+- Un corte que reordena las palabras del cliente no es literal: los fragmentos tienen que estar en la reseña en el
+  mismo orden que en la placa. Si no, la placa lleva la reseña entera.
+- "Otras opciones" conserva el formato que el usuario tenía elegido, si la pieza nueva lo admite. Los textos que
+  escribió el modelo se reemplazan, y el carrusel vuelve con todas sus placas.
+- Un ID repetido en `knowledge_source_ids` de una idea cuenta una sola vez. Antes daba un carrusel de una placa.
+- De las dudas del revisor que las reglas resuelven: las condiciones quedaron con cada operando en su booleano, como
+  el ejemplo de `AGENTS.md`; la respuesta del modelo ya no pasa entera a los métodos privados, cada uno recibe el
+  valor que lee; el test de la idea de una sola reseña comprueba solo lo que dice su comentario; y las etapas de
+  `generateSuggestedPiece` quedaron separadas por líneas en blanco.
+- Los `trim` y el paso a entero de un ID que llega como texto no se registran con `report()`: son normalizaciones,
+  no correcciones.
+- Sin tope ni quita de repetidos en `closing_texts` y `copies`: la validación es flexible, sin cantidades fijas.
+- La memoria del paso 3 usa `KeepAlive`, de Vue: la página conserva el paso de cada idea por su ID. Es un mecanismo
+  distinto al del paso 2, que guarda un mapa en la página. El revisor confirmó que ninguna regla lo impide. Hacerlo
+  como el paso 2 pedía pasar siete valores editables entre la página y el paso. Queda para que el usuario lo vea.
+
+### Para el usuario al volver
+
+Esta lista es la del cierre del 01/10/2026 y quedó como registro. El usuario ya la contestó: lo vigente está en
+"Segunda vuelta", más abajo.
+
+Qué correr: nada. No hay migraciones ni seeders. Si Vite no está corriendo, `make dev`.
+
+Cómo probarlo: entrar a Crear con Up!. Debajo de las tarjetas aparece "Tus ideas guardadas", con "Tus compras
+llegan rápido". Al tocarla, la app escribe la pieza: es una llamada real y paga, igual que cada "Otras opciones".
+Esa idea tiene dos reseñas, así que trae carrusel y placa única, y "Quitar" no aparece, porque hacen falta más de
+dos placas de reseña. Para ver el camino entero, elegir Reseñas de clientes, seguir con una idea sugerida y llegar
+al paso 3 desde ahí: son dos llamadas pagas.
+
+Qué decidir:
+
+- `slide` como palabra en inglés para "placa": `ReviewSlideDto` en el backend y `reviewSlides` en el frontend.
+- La lista de ideas guardadas muestra todas. Si hace falta un tope, de cuántas.
+- Si "Otras opciones" falla, el error sale arriba de la pieza, como decía el encargo, y el botón está abajo: en una
+  pieza larga puede no verse. La alternativa es mostrarlo junto al botón.
+- Quitar una placa no se puede deshacer: solo vuelve al pedir "Otras opciones", que cuesta un pedido.
+- Las opciones del texto del posteo se ven como "Opción 1", "Opción 2" y "Opción 3", como en el boceto: para leer
+  otra hay que elegirla, y eso reemplaza lo editado. Las de la placa final sí muestran su texto.
+- `continueWithSavedIdea`, en `resources/js/pages/CreatePage/CreatePage.vue`, línea 220: saca la idea sugerida de
+  la lista de su tipo, suma la guardada a las ideas guardadas y abre el paso 3. El revisor pregunta si alcanza con
+  el comentario o si el nombre tiene que decir las tres cosas.
+- `KeepAlive` para la memoria del paso 3, o el mismo mecanismo del paso 2.
+- El commit del tramo 3, y el push: el commit del tramo 2 sigue sin pushear.
+
+### Segunda vuelta (02/10/2026)
+
+El usuario probó el paso 3 con una escritura real y no entendió la pantalla: "parece todo hecho por un junior,
+cosas tiradas por ahí, botones que no se entienden". No sabía por qué había dos reseñas ni si las había elegido
+él, por qué "Placa única" mostraba una sola, ni qué hacía "Otras opciones" y sobre qué. La causa: el encargo
+listaba las partes de la pantalla sin decir qué tenía que entender el usuario en cada una, y esta sesión la dio por
+buena leyendo el código, sin mirarla en un navegador.
+
+Lo que decidió el usuario:
+
+- La pantalla se rehace según un boceto que aprobó, con este criterio: cada bloque dice qué es y de dónde sale, cada
+  botón dice qué hace y sobre qué, y cada opción dice qué cambia al elegirla.
+- La lista de ideas de Crear pide las ideas por estado: `GET /api/ideas?status=chosen`. Las ideas van a tener
+  distintos estados, y ahí se ven las elegidas que todavía no se usaron. Hoy nada marca una idea como usada; el
+  agente propuso que, cuando exista el paso que dibuja, generar la pieza le cambie el `status` a la idea.
+- "Slide" no: el usuario no conoce la palabra y no la aprobó. `ReviewSlideDto` se saca. Cada reseña del guión viaja
+  como `IdeaReviewDto`, la clase del paso 2, con `id`, `name`, `stars`, `date` y `text`.
+- Las opciones de la invitación y del texto del posteo se leen enteras y no se editan, y hay una opción más,
+  "Escribir manualmente", que abre un campo.
+- Si "Escribir otras opciones" falla, el error sale junto al botón.
+- Cómo se corrige "Escribir otras opciones" se ve después. Hoy repite el pedido entero con las indicaciones del
+  usuario: reescribe todo junto, no se puede pedir solo un texto, y el modelo no sabe qué opciones ya mostró.
+- No preguntarle por el commit: cuando quiera commitear, lo dice.
+
+El usuario vio la pantalla rehecha el 02/10/2026 y dijo: "Ahora sí quedó bastante bien".
+
+El boceto que aprobó el usuario, con la idea real de Up!. Está como quedó la pantalla: los cambios que esta sesión
+le hizo al boceto están en la lista de más abajo.
+
+```text
+← Volver
+
+Tus compras llegan rápido
+Reseñas de clientes
+
+Escribimos los textos de tu pieza con las 2 reseñas de esta idea.
+Revísalos antes de generar la pieza.
+
+Formato
+ (•) Carrusel: 3 imágenes. Una por reseña y una final con una invitación.
+ ( ) Una sola imagen: lleva una sola reseña.
+
+Imagen 1 · Reseña       ★★★★★ Daiana
+                        Muy buenas las luces que compre y llegaron súper rápido
+Imagen 2 · Reseña       ★★★★★ Lucia
+                        Excelente atención y paciencia conmigo, compre una lampara de 200w...
+                        Son las palabras de tus clientes: no se editan.
+Imagen 3 · Invitación   Elige el texto:
+                        (•) texto completo de la opción 1
+                        ( ) texto completo de la opción 2
+                        ( ) texto completo de la opción 3
+                        ( ) Escribir manualmente
+
+Texto del posteo        Es lo que va escrito debajo de la imagen en Instagram. Elige uno:
+                        (•) texto completo de la opción 1
+                        ( ) texto completo de la opción 2
+                        ( ) texto completo de la opción 3
+                        ( ) Escribir manualmente
+
+¿No te convence ninguna opción?
+ Qué cambiarías (opcional): ______________      [ Escribir otras opciones ]
+ Vuelve a escribir las opciones de la invitación y del texto del posteo.
+
+[ Generar la pieza ]   Todavía no disponible.
+```
+
+Al elegir "Una sola imagen", el usuario elige cuál de las reseñas va, y viene marcada la que el modelo consideró
+más fuerte.
+
+Decisiones de esta sesión dentro de ese boceto, para que el usuario las vea:
+
+- En los textos de la pantalla va "imagen" en lugar de "placa", y "pieza" en lugar de "publicación", que es la
+  palabra del botón "Generar la pieza". Por lo mismo, arriba dice "Revísalos antes de generar la pieza", y no "la
+  imagen" como en el boceto, porque en un carrusel son varias imágenes.
+- Al elegir "Escribir manualmente" sin haber escrito nada, el campo arranca con el texto de la opción que estaba
+  elegida, para poder corregirla. Lo que el usuario escribe se conserva aunque elija otra opción y vuelva.
+- Al llegar opciones nuevas se conserva lo que es elección del usuario: el formato, la reseña elegida para la imagen
+  única y lo que escribió a mano.
+- El boceto decía "Las reseñas no cambian" debajo del botón. Se quitó, porque hoy no siempre es cierto: el modelo
+  puede cortar las reseñas de otra forma en cada pedido.
+- `status` es obligatorio en `GET /api/ideas`. No se valida contra una lista de estados, porque es un string abierto.
+- Donde el código necesita una palabra para "placa" usa `image`, como en `piece_images` del diseño.
+
+Lo que quedó sin decidir, y no se toca: `KeepAlive` para la memoria del paso 3, el nombre `continueWithSavedIdea`, y
+que quitar una reseña del carrusel no se pueda deshacer. El detalle de las tres está en "Abierto, sin apuro". El
+tope de la lista de ideas, que el agente había planteado, se retiró: con el filtro por estado alcanza por ahora.
+
+El contrato vigente:
+
+`GET /api/ideas?status=chosen`, 200. `status` es obligatorio; sin él, 422 `validation_failed`. Devuelve las ideas de
+la marca del pedido que están en ese estado, de la más nueva a la más vieja. Un estado sin ideas devuelve `[]`.
+
+```json
+{"data":[{"id":1,"client_id":22,"brand_id":1,"content_type_id":1,"title":"Tus compras llegan rápido","angle":null,
+"knowledge_insight_ids":[76],"knowledge_source_ids":[921,1043],"status":"chosen","model":"gpt-6-luna",
+"created_at":"...","updated_at":"...","deleted_at":null}]}
+```
+
+`POST /api/ideas/{ideaId}/suggested-piece`, 200. Cuerpo: `instructions`, opcional, un texto de hasta 500
+caracteres. No guarda nada.
+
+```json
+{"data":{"idea_id":1,
+"carousel_script":[
+{"id":921,"name":"Daiana","stars":5,"date":"2022-05-01","text":"Muy buenas las luces que compre y llegaron súper rápido"},
+{"id":1043,"name":"Lucia","stars":5,"date":"2020-11-16","text":"Excelente atención y paciencia conmigo..."}],
+"single_script":[
+{"id":1043,"name":"Lucia","stars":5,"date":"2020-11-16","text":"Excelente atención y paciencia conmigo..."}],
+"closing_texts":["...","...","..."],
+"copies":["...","...","..."]}}
+```
+
+- `carousel_script` trae una reseña por imagen, en el orden de la idea, sin la invitación. Es null cuando a la idea
+  le queda una sola reseña.
+- `single_script` trae siempre una sola reseña, la que el modelo consideró más fuerte. En la pantalla es la que
+  viene marcada, y el usuario puede elegir otra de `carousel_script`.
+- Cada reseña trae `id`, el de su fila en `knowledge_sources`; `name`, el nombre de pila, que puede ser null;
+  `stars`; `date`; y `text`, las palabras del cliente como van en la imagen, enteras o cortadas con puntos
+  suspensivos.
+- `closing_texts` son las opciones para la invitación de la última imagen; `[]` cuando no hay carrusel. `copies` son
+  las opciones para el texto del posteo; nunca viene vacío.
+- Errores: 404 `not_found` si la idea no existe o es de otra marca; 422 `validation_failed` si `instructions` no es
+  un texto de hasta 500 caracteres; 422 `idea_material_missing` si las reseñas de la idea ya no existen; 502
+  `piece_generation_failed` si la escritura falló; 500 `internal_error` si falla el proveedor.
+
+Los textos que ve el usuario en la pantalla de la pieza, tal como quedaron:
+
+- Arriba: "← Volver", el título de la idea y el nombre de su tipo. Mientras se escribe la primera vez: "Escribiendo
+  tu pieza… Puede tardar un rato, a veces hasta dos minutos."
+- "Escribimos los textos de tu pieza con las N reseñas de esta idea.", o "con la reseña de esta idea." si es una
+  sola, y "Revísalos antes de generar la pieza."
+- "Formato", con "Carrusel: N imágenes. Una por reseña y una final con una invitación." y "Una sola imagen: lleva una
+  sola reseña." Con una idea de una sola reseña: "Tu pieza va en una sola imagen, porque esta idea tiene una sola
+  reseña."
+- En el carrusel: "Imagen n · Reseña" por cada reseña, con "Quitar" mientras queden más de dos; "Son las palabras de
+  tus clientes: no se editan."; e "Imagen n · Invitación", con "Elige el texto:", las opciones y "Escribir
+  manualmente".
+- En una sola imagen: "Imagen · Reseña" y "¿Qué reseña va en la imagen?".
+- "Texto del posteo", con "Es lo que va escrito debajo de la imagen en Instagram. Elige uno:", las opciones y
+  "Escribir manualmente".
+- "¿No te convence ninguna opción?", con el campo "Qué cambiarías (opcional):", el ejemplo "Por ejemplo: más corto,
+  sin hablar de precios" y el botón "Escribir otras opciones", que mientras espera dice "Escribiendo…" junto a "Puede
+  tardar un rato, a veces hasta dos minutos." Debajo: "Vuelve a escribir las opciones de la invitación y del texto
+  del posteo.", o solo "del texto del posteo." si no hay carrusel.
+- "Generar la pieza", deshabilitado, con "Todavía no disponible."
+- En los errores, el mensaje que devuelve la API y "Volver a intentar".
+
+Cómo se ejecutó: los mismos dos subagentes, retomados con un mensaje cada uno, en paralelo y con el contrato nuevo
+fijado.
+
+Cómo quedó:
+
+- Backend: `ReviewSlideDto` ya no existe y "slide" no aparece en el backend. `SuggestedPieceDto` lleva listas de
+  `IdeaReviewDto`. `GET /api/ideas` valida `status` en `ListIdeasRequest` y llama a `IdeaService::findByStatus`;
+  `IdeaService::list` se sacó, porque quedó sin consumidor, e `IdeaRepository::list` volvió a como estaba commiteado.
+- Frontend: `SuggestedPieceStep.vue` reescrito según el boceto; `IdeaService.list({ status })`; `CreatePage.vue`
+  pide las ideas en estado `chosen`. En el código las reseñas son `review` y no queda "slide"; en los textos no
+  queda "placa".
+- Verificado por esta sesión: la suite completa pasa, 148 tests con el mismo salteado; Pint, PHPCS y ESLint pasan;
+  el build de prueba compila.
+- Esta sesión miró la pantalla en el panel del navegador, con el usuario de prueba sobre Up! y con la respuesta del
+  modelo simulada, sin ninguna llamada paga. Recorrió: la espera del primer pedido; el carrusel con las dos reseñas
+  y la invitación; "Escribir manualmente", que abre el campo con el texto de la opción elegida; "Una sola imagen",
+  con la elección de la reseña; "Escribir otras opciones" con un fallo simulado, que muestra el error junto al
+  botón, y con una respuesta buena, que reemplaza las opciones y conserva el formato, la reseña elegida y lo escrito
+  a mano; el modo oscuro y el ancho de celular.
+- `revisor-nuvads` no pasó sobre esta segunda vuelta: el usuario no lo pidió.
+
+Dudas del subagente del backend, resueltas con lo ya decidido: el test de la lista usa `'another_status'` como un
+estado cualquiera, que es un dato del test y no un estado del producto; y sin `status` el mensaje del 422 sale en
+inglés, igual que en `CreateIdeaRequest`, porque la pantalla siempre lo manda.

@@ -1,6 +1,11 @@
 import { APICall } from '@/helpers/APICall';
 
 export default {
+  // Las ideas guardadas de la marca en un estado, como chosen, de la más nueva a la más vieja.
+  async list({ status }) {
+    return APICall('/api/ideas', 'get', { status });
+  },
+
   // Pide al modelo ideas del tipo para la marca y espera su respuesta, que puede tardar hasta dos minutos. No guarda
   // nada: devuelve las ideas sugeridas, cada una con las reseñas que muestra.
   async generateSuggestedIdeas(contentTypeId) {

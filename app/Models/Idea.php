@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
 class Idea extends Model
@@ -43,6 +44,13 @@ class Idea extends Model
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
+    }
+
+
+    // La fila exacta del tipo con la que nació la idea, aunque después se rote: la idea sigue sabiendo su receta.
+    public function contentType(): BelongsTo
+    {
+        return $this->belongsTo(ContentType::class)->withTrashed();
     }
 
 }

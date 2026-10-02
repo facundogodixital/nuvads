@@ -14,28 +14,8 @@
       {{ contentType.name }}
     </h1>
 
-    <section
-      v-if="savedIdea"
-      class="space-y-4 rounded-sm border border-border bg-surface-raised p-5 sm:p-6"
-      aria-labelledby="saved-idea-heading"
-    >
-      <p
-        role="status"
-        class="text-sm text-text-muted"
-      >
-        Tu idea quedó guardada. El paso siguiente todavía no está disponible.
-      </p>
-      <h2
-        id="saved-idea-heading"
-        class="text-lg font-medium"
-      >
-        {{ savedIdea.title }}
-      </h2>
-      <IdeaReviewList :reviews="savedIdea.reviews" />
-    </section>
-
     <p
-      v-else-if="isGenerating"
+      v-if="isGenerating"
       role="status"
       class="rounded-sm border border-dashed border-border p-8 text-center text-sm leading-6 text-text-muted"
     >
@@ -155,11 +135,10 @@ const props = defineProps({
   generationError: { type: String, required: true },
 });
 
-// saved lleva la idea sugerida que se guardó, para que la página la saque de la lista.
+// saved lleva la idea sugerida que se guardó y la idea guardada: la página saca la primera de la lista y pasa al
+// paso 3 de la segunda.
 const emit = defineEmits(['generate', 'saved', 'back']);
 
-// La idea guardada, con las reseñas de la idea sugerida; null hasta que el usuario sigue con una.
-const savedIdea = ref(null);
 const saveIdeaError = ref('');
 const isSavingIdea = ref(false);
 const chosenSuggestedIdea = ref(null);
@@ -205,9 +184,7 @@ async function saveChosenSuggestedIdea() {
       knowledge_source_ids: suggestedIdea.knowledge_source_ids,
       knowledge_insight_ids: suggestedIdea.knowledge_insight_ids,
     });
-    // La idea guardada no trae sus reseñas: son las de la idea sugerida, en el orden de knowledge_source_ids.
-    savedIdea.value = { ...idea, reviews: suggestedIdea.reviews };
-    emit('saved', suggestedIdea);
+    emit('saved', suggestedIdea, idea);
   } catch (error) {
     // Cuando la API rechaza la idea, el motivo llega como error de un campo; sin campo, vale el message.
     const fieldErrors = Object.values(error.errors ?? {});

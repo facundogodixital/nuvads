@@ -12,6 +12,10 @@ return [
         'model' => 'gpt-6-luna',
     ],
 
+    'pieces' => [
+        'model' => 'gpt-6-luna',
+    ],
+
     // Las entradas del cerebro que nombran los tipos de contenido en inputs, con la clase que lee cada una. Un nombre
     // que todavía no está acá no tiene clase y no cuenta.
     'inputs' => [
